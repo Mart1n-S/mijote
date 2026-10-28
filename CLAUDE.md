@@ -45,7 +45,8 @@ spikes/
 - Données collectées uniquement dans `spikes/<hypothese>/data/`. Ne jamais les commiter.
 - Collecte respectueuse : une requête toutes les 3 secondes minimum, jamais en parallèle, échantillons limités (20 recettes, 10 produits).
 - Code tiers (dépôts clonés, scripts trouvés en ligne) : le lire pour comprendre, ne jamais l'exécuter ni installer ses dépendances.
-- Si un site bloque (captcha, refus, blocage) : ne pas contourner, s'arrêter et le consigner dans le rapport.
+- Si un site bloque techniquement (captcha, 403, 429, adresse IP bloquée) : ne jamais contourner, s'arrêter et le consigner dans le rapport.
+- robots.txt respecté par défaut. Exception décidée par Martin pour Intermarché : les chemins interdits peuvent être consultés uniquement pour vérifier le prix et la disponibilité de produits précis dans un magasin donné, au rythme d'un humain (3 s minimum entre deux requêtes, jamais en parallèle, agent utilisateur honnête). Pas de collecte du catalogue complet.
 - Aucun secret dans le dépôt : clés éventuelles dans `.env` (ignoré), variables listées dans `.env.example`.
 
 ## Rapport par hypothèse

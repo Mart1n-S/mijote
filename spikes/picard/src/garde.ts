@@ -19,7 +19,10 @@ export const AGENT = "mijote-spike-lot0/0.1 (prototype de faisabilite, usage per
 /** 4 s : au-dessus du minimum de 3 s impose par le CLAUDE.md. */
 const DELAI_MS = 4000;
 
-const PLAFOND_REQUETES = 30;
+// Plafond de requetes, relevable par variable d'environnement : l'hypothese 5
+// a besoin de 40 fiches de plus, ce que Martin a autorise explicitement pour
+// cette hypothese seulement.
+const PLAFOND_REQUETES = Number(process.env.PLAFOND ?? 30);
 
 /**
  * Recopie ligne par ligne des `Disallow` de https://www.picard.fr/robots.txt

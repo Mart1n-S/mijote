@@ -10,7 +10,9 @@
     "choix": "tsx src/choix.ts",
     "produits": "tsx src/produits.ts",
     "magasin": "tsx src/magasin.ts",
-    "extraction": "tsx src/extraction.ts"
+    "extraction": "tsx src/extraction.ts",
+    "selection": "tsx src/selection.ts",
+    "codes-barres": "tsx src/codes-barres.ts"
   },
   "devDependencies": {
     "@types/node": "^24.6.2",

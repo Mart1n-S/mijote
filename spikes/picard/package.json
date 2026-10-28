@@ -1,0 +1,20 @@
+{
+  "name": "spike-picard",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Prototype jetable du lot 0 : fiches produits Picard, disponibilite par magasin ou non, couverture des ingredients HelloFresh.",
+  "scripts": {
+    "sitemap": "tsx src/sitemap.ts",
+    "ingredients": "tsx src/ingredients.ts",
+    "choix": "tsx src/choix.ts",
+    "produits": "tsx src/produits.ts",
+    "magasin": "tsx src/magasin.ts",
+    "extraction": "tsx src/extraction.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.6.2",
+    "tsx": "4.19.2",
+    "typescript": "5.7.2"
+  }
+}

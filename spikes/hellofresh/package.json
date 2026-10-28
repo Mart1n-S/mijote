@@ -6,7 +6,8 @@
   "description": "Prototype jetable du lot 0 : l'API interne HelloFresh repond-elle pour la France avec ingredients, quantites et nutrition ?",
   "scripts": {
     "collecte": "tsx src/collecte.ts",
-    "champs": "tsx src/champs.ts"
+    "champs": "tsx src/champs.ts",
+    "complement": "tsx src/complement.ts"
   },
   "devDependencies": {
     "@types/node": "^24.6.2",

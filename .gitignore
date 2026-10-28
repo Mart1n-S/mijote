@@ -1,0 +1,44 @@
+# Dépendances
+node_modules/
+.pnpm-store/
+
+# Builds
+dist/
+build/
+.vite/
+coverage/
+*.tsbuildinfo
+
+# Variables d'environnement et secrets
+.env
+.env.*
+!.env.example
+
+# Données collectées (recettes, produits) : jamais dans Git
+spikes/**/data/
+data/raw/
+
+# Fichiers importés par les utilisateurs (tickets de caisse, PDF)
+uploads/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+
+# Tests e2e (Playwright)
+playwright-report/
+test-results/
+
+# Claude Code : réglages perso, non partagés
+CLAUDE.local.md
+.claude/settings.local.json
+
+# Système et éditeurs
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

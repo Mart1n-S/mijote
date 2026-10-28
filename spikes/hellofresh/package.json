@@ -1,0 +1,16 @@
+{
+  "name": "spike-hellofresh",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Prototype jetable du lot 0 : l'API interne HelloFresh repond-elle pour la France avec ingredients, quantites et nutrition ?",
+  "scripts": {
+    "collecte": "tsx src/collecte.ts",
+    "champs": "tsx src/champs.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.6.2",
+    "tsx": "4.19.2",
+    "typescript": "5.7.2"
+  }
+}

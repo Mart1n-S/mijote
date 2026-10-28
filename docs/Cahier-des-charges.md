@@ -42,19 +42,19 @@ Le MVP tient dans les lignes « Must » : compte et profil, choix du magasin, re
 | Compte | Inscription sur invitation en V1 : e-mail et mot de passe, vérification de l'e-mail | Must |
 | Compte | Connexion, déconnexion, mot de passe oublié | Must |
 | Compte | Export de mes données et suppression du compte (RGPD) | Must |
-| Profil | Foyer : nombre de personnes, de 1 à 35 | Must |
+| Profil | Foyer : nombre de personnes, de 1 à 35 (quantités estimées au-delà de 6) | Must |
 | Profil | Contraintes alimentaires et ingrédients exclus | Must |
 | Profil | Objectif (économie, équilibre, rapidité ou mélange) et budget mensuel | Must |
 | Profil | Temps de préparation maximum par repas | Should |
 | Magasins | Choix des enseignes, puis du magasin le plus proche à partir d'une adresse non enregistrée | Must |
 | Magasins | Choix proposé à l'inscription, modifiable au profil et au moment de la liste | Must |
 | Magasins | Associer chaque ingrédient à un produit du magasin choisi (prix, format, prix au kg) | Must |
-| Magasins | Mise à jour périodique des prix, puis vérification en direct de chaque produit de la liste validée | Must |
+| Magasins | Mise à jour périodique des prix, puis vérification en direct de chaque produit de la liste validée (selon l'enseigne, pas Intermarché) | Must |
 | Magasins | Import du catalogue PDF Picard en secours | Could |
 | Magasins | Signaler un produit introuvable et proposer un substitut | Could |
 | Recettes | Base complète des recettes HelloFresh collectée et stockée chez moi | Must |
 | Recettes | Créer ou modifier une recette perso | Must |
-| Recettes | Recherche et filtres : temps, kcal, végé, saison, ingrédients | Should |
+| Recettes | Recherche et filtres : temps, kcal, végé, cuisine, difficulté, ingrédients ; saison déduite des ingrédients | Should |
 | Recettes | Favoris et note après dégustation | Could |
 | Planning | Générer un planning 7 ou 14 jours (midi et/ou soir) | Must |
 | Planning | Remplacer un repas en un clic, ou par glisser-déposer avec alternative au clavier | Must |
@@ -65,8 +65,8 @@ Le MVP tient dans les lignes « Must » : compte et profil, choix du magasin, re
 | Courses | Déduire ce qui est déjà au placard | Should |
 | Courses | Cocher les articles en magasin, hors connexion | Should |
 | Courses | Export ou partage de la liste (texte, PDF) | Could |
-| Tickets | Scanner un ticket : lecture des lignes, des prix et du total | Should |
-| Tickets | Corriger chaque ligne lue, ou tout saisir à la main | Should |
+| Tickets | Scanner un ticket : lecture des lignes, des prix et du total | Must |
+| Tickets | Valider ou corriger chaque ligne lue, ou saisir les prix depuis la liste ; produits connus mis à jour, nouveaux produits ajoutés | Must |
 | Coût et nutrition | Prix estimé par repas, par portion et par semaine | Must |
 | Coût et nutrition | Valeurs par portion : kcal, protéines, glucides, lipides | Must |
 | Coût et nutrition | Totaux par jour et par semaine comparés aux objectifs | Should |
@@ -79,7 +79,7 @@ Le MVP tient dans les lignes « Must » : compte et profil, choix du magasin, re
 **Premier lancement** (chaque étape après l'inscription peut être passée et reprise au profil)
 
 1. Inscription sur invitation (V1) : e-mail, mot de passe, vérification de l'e-mail.
-2. Foyer : nombre de personnes (1 à 35), contraintes alimentaires, ingrédients exclus.
+2. Foyer : nombre de personnes (1 à 35 ; au-delà de 6, quantités estimées), contraintes alimentaires, ingrédients exclus.
 3. Objectif, budget mensuel, temps maximum par repas.
 4. Enseignes : l'utilisateur coche celles qu'il fréquente (Picard, Intermarché), saisit une adresse ou accepte la géolocalisation, puis choisit un magasin par enseigne dans la liste des plus proches. Le magasin choisi est enregistré et modifiable à tout moment ; l'adresse, elle, n'est jamais enregistrée.
 
@@ -88,9 +88,9 @@ Le MVP tient dans les lignes « Must » : compte et profil, choix du magasin, re
 1. Choisir la période (7 ou 14 jours) et les repas à couvrir ; les magasins sont pré-remplis et modifiables.
 2. L'app propose un planning compatible avec les produits des magasins choisis.
 3. Je remplace les repas qui ne me tentent pas ; prix et nutrition se recalculent en direct.
-4. Je valide : liste de courses avec une section par magasin, puis je retire ce que j'ai au placard. L'app vérifie alors en direct la disponibilité de chaque produit dans mes magasins, signale ce qui manque et propose un substitut.
+4. Je valide : liste de courses avec une section par magasin, puis je retire ce que j'ai au placard. L'app vérifie alors en direct la disponibilité chez les enseignes qui le permettent, signale ce qui manque et propose un substitut ; pour Intermarché, elle me donne un lien de recherche à ouvrir moi-même.
 5. En magasin, je coche les articles sur mon téléphone, même sans réseau.
-6. Après les courses, je photographie le ticket, je vérifie ou corrige les lignes lues (ou je saisis tout à la main), et le coût réel est enregistré.
+6. Après les courses, je photographie le ticket et je valide ou corrige chaque ligne, ou je saisis le prix de chaque produit depuis ma liste ; les produits connus sont mis à jour, les nouveaux sont ajoutés.
 7. Pendant la semaine, j'ouvre la recette du jour sur tablette ou téléphone.
 8. Je consulte mes statistiques : dépenses par semaine, par mois, par plat, et écart avec le budget.
 
@@ -100,18 +100,18 @@ Toutes les sources sont accessibles sans compte. Le principe : tout collecter un
 
 | Source | Données | Méthode retenue | Fréquence |
 | --- | --- | --- | --- |
-| HelloFresh | Toutes les recettes FR : ingrédients, quantités, portions, étapes, nutrition, temps, photos | Bot de collecte via l'API interne utilisée par le site (principe de HelloFreshCrawler, section 14) ; JSON brut stocké puis normalisé | Collecte initiale étalée sur plusieurs jours, puis uniquement les recettes absentes de la base, toutes les 2 semaines (ou une fois par mois) |
+| HelloFresh | Toutes les recettes FR : ingrédients, quantités, portions, étapes, nutrition, temps, photos | Bot de collecte via l'API interne (jeton public lu sur hellofresh.fr, valable 30 jours) ; un seul appel de recherche paginé renvoie tout, sans appel par recette ; JSON brut stocké (environ 370 Mo pour 14 856 recettes) puis normalisé | Collecte initiale étalée sur plusieurs jours, puis uniquement les recettes absentes de la base, toutes les 2 semaines (ou une fois par mois), en parcourant les premières pages (les plus récentes d'abord) jusqu'à retomber sur du connu |
 | Picard | Catalogue : prix, format, nutrition, Nutri-Score | Lecture des fiches produits du site ; secours : import du catalogue PDF | Hebdomadaire |
 | Picard (magasin) | Disponibilité dans le magasin choisi | À vérifier au lot 0 ; sinon catalogue national supposé disponible | À définir |
-| Intermarché | Produits, prix et disponibilité du magasin choisi | Lecture du site pour le magasin sélectionné | Hebdomadaire, magasins utilisés seulement |
-| Magasins | Liste des magasins par enseigne avec coordonnées | Localisateur de magasins de chaque enseigne, stocké en base | Mensuelle |
+| Intermarché | Produits, prix et disponibilité du magasin choisi | Aucune collecte (site protégé contre les robots) : produits génériques, prix issus des tickets et de la saisie (section 6) | À chaque course |
+| Magasins | Liste des magasins par enseigne avec coordonnées | Localisateur de magasins de chaque enseigne, stocké en base (Intermarché : fiches « infos pratiques » des magasins, seules pages autorisées) | Mensuelle |
 | Adresse saisie | Coordonnées, calculées à la volée, jamais stockées | Géocodage public de la Base Adresse Nationale (gratuit) | À la demande |
 | Nutrition | Valeurs pour 100 g | Open Food Facts (produits), Ciqual (ingrédients bruts) | Mensuelle |
 | Tickets de caisse | Lignes, prix, total | Photo analysée par OCR, puis validée par l'utilisateur | À chaque course |
 
-**Multi-enseigne.** Chaque enseigne est un connecteur qui implémente la même interface : rechercher les magasins, lister les produits, donner le prix et la disponibilité dans un magasin. Ajouter Carrefour ou Grand Frais revient à écrire un connecteur, sans toucher au reste.
+**Multi-enseigne.** Chaque enseigne est un connecteur qui implémente la même interface : rechercher les magasins, lister les produits, donner le prix et la disponibilité dans un magasin. Ajouter Carrefour ou Grand Frais revient à écrire un connecteur, sans toucher au reste. Un connecteur peut n'implémenter qu'une partie de l'interface : celui d'Intermarché ne fait que rechercher les magasins, les autres méthodes répondent « non disponible ».
 
-**Modèle de données principal** : Utilisateur → Foyer (personnes, contraintes, objectif, budget) → Magasins choisis. Recette → Ingrédient (quantité, unité) → Ingrédient canonique → Produit (enseigne, magasin, prix daté, nutrition). Planning → Repas → Recette + portions. Liste de courses → Produits. Ticket → Lignes → Produit associé.
+**Modèle de données principal** : Utilisateur → Foyer (personnes, contraintes, objectif, budget) → Magasins choisis. Plat → Recette (variantes reliées par le préfixe de code) → Palier de portions (1 à 6) → Ingrédient (quantité, unité) → Ingrédient canonique → Produit (enseigne, magasin, prix daté, nutrition). Planning → Repas → Recette + portions. Liste de courses → Produits. Ticket → Lignes → Produit associé.
 
 ## 6. Règles métier
 
@@ -119,8 +119,8 @@ Toutes les sources sont accessibles sans compte. Le principe : tout collecter un
 
 - Normalisation : minuscules, singulier, suppression des précisions (« 2 gousses d'ail émincées » → ail, 2 gousses).
 - Proposition automatique du produit le plus proche (recherche textuelle), puis validation manuelle une seule fois ; l'association est mémorisée.
-- Conversion d'unités : g, kg, ml, cl, L, pièce, gousse, c. à soupe, c. à café, avec une table d'équivalences par ingrédient (1 oignon ≈ 150 g, à ajuster).
-- Produits de base (sel, poivre, huile) marqués « placard » : hors liste et hors coût par défaut, ou coût forfaitaire.
+- Conversion d'unités : g, kg, ml, cl, L, pièce, gousse, c. à soupe, c. à café, avec une table d'équivalences par ingrédient (1 oignon ≈ 150 g, à ajuster). Unités réellement rendues par HelloFresh : g, ml, pièce(s), cc, cs, sachet(s), paquet(s), pot(s), cm et « selon le goût » ; ces deux dernières ne se convertissent pas et sont traitées comme quantité non chiffrée.
+- Produits de base (sel, poivre, huile) marqués « placard » : hors liste et hors coût par défaut, ou coût forfaitaire. Première liste automatique : les ingrédients que HelloFresh ne livre pas (\`shipped: false\`), à affiner à la main.
 
 **Prix par repas.** Deux chiffres affichés, car ils répondent à deux questions différentes :
 
@@ -135,27 +135,40 @@ Toutes les sources sont accessibles sans compte. Le principe : tout collecter un
 
 **Valeurs nutritionnelles.**
 
-- Calcul par portion à partir des valeurs pour 100 g de chaque produit, pondérées par la quantité utilisée.
+- Calcul par portion à partir des valeurs pour 100 g de chaque produit, pondérées par la quantité utilisée. HelloFresh fournit déjà 9 valeurs par portion, avec le poids de la portion : elles servent de référence et de recoupement, sans se cumuler avec notre calcul.
 - Ordre de priorité des sources : nutrition fournie par la recette HelloFresh, sinon produit magasin (Open Food Facts), sinon ingrédient brut (Ciqual).
 - Indicateur de complétude : « 9 ingrédients sur 10 renseignés » plutôt qu'un chiffre faussement précis.
 - Affichage par portion, par jour, par semaine ; objectifs journaliers paramétrables.
 
 **Choix du magasin.** L'adresse saisie est géocodée en mémoire, comparée aux coordonnées des magasins en base, puis oubliée : ni stockée, ni journalisée. Seul le magasin choisi est enregistré ; l'utilisateur peut le changer à tout moment, depuis son profil ou au moment de la liste.
 
-**Prix réel et ticket de caisse.**
+**Prix réels : tickets de caisse et saisie.**
 
-- Chaque ligne lue est rapprochée d'un produit connu (libellé abrégé du ticket ↔ produit) ; l'utilisateur confirme ou corrige, et l'association est mémorisée.
+- Après les courses, deux façons d'alimenter les prix : scanner le ticket, ou saisir le prix de chaque produit depuis la liste de courses, déjà pré-remplie.
+- Scan : chaque ligne lue est rapprochée d'un produit connu (libellé abrégé du ticket ↔ produit). L'utilisateur valide, corrige ou supprime chaque ligne ; rien n'est enregistré sans sa validation.
+- Produit déjà connu : son prix est mis à jour, l'ancien est conservé dans l'historique (statistiques, évolution des prix). Produit inconnu : il est créé (nom, format, prix, magasin), puis associé à l'ingrédient correspondant.
 - Le total lu est comparé à la somme des lignes ; un écart déclenche une demande de vérification.
-- Le prix réel devient le prix de référence de ce produit dans ce magasin.
 - La photo du ticket est supprimée après validation ; seules les lignes sont conservées.
+
+**Niveaux de prix.** Chaque prix affiche sa provenance, pour qu'une estimation ne passe jamais pour un prix réel.
+
+| Niveau | Source | Affichage |
+| --- | --- | --- |
+| Réel | Ticket ou saisie dans ce magasin, moins de 30 jours | Prix et date |
+| Ancien | Même source, plus de 30 jours | Prix et date, signalé comme ancien |
+| Estimé | Aucun relevé dans ce magasin : relevé du même produit dans un autre magasin de l'enseigne, sinon Open Prices | « environ », avec la source |
+| Inconnu | Aucune donnée | « prix inconnu » ; le coût du repas indique le nombre de produits sans prix |
+
+Pour Intermarché, c'est la seule source de prix : aucune collecte automatique. Les prix relevés dans un magasin servent à tous les utilisateurs de ce magasin, sans indiquer qui a fait les courses.
 
 **Statistiques.** Dépenses par semaine, par mois et par plat (coût réel réparti sur les recettes qui utilisent chaque produit), écart entre estimé et réel, suivi du budget mensuel.
 
 **Disponibilité des produits.** Deux moments, deux sources :
 
-- Pendant le planning : calcul sur la dernière collecte en base ; chaque produit affiche « vérifié le … ».
-- Une fois recettes et liste validées : l'app vérifie en direct chaque produit de la liste dans le magasin choisi, une requête par produit, espacées, avec une barre de progression. Les courses n'ayant pas lieu tous les jours, la charge équivaut à une vérification faite à la main.
-- Résultat par produit : disponible ; indisponible, avec un substitut proposé ; ou non vérifiable (site injoignable), avec la dernière donnée connue et sa date. Les prix mis à jour recalculent le coût de la liste.
+- Pendant le planning : calcul sur la dernière donnée connue ; chaque produit affiche « vérifié le … ».
+- Une fois recettes et liste validées : vérification en direct, produit par produit, seulement pour les enseignes qui l'autorisent (Picard, à confirmer au lot 0). Une requête par produit, espacées, avec une barre de progression.
+- Intermarché : aucune vérification automatique, le site étant protégé contre les robots. L'app propose pour chaque produit un lien de recherche sur le site d'Intermarché, que l'utilisateur ouvre lui-même ; il coche disponible ou indisponible, et la réponse est mémorisée avec sa date.
+- Résultat par produit : disponible ; indisponible, avec un substitut proposé ; ou non vérifié, avec la dernière donnée connue et sa date. Les prix mis à jour recalculent le coût de la liste.
 
 **Ingrédient non trouvé au moment du planning** (seuils proposés, ajustables)
 
@@ -168,7 +181,20 @@ Toutes les sources sont accessibles sans compte. Le principe : tout collecter un
 
 Les produits « placard » (sel, huile, épices) n'entrent pas dans ce calcul.
 
-**Liens d'origine.** Chaque recette renvoie vers sa page HelloFresh, chaque produit vers sa fiche sur le site de l'enseigne.
+**Liens d'origine.** Chaque produit renvoie vers sa fiche sur le site de l'enseigne. Pour les recettes, le lien HelloFresh (règle `{slug}-{id}`) n'est affiché qu'après avoir vérifié qu'il répond, au moment où la recette entre dans un planning. Sinon, la recette est marquée « Recette HelloFresh », sans lien.
+
+**Portions.** HelloFresh donne des quantités distinctes pour 1 à 6 portions, non proportionnelles (épices inchangées, arrondis au conditionnement). Chaque palier est stocké tel quel, jamais recalculé par multiplication. Au-delà de 6 personnes, les quantités sont obtenues en combinant des paliers réels (8 = 4 + 4, 10 = 6 + 4) et affichées comme estimées.
+
+**Catalogue HelloFresh.**
+
+- Exclus du planning, sans être supprimés : extras et épicerie (`isAddon`, tags `addon-recipe`, `grocery-dairy`, `breakfast-kits`, `sides-delicacies`).
+- Republication ou variante : même préfixe de `uniqueRecipeCode` et ingrédients identiques = republication, on fusionne et on garde la plus récente (`updatedAt`). Même préfixe et un seul ingrédient différent = variante (infixe `-SS-` pour une substitution comme sans gluten ou riz précuit, `-SP-` pour une montée en gamme comme Label Rouge), on garde les deux et on les relie. Le préfixe seul ne suffit pas : nom normalisé en complément, puis revue manuelle des cas litigieux.
+- Variantes au planning : un plat n'est proposé qu'une fois ; l'app choisit la variante qui respecte les contraintes (sans gluten) et le budget (Label Rouge plus cher), et l'utilisateur peut en changer.
+- Temps affiché : le maximum de `prepTime` et `totalTime`, ces deux champs étant incohérents entre eux.
+- Allergènes (« contient » et « traces de ») et tags (végé, rapide, sans porc, etc.) alimentent directement les contraintes et les filtres du profil.
+- Catégories : construites à partir de `tags[].type` et `cuisines[].type`, passés par notre table de normalisation ; jamais affichées telles que l'API les nomme (mélange de français et d'anglais). « Facile » est dérivé du champ `difficulty`.
+- Saison : aucun champ dans l'API, et la date de création est trop imprécise. Si le filtre est gardé, la saison se déduit des ingrédients via une table de saisonnalité.
+- Recettes pour robot de cuisine : non détectables dans l'échantillon. Aucun filtre promis avant vérification sur la collecte complète.
 
 ## 7. Design, responsive et accessibilité
 
@@ -260,7 +286,7 @@ Accès réservé au rôle administrateur, avec double authentification ; chaque 
 - **Performance** : planning 14 jours généré en moins de 3 s ; premier affichage mobile en moins de 2 s en 4G.
 - **Sécurité** : mots de passe hachés (Argon2id), session en cookie HttpOnly et Secure, protection CSRF, limitation des tentatives de connexion, double authentification pour l'admin, en-têtes de sécurité (CSP, HSTS), dépendances auditées en CI.
 - **RGPD** : données minimales, adresse jamais stockée, photos de tickets supprimées après validation, export et suppression du compte en libre-service, politique de confidentialité.
-- **Respect des sites tiers** : collecte espacée (quelques secondes entre deux requêtes), jamais en continu, hors heures de pointe ; aucun site miroir, aucune republication publique, un lien vers la source sur chaque recette.
+- **Respect des sites tiers** : collecte espacée (quelques secondes entre deux requêtes), jamais en continu, hors heures de pointe ; aucun site miroir, aucune republication publique, un lien vérifié vers la source sur chaque recette.
 - **Robustesse** : un connecteur qui casse échoue proprement, garde les dernières données et alerte (section 8).
 - **Hébergement** : homelab, conteneurisé ; sauvegarde quotidienne de la base et test de restauration mensuel.
 - **Coût** : zéro abonnement visé ; un service payant (OCR, IA) seulement s'il est plafonné.
@@ -387,7 +413,7 @@ Le lot 0 vient avant tout code applicatif ; la journalisation et l'accessibilit�
 | Bugs | Nombre de pages arrondi (risque de rater la dernière), PDF déjà téléchargés réécrits à chaque lot, filtre figé à 60 min de préparation |
 | Charge sur le site | 10 téléchargements en parallèle, 250 ms entre les lots : trop agressif pour notre règle de collecte |
 | Maintenance | Dernier commit le 2 novembre 2024 (ajout du français) ; l'API interne a pu changer depuis |
-| France | Le jeton est lu sur hellofresh.com ; il faudra sans doute le lire sur hellofresh.fr |
+| France | Le jeton se lit bien sur hellofresh.fr (vérifié au lot 0). En France, \`cardLink\` est nul : le dépôt ne téléchargerait aucun PDF |
 
 Décision proposée : un connecteur TypeScript dans notre stack qui reprend le principe (jeton, recherche paginée, JSON), stocke le JSON brut, espace les requêtes de 2 à 5 s, puis ne récupère toutes les 2 semaines que les recettes absentes de la base.
 
@@ -399,6 +425,8 @@ Décision proposée : un connecteur TypeScript dans notre stack qui reprend le p
 - Décision proposée : ne pas en dépendre (payant, un appel par produit, pas de disponibilité en magasin) ; s'en servir comme liste des champs à extraire.
 
 **Catalogue PDF Picard** : bon plan de secours. Extraction du texte du PDF, puis un modèle d'IA structure les lignes en produits (nom, format, prix). Limite confirmée : aucune information de disponibilité par magasin.
+
+**Intermarché** (rapport `docs/lot-0/intermarche.md`) : le robots.txt interdit la recherche, l'API et le choix du magasin ; les prix ne figurent pas dans le HTML (chargés par une API interne) ; l'anti-robot DataDome bloque dès la 6e requête, y compris sur des pages autorisées. Décision : aucune collecte automatique, prix par tickets et saisie. Une API partenaire officielle existe sur developers.intermarche.com (prix et stocks par magasin, accès soumis à validation) : demande envoyée, branchable plus tard via le connecteur si elle est accordée.
 
 ## 15. Faisabilité : réponses et points restants
 
@@ -416,14 +444,14 @@ Tes réponses lèvent les doutes sur l'accès aux données ; il reste à le prou
 | Budget | Défini par l'utilisateur ; pour moi 100 à 200 € par mois |
 | HelloFresh | Recettes accessibles par URL ; collecte complète en base |
 | Picard | Catalogue accessible sans compte ; catalogue PDF en secours |
-| Intermarché | Le site donne les produits et les prix du magasin |
-| Collecte | Rien de bloquant trouvé tant qu'on ne collecte pas en continu et qu'on ne crée ni miroir ni service concurrent |
+| Intermarché | Site protégé contre les robots : pas de collecte, prix par tickets et saisie ; accès à l'API partenaire demandé |
+| Collecte | Rien de bloquant trouvé tant qu'on ne collecte pas en continu et qu'on ne crée ni miroir ni service concurrent ; sauf Intermarché, protégé par un anti-robot |
 
 **Hypothèses à prouver au lot 0**
 
-- [ ] L'API interne HelloFresh répond pour la France et renvoie ingrédients, quantités et nutrition.
+- [x] L'API interne HelloFresh répond pour la France et renvoie ingrédients, quantités et nutrition. Validée : 14 856 recettes annoncées, nettement moins après exclusion des extras et des doublons (rapport \`docs/lot-0/hellofresh.md\`).
 - [ ] Les fiches Picard se lisent sans navigateur ; la disponibilité par magasin est exposée ou non.
-- [ ] Intermarché expose prix et disponibilité d'un magasin donné, lisibles automatiquement.
+- [ ] Intermarché expose prix et disponibilité d'un magasin donné, lisibles automatiquement. Invalidée : prix absents du HTML et anti-robot actif (rapport \`docs/lot-0/intermarche.md\`).
 - [ ] Les localisateurs Picard et Intermarché donnent les coordonnées de chaque magasin.
 - [ ] L'OCR lit correctement au moins 90 % des lignes sur 5 tickets réels.
 - [ ] Open Food Facts couvre une part suffisante des produits (mesure sur 50 produits).

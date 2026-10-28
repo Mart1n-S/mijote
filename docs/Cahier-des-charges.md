@@ -48,7 +48,7 @@ Le MVP tient dans les lignes « Must » : compte et profil, choix du magasin, re
 | Profil | Temps de préparation maximum par repas | Should |
 | Magasins | Choix des enseignes, puis du magasin le plus proche à partir d'une adresse non enregistrée | Must |
 | Magasins | Choix proposé à l'inscription, modifiable au profil et au moment de la liste | Must |
-| Magasins | Associer chaque ingrédient à un produit du magasin choisi (prix, format, prix au kg) | Must |
+| Magasins | Associer chaque ingrédient à un produit : suggestion Picard, produit Intermarché (générique ou lien collé), ou recherche par l'utilisateur ; choix mémorisé | Must |
 | Magasins | Mise à jour périodique des prix, puis vérification en direct de chaque produit de la liste validée (selon l'enseigne, pas Intermarché) | Must |
 | Magasins | Import du catalogue PDF Picard en secours | Could |
 | Magasins | Signaler un produit introuvable et proposer un substitut | Could |
@@ -88,7 +88,7 @@ Le MVP tient dans les lignes « Must » : compte et profil, choix du magasin, re
 1. Choisir la période (7 ou 14 jours) et les repas à couvrir ; les magasins sont pré-remplis et modifiables.
 2. L'app propose un planning compatible avec les produits des magasins choisis.
 3. Je remplace les repas qui ne me tentent pas ; prix et nutrition se recalculent en direct.
-4. Je valide : liste de courses avec une section par magasin, puis je retire ce que j'ai au placard. L'app vérifie alors en direct la disponibilité chez les enseignes qui le permettent, signale ce qui manque et propose un substitut ; pour Intermarché, elle me donne un lien de recherche à ouvrir moi-même.
+4. Je valide : liste de courses avec une section par magasin, puis je retire ce que j'ai au placard. L'app vérifie alors en direct la disponibilité chez les enseignes qui le permettent (chez Picard, disponibilité nationale), signale ce qui manque et propose un substitut ; pour Intermarché, elle me donne un lien de recherche à ouvrir moi-même.
 5. En magasin, je coche les articles sur mon téléphone, même sans réseau.
 6. Après les courses, je photographie le ticket et je valide ou corrige chaque ligne, ou je saisis le prix de chaque produit depuis ma liste ; les produits connus sont mis à jour, les nouveaux sont ajoutés.
 7. Pendant la semaine, j'ouvre la recette du jour sur tablette ou téléphone.
@@ -101,11 +101,11 @@ Toutes les sources sont accessibles sans compte. Le principe : tout collecter un
 | Source | Données | Méthode retenue | Fréquence |
 | --- | --- | --- | --- |
 | HelloFresh | Toutes les recettes FR : ingrédients, quantités, portions, étapes, nutrition, temps, photos | Bot de collecte via l'API interne (jeton public lu sur hellofresh.fr, valable 30 jours) ; un seul appel de recherche paginé renvoie tout, sans appel par recette ; JSON brut stocké (environ 370 Mo pour 14 856 recettes) puis normalisé | Collecte initiale étalée sur plusieurs jours, puis uniquement les recettes absentes de la base, toutes les 2 semaines (ou une fois par mois), en parcourant les premières pages (les plus récentes d'abord) jusqu'à retomber sur du connu |
-| Picard | Catalogue : prix, format, nutrition, Nutri-Score | Lecture des fiches produits du site ; secours : import du catalogue PDF | Hebdomadaire |
-| Picard (magasin) | Disponibilité dans le magasin choisi | À vérifier au lot 0 ; sinon catalogue national supposé disponible | À définir |
+| Picard | Catalogue : prix, format, nutrition, Nutri-Score | Collecte par le sitemap publié par Picard (1 605 fiches), jamais par la recherche ; microdonnées schema.org (prix, disponibilité, code-barres) lues sans navigateur ; mise à jour incrémentale par date de modification ; secours : catalogue PDF | Hebdomadaire |
+| Picard (magasin) | Disponibilité dans le magasin choisi | Existe sur le site, mais sur un chemin interdit par le robots.txt : disponibilité nationale seulement | À définir |
 | Intermarché | Produits, prix et disponibilité du magasin choisi | Aucune collecte (site protégé contre les robots) : produits génériques, prix issus des tickets et de la saisie (section 6) | À chaque course |
-| Magasins | Liste des magasins par enseigne avec coordonnées | Localisateur de magasins de chaque enseigne, stocké en base (Intermarché : fiches « infos pratiques » des magasins, seules pages autorisées) | Mensuelle |
-| Adresse saisie | Coordonnées, calculées à la volée, jamais stockées | Géocodage public de la Base Adresse Nationale (gratuit) | À la demande |
+| Magasins | Liste des magasins par enseigne avec coordonnées | Localisateur de magasins de chaque enseigne, stocké en base (Picard : sitemap officiel de magasins.picard.fr, 1 267 magasins, adresse complète ; Intermarché : OpenStreetMap, environ 2 280 magasins, ville complétée par géocodage inverse, sans requête vers leur site) | Mensuelle |
+| Adresse saisie | Coordonnées, calculées à la volée, jamais stockées | Géocodage de la Base Adresse Nationale, porté par l'IGN (data.geopf.fr/geocodage), gratuit ; sert aussi au géocodage inverse de la ville des magasins | À la demande |
 | Nutrition | Valeurs pour 100 g | Open Food Facts (produits), Ciqual (ingrédients bruts) | Mensuelle |
 | Tickets de caisse | Lignes, prix, total | Photo analysée par OCR, puis validée par l'utilisateur | À chaque course |
 
@@ -121,6 +121,16 @@ Toutes les sources sont accessibles sans compte. Le principe : tout collecter un
 - Proposition automatique du produit le plus proche (recherche textuelle), puis validation manuelle une seule fois ; l'association est mémorisée.
 - Conversion d'unités : g, kg, ml, cl, L, pièce, gousse, c. à soupe, c. à café, avec une table d'équivalences par ingrédient (1 oignon ≈ 150 g, à ajuster). Unités réellement rendues par HelloFresh : g, ml, pièce(s), cc, cs, sachet(s), paquet(s), pot(s), cm et « selon le goût » ; ces deux dernières ne se convertissent pas et sont traitées comme quantité non chiffrée.
 - Produits de base (sel, poivre, huile) marqués « placard » : hors liste et hors coût par défaut, ou coût forfaitaire. Première liste automatique : les ingrédients que HelloFresh ne livre pas (\`shipped: false\`), à affiner à la main.
+
+**Choix du produit par ingrédient.** Le rapprochement automatique se trompe une fois sur deux (52 % de propositions fausses mesurées au lot 0) : la validation par l'utilisateur est le mécanisme principal, pas une précaution. Pour chaque ingrédient, l'utilisateur choisit :
+
+- un produit Picard suggéré, tiré du catalogue local ;
+- « chez Intermarché », en produit générique ou en collant le lien d'un produit du site (le code-barres est extrait du lien, sans requête) ;
+- ou il cherche lui-même via un lien vers le site de l'enseigne, puis revient valider.
+
+Le choix est mémorisé par ingrédient. Picard ne couvre qu'environ un tiers des ingrédients HelloFresh (surgelés, viandes, herbes) ; le reste va par défaut chez Intermarché.
+
+**Code-barres.** C'est la clé de rapprochement entre un produit magasin, Open Food Facts et une ligne de ticket. Un produit peut en avoir plusieurs.
 
 **Prix par repas.** Deux chiffres affichés, car ils répondent à deux questions différentes :
 
@@ -140,7 +150,7 @@ Toutes les sources sont accessibles sans compte. Le principe : tout collecter un
 - Indicateur de complétude : « 9 ingrédients sur 10 renseignés » plutôt qu'un chiffre faussement précis.
 - Affichage par portion, par jour, par semaine ; objectifs journaliers paramétrables.
 
-**Choix du magasin.** L'adresse saisie est géocodée en mémoire, comparée aux coordonnées des magasins en base, puis oubliée : ni stockée, ni journalisée. Seul le magasin choisi est enregistré ; l'utilisateur peut le changer à tout moment, depuis son profil ou au moment de la liste.
+**Choix du magasin.** L'adresse saisie est géocodée en mémoire, comparée aux coordonnées des magasins en base, puis oubliée : ni stockée, ni journalisée. Seul le magasin choisi est enregistré ; l'utilisateur peut le changer à tout moment, depuis son profil ou au moment de la liste. Champs nécessaires au choix : nom, ville, coordonnées ; l'adresse complète est affichée quand elle existe. Le géocodage inverse ne sert qu'à la ville et au code postal, jamais à la rue (fausse 2 fois sur 3 au lot 0). Chaque magasin affiche sa provenance (site officiel ou OpenStreetMap) et l'utilisateur peut signaler un magasin fermé ou mal placé.
 
 **Prix réels : tickets de caisse et saisie.**
 
@@ -166,7 +176,7 @@ Pour Intermarché, c'est la seule source de prix : aucune collecte automatique. 
 **Disponibilité des produits.** Deux moments, deux sources :
 
 - Pendant le planning : calcul sur la dernière donnée connue ; chaque produit affiche « vérifié le … ».
-- Une fois recettes et liste validées : vérification en direct, produit par produit, seulement pour les enseignes qui l'autorisent (Picard, à confirmer au lot 0). Une requête par produit, espacées, avec une barre de progression.
+- Une fois recettes et liste validées : vérification en direct, produit par produit, seulement pour les enseignes qui l'autorisent (Picard : disponibilité nationale lue sur la fiche produit, affichée comme telle et non comme celle du magasin). Une requête par produit, espacées, avec une barre de progression.
 - Intermarché : aucune vérification automatique, le site étant protégé contre les robots. L'app propose pour chaque produit un lien de recherche sur le site d'Intermarché, que l'utilisateur ouvre lui-même ; il coche disponible ou indisponible, et la réponse est mémorisée avec sa date.
 - Résultat par produit : disponible ; indisponible, avec un substitut proposé ; ou non vérifié, avec la dernière donnée connue et sa date. Les prix mis à jour recalculent le coût de la liste.
 
@@ -238,7 +248,7 @@ Toute erreur est soit gérée et expliquée à l'utilisateur, soit journalisée 
 - Messages en français, sans détail technique, avec une action possible : réessayer, corriger le champ, revenir plus tard.
 - Erreurs de formulaire affichées sous le champ concerné et résumées en haut du formulaire.
 - Hors connexion : l'app le signale, met les actions en attente et les rejoue au retour du réseau.
-- Une source indisponible n'empêche pas le reste : derniers prix connus affichés avec leur date.
+- Une source indisponible n'empêche pas le reste : derniers prix connus affichés avec leur date. De même, si OpenStreetMap est indisponible, la mise à jour mensuelle des magasins échoue sans conséquence.
 
 **Côté API**
 
@@ -274,7 +284,7 @@ L'admin sert à surveiller les collectes, corriger les données et diagnostiquer
 | Catalogue | Recettes et produits, correction manuelle, fusion des doublons |
 | Correspondances | File des ingrédients sans produit associé, validation en masse |
 | Erreurs et journaux | Recherche par identifiant de requête, utilisateur, niveau, période |
-| Enseignes | Activer ou désactiver une enseigne, gérer ses magasins |
+| Enseignes | Activer ou désactiver une enseigne, gérer ses magasins, traiter les signalements de magasins fermés ou mal placés |
 | Audit | Qui a fait quoi, et quand, dans l'admin |
 
 Accès réservé au rôle administrateur, avec double authentification ; chaque action est tracée dans le journal d'audit.
@@ -321,7 +331,7 @@ Les sites marchands ne sont lus que par les connecteurs : collectes en tâche de
 | API | NestJS + TypeScript | Types partagés avec le front, un module par domaine |
 | Authentification | Session en cookie, Argon2id, double authentification (TOTP) pour l'admin | Aucun jeton stocké dans le navigateur |
 | Base | PostgreSQL + extension pg\_trgm | Recherche approchée : ingrédient → produit, libellé de ticket → produit |
-| Connecteurs | Workers planifiés sur file de tâches (BullMQ + Redis, ou pg-boss pour rester sur PostgreSQL), un par enseigne et par source | Isolés de l'API, relançables, une enseigne = un connecteur |
+| Connecteurs | Workers planifiés sur file de tâches (BullMQ + Redis, ou pg-boss pour rester sur PostgreSQL), un par enseigne et par source ; Picard : fetch et microdonnées, sans navigateur | Isolés de l'API, relançables, une enseigne = un connecteur |
 | OCR des tickets | Tesseract en local, ou modèle de vision ; à départager au lot 0 | Gratuité contre précision |
 | Logs et erreurs | Logs JSON (pino), Loki + Grafana, suivi d'erreurs auto-hébergé (GlitchTip ou Sentry) | Recherche par identifiant de requête, alertes |
 | Tests | Vitest, Playwright, axe-core | Accessibilité vérifiée à chaque fusion |
@@ -450,9 +460,9 @@ Tes réponses lèvent les doutes sur l'accès aux données ; il reste à le prou
 **Hypothèses à prouver au lot 0**
 
 - [x] L'API interne HelloFresh répond pour la France et renvoie ingrédients, quantités et nutrition. Validée : 14 856 recettes annoncées, nettement moins après exclusion des extras et des doublons (rapport \`docs/lot-0/hellofresh.md\`).
-- [ ] Les fiches Picard se lisent sans navigateur ; la disponibilité par magasin est exposée ou non.
+- [x] Les fiches Picard se lisent sans navigateur ; la disponibilité par magasin est exposée ou non. Validée : 1 605 fiches via le sitemap, avec prix, code-barres et disponibilité nationale ; la disponibilité par magasin est sur un chemin interdit (rapport \`docs/lot-0/picard.md\`).
 - [ ] Intermarché expose prix et disponibilité d'un magasin donné, lisibles automatiquement. Invalidée : prix absents du HTML et anti-robot actif (rapport \`docs/lot-0/intermarche.md\`).
-- [ ] Les localisateurs Picard et Intermarché donnent les coordonnées de chaque magasin.
+- [x] Les localisateurs Picard et Intermarché donnent les coordonnées de chaque magasin. Validée : Picard par son sitemap officiel, Intermarché par OpenStreetMap (complétude mesurée à 86 % sur l'étalon Picard), ville complétée par géocodage inverse (rapport \`docs/lot-0/localisateurs.md\`).
 - [ ] L'OCR lit correctement au moins 90 % des lignes sur 5 tickets réels.
 - [ ] Open Food Facts couvre une part suffisante des produits (mesure sur 50 produits).
 - [ ] La correspondance ingrédient → produit atteint 80 % de propositions correctes.

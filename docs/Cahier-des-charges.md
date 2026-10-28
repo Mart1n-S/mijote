@@ -106,7 +106,7 @@ Toutes les sources sont accessibles sans compte. Le principe : tout collecter un
 | Intermarché | Produits, prix et disponibilité du magasin choisi | Aucune collecte (site protégé contre les robots) : produits génériques, prix issus des tickets et de la saisie (section 6) | À chaque course |
 | Magasins | Liste des magasins par enseigne avec coordonnées | Localisateur de magasins de chaque enseigne, stocké en base (Picard : sitemap officiel de magasins.picard.fr, 1 267 magasins, adresse complète ; Intermarché : OpenStreetMap, environ 2 280 magasins, ville complétée par géocodage inverse, sans requête vers leur site) | Mensuelle |
 | Adresse saisie | Coordonnées, calculées à la volée, jamais stockées | Géocodage de la Base Adresse Nationale, porté par l'IGN (data.geopf.fr/geocodage), gratuit ; sert aussi au géocodage inverse de la ville des magasins | À la demande |
-| Nutrition | Valeurs pour 100 g | Open Food Facts (produits), Ciqual (ingrédients bruts) | Mensuelle |
+| Nutrition | Valeurs pour 100 g | Open Food Facts, API v3.6 (produits à code-barres : 47 sur 50 trouvés au lot 0 ; 15 lectures par minute, cache obligatoire) ; Ciqual 2025 de l'ANSES (aliments génériques : 3 484 aliments, fichiers XML, licence Etalab 2.0) | Mensuelle |
 | Tickets de caisse | Lignes, prix, total | Photo analysée par OCR, puis validée par l'utilisateur | À chaque course |
 
 **Multi-enseigne.** Chaque enseigne est un connecteur qui implémente la même interface : rechercher les magasins, lister les produits, donner le prix et la disponibilité dans un magasin. Ajouter Carrefour ou Grand Frais revient à écrire un connecteur, sans toucher au reste. Un connecteur peut n'implémenter qu'une partie de l'interface : celui d'Intermarché ne fait que rechercher les magasins, les autres méthodes répondent « non disponible ».
@@ -146,8 +146,8 @@ Le choix est mémorisé par ingrédient. Picard ne couvre qu'environ un tiers de
 **Valeurs nutritionnelles.**
 
 - Calcul par portion à partir des valeurs pour 100 g de chaque produit, pondérées par la quantité utilisée. HelloFresh fournit déjà 9 valeurs par portion, avec le poids de la portion : elles servent de référence et de recoupement, sans se cumuler avec notre calcul.
-- Ordre de priorité des sources : nutrition fournie par la recette HelloFresh, sinon produit magasin (Open Food Facts), sinon ingrédient brut (Ciqual).
-- Indicateur de complétude : « 9 ingrédients sur 10 renseignés » plutôt qu'un chiffre faussement précis.
+- Ordre de priorité des sources : nutrition fournie par la recette HelloFresh, sinon produit magasin (Open Food Facts), sinon ingrédient brut (Ciqual). Open Food Facts : une valeur n'est utilisée que si elle est donnée pour 100 g (champ \`source\_per\`), et l'app indique si elle est lue sur l'emballage ou estimée. Ciqual : rapprochement validé à la main, en tenant compte de l'état cru ou cuit ; « traces » et « < x » comptent pour zéro, « - » reste inconnu.
+- Indicateur de complétude : « 9 ingrédients sur 10 renseignés » plutôt qu'un chiffre faussement précis. Contrôle à l'import : énergie recalculée (4 kcal/g pour protéines et glucides, 9 pour les lipides, 2 pour les fibres) ; au-delà de 30 % d'écart, la valeur est signalée comme douteuse, jamais rejetée en silence.
 - Affichage par portion, par jour, par semaine ; objectifs journaliers paramétrables.
 
 **Choix du magasin.** L'adresse saisie est géocodée en mémoire, comparée aux coordonnées des magasins en base, puis oubliée : ni stockée, ni journalisée. Seul le magasin choisi est enregistré ; l'utilisateur peut le changer à tout moment, depuis son profil ou au moment de la liste. Champs nécessaires au choix : nom, ville, coordonnées ; l'adresse complète est affichée quand elle existe. Le géocodage inverse ne sert qu'à la ville et au code postal, jamais à la rue (fausse 2 fois sur 3 au lot 0). Chaque magasin affiche sa provenance (site officiel ou OpenStreetMap) et l'utilisateur peut signaler un magasin fermé ou mal placé.
@@ -301,6 +301,9 @@ Accès réservé au rôle administrateur, avec double authentification ; chaque 
 - **Hébergement** : homelab, conteneurisé ; sauvegarde quotidienne de la base et test de restauration mensuel.
 - **Coût** : zéro abonnement visé ; un service payant (OCR, IA) seulement s'il est plafonné.
 
+* **Sources tierces** : limites de débit respectées (Open Food Facts : 15 lectures par minute), données mises en cache, jamais interrogées à l'affichage d'une page.
+* **Licences et attribution** : mention visible dans l'interface, avec liens, d'Open Food Facts (« Contains data from Open Food Facts, available under the Open Database License ») et de Ciqual (licence Etalab 2.0, avec la version et sa date).
+
 ## 11. Stack technique proposée
 
 Je reste sur ma stack de production pour aller vite : Vue 3 en PWA, NestJS, PostgreSQL, Docker sur le homelab. Le seul élément nouveau est l'outillage de collecte.
@@ -410,6 +413,8 @@ Le lot 0 vient avant tout code applicatif ; la journalisation et l'accessibilit�
 | 6. Admin | Tableau de bord, collectes, correspondances, journaux, audit | Une collecte en échec se diagnostique sans ouvrir la base |
 | 7. Confort | Hors ligne complet, placard, export, favoris, nouvelles enseignes | Liste utilisée en magasin sans réseau |
 
+Intention hors V1 : contribuer en retour aux bases ouvertes (produits manquants vers Open Food Facts, prix adossés aux tickets vers Open Prices), uniquement avec le consentement de l'utilisateur et après anonymisation du ticket. Conséquence dès le lot 5 : les lignes d'un ticket sont stockées séparément de son image.
+
 ## 14. Analyse des outils trouvés
 
 **HelloFreshCrawler** ([dépôt GitHub](https://github.com/alexcodito/HelloFreshCrawler)) : code lu, pas exécuté. Rien de malveillant, la méthode est la bonne, mais il ne récupère pas ce dont on a besoin ; on le réécrit plutôt que de l'utiliser.
@@ -464,7 +469,7 @@ Tes réponses lèvent les doutes sur l'accès aux données ; il reste à le prou
 - [ ] Intermarché expose prix et disponibilité d'un magasin donné, lisibles automatiquement. Invalidée : prix absents du HTML et anti-robot actif (rapport \`docs/lot-0/intermarche.md\`).
 - [x] Les localisateurs Picard et Intermarché donnent les coordonnées de chaque magasin. Validée : Picard par son sitemap officiel, Intermarché par OpenStreetMap (complétude mesurée à 86 % sur l'étalon Picard), ville complétée par géocodage inverse (rapport \`docs/lot-0/localisateurs.md\`).
 - [ ] L'OCR lit correctement au moins 90 % des lignes sur 5 tickets réels.
-- [ ] Open Food Facts couvre une part suffisante des produits (mesure sur 50 produits).
+- [x] Open Food Facts couvre une part suffisante des produits (mesure sur 50 produits). Validée : 47 sur 50 codes-barres trouvés, valeurs lues sur l'emballage ; Ciqual couvre 58 des 87 ingrédients HelloFresh après revue manuelle (rapport \`docs/lot-0/open-food-facts.md\`).
 - [ ] La correspondance ingrédient → produit atteint 80 % de propositions correctes.
 
 **Point juridique : tranché**

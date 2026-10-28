@@ -1,0 +1,17 @@
+{
+  "name": "spike-intermarche",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Prototype jetable du lot 0 : prix et disponibilite de 10 produits dans un magasin Intermarche donne.",
+  "scripts": {
+    "sonde": "tsx src/sonde.ts",
+    "openprices": "tsx src/openprices.ts",
+    "sonde-prix": "tsx src/sonde-prix.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.6.2",
+    "tsx": "4.19.2",
+    "typescript": "5.7.2"
+  }
+}

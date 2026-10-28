@@ -1,0 +1,18 @@
+{
+  "name": "spike-open-food-facts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Prototype jetable du lot 0 : Open Food Facts donne-t-il des valeurs nutritionnelles pour 100 g, assez souvent et assez fiables, pour les codes-barres qu'on connaitra ?",
+  "scripts": {
+    "off": "tsx src/off.ts",
+    "ciqual": "tsx src/ciqual.ts",
+    "analyse": "tsx src/analyse.ts",
+    "revue": "tsx src/revue.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.6.2",
+    "tsx": "4.19.2",
+    "typescript": "5.7.2"
+  }
+}

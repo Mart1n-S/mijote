@@ -1,0 +1,17 @@
+{
+  "name": "spike-localisateurs",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Prototype jetable du lot 0 : enumerer les magasins Intermarche par OpenStreetMap, sans jamais appeler intermarche.com.",
+  "scripts": {
+    "overpass": "tsx src/overpass.ts",
+    "mesure": "tsx src/mesure.ts",
+    "adresses": "tsx src/adresses.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.6.2",
+    "tsx": "4.19.2",
+    "typescript": "5.7.2"
+  }
+}

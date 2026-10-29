@@ -11,8 +11,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-mijote}
     # 5433 côté hôte, et non 5432 : un PostgreSQL 16 natif tourne déjà sur le
     # poste (service Windows postgresql-x64-16) et occupe 5432. Sans ce
-    # décalage, c'est lui qui répond aux migrations, silencieusement. Le port
-    # interne du conteneur reste 5432, celui de l'image.
+    # décalage, c'est lui qui répond, au risque qu'une migration écrive dans la
+    # mauvaise base. Le port interne du conteneur reste 5432, celui de l'image.
     ports:
       - '${POSTGRES_PORT:-5433}:5432'
     # Depuis la 18, l'image officielle déclare son volume sur

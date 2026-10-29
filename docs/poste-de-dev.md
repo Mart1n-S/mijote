@@ -28,10 +28,12 @@ la CLI GitHub ont été installées le 29 octobre 2026 pour ce lot.
 
 **La CLI GitHub n'est pas nécessaire à l'application** : elle ne sert qu'au
 travail sur le dépôt, et tout ce qu'elle fait reste possible depuis le
-navigateur. Elle garde son propre jeton, hors du dépôt, dans
-`C:\Users\marti\AppData\Roaming\GitHub CLI\hosts.yml`. La désinstaller ne le
-supprime pas : pour révoquer l'accès, faire `gh auth logout` avant, ou
-supprimer le jeton depuis les réglages du compte GitHub.
+navigateur. Son jeton est rangé dans le gestionnaire d'identifiants de Windows,
+hors du dépôt et hors de ses fichiers de configuration : `hosts.yml` ne contient
+que le nom d'hôte, l'utilisateur et le mode de stockage, pas le jeton
+(`gh auth status` indique alors `keyring`). Désinstaller la CLI ne le révoque
+pas : faire `gh auth logout` avant, ou supprimer le jeton depuis les réglages du
+compte GitHub.
 
 ## 2. Images Docker
 
@@ -48,9 +50,13 @@ avant le projet, tourne en service Windows (`postgresql-x64-16`, démarrage
 automatique) et occupe déjà 5432. Il n'appartient pas à ce projet et n'a pas été
 touché : ni arrêté, ni désactivé, ni désinstallé.
 
-Le piège est qu'il répond, lui. Une migration lancée vers `localhost:5432`
-aboutit sans erreur, dans la mauvaise base, sur une instance d'une autre version
-majeure. D'où le décalage à 5433, valeur par défaut dans `docker-compose.yml`
+Le piège est qu'il répond, lui. Une commande visant `localhost:5432` s'adresse
+donc à cette instance et non au conteneur, alors que tout semble en place. Le
+29 octobre 2026, `pnpm db:migrate` a ainsi échoué sur une erreur
+d'authentification : le compte attendu n'existe pas sur l'instance native. Le
+risque est qu'avec des identifiants qui passent, la même commande réussisse et
+écrive dans la mauvaise base, sur une version majeure différente, sans rien
+signaler. D'où le décalage à 5433, valeur par défaut dans `docker-compose.yml`
 comme dans `.env.example`. Pour vérifier à qui l'on parle :
 
 ```powershell

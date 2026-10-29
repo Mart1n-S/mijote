@@ -48,7 +48,7 @@ Le MVP tient dans les lignes « Must » : compte et profil, choix du magasin, re
 | Profil | Temps de préparation maximum par repas | Should |
 | Magasins | Choix des enseignes, puis du magasin le plus proche à partir d'une adresse non enregistrée | Must |
 | Magasins | Choix proposé à l'inscription, modifiable au profil et au moment de la liste | Must |
-| Magasins | Associer chaque ingrédient à un produit : suggestion Picard, produit Intermarché (générique ou lien collé), ou recherche par l'utilisateur ; choix mémorisé | Must |
+| Magasins | Associer chaque ingrédient à un produit : suggestion Picard, produit Intermarché (générique ou lien collé), ou recherche par l'utilisateur ; trois suggestions sans présélection, choix mémorisé par ingrédient et modifiable | Must |
 | Magasins | Mise à jour périodique des prix, puis vérification en direct de chaque produit de la liste validée (selon l'enseigne, pas Intermarché) | Must |
 | Magasins | Import du catalogue PDF Picard en secours | Could |
 | Magasins | Signaler un produit introuvable et proposer un substitut | Could |
@@ -59,13 +59,13 @@ Le MVP tient dans les lignes « Must » : compte et profil, choix du magasin, re
 | Planning | Générer un planning 7 ou 14 jours (midi et/ou soir) | Must |
 | Planning | Remplacer un repas en un clic, ou par glisser-déposer avec alternative au clavier | Must |
 | Planning | Respecter budget, objectif, contraintes et temps maximum | Should |
-| Planning | Favoriser les recettes qui partagent des ingrédients | Should |
+| Planning | Limiter le nombre d'ingrédients différents : favoriser les recettes qui partagent des ingrédients, surtout les bases qui se conservent | Must |
 | Planning | Gérer les restes : une recette 4 portions couvre 2 repas | Should |
 | Courses | Liste agrégée par magasin puis par rayon, arrondie au conditionnement | Must |
-| Courses | Déduire ce qui est déjà au placard | Should |
+| Courses | Déduire ce qui est déjà au placard, y compris les restes de paquets entamés par les recettes précédentes | Must |
 | Courses | Cocher les articles en magasin, hors connexion | Should |
 | Courses | Export ou partage de la liste (texte, PDF) | Could |
-| Tickets | Scanner un ticket : lecture des lignes, des prix et du total | Must |
+| Tickets | Importer un ticket : PDF dématérialisé lu directement (voie principale, exacte au lot 0), ou photo d'un ticket papier lue par OCR ; import des factures drive (PDF) pour amorcer le catalogue personnel | Must |
 | Tickets | Valider ou corriger chaque ligne lue, ou saisir les prix depuis la liste ; produits connus mis à jour, nouveaux produits ajoutés | Must |
 | Coût et nutrition | Prix estimé par repas, par portion et par semaine | Must |
 | Coût et nutrition | Valeurs par portion : kcal, protéines, glucides, lipides | Must |
@@ -107,7 +107,7 @@ Toutes les sources sont accessibles sans compte. Le principe : tout collecter un
 | Magasins | Liste des magasins par enseigne avec coordonnées | Localisateur de magasins de chaque enseigne, stocké en base (Picard : sitemap officiel de magasins.picard.fr, 1 267 magasins, adresse complète ; Intermarché : OpenStreetMap, environ 2 280 magasins, ville complétée par géocodage inverse, sans requête vers leur site) | Mensuelle |
 | Adresse saisie | Coordonnées, calculées à la volée, jamais stockées | Géocodage de la Base Adresse Nationale, porté par l'IGN (data.geopf.fr/geocodage), gratuit ; sert aussi au géocodage inverse de la ville des magasins | À la demande |
 | Nutrition | Valeurs pour 100 g | Open Food Facts, API v3.6 (produits à code-barres : 47 sur 50 trouvés au lot 0 ; 15 lectures par minute, cache obligatoire) ; Ciqual 2025 de l'ANSES (aliments génériques : 3 484 aliments, fichiers XML, licence Etalab 2.0) | Mensuelle |
-| Tickets de caisse | Lignes, prix, total | Photo analysée par OCR, puis validée par l'utilisateur | À chaque course |
+| Tickets de caisse | Lignes, prix, total | PDF dématérialisé lu sans OCR (exact au lot 0), sinon photo analysée par OCR ; toujours validé par l'utilisateur | À chaque course |
 
 **Multi-enseigne.** Chaque enseigne est un connecteur qui implémente la même interface : rechercher les magasins, lister les produits, donner le prix et la disponibilité dans un magasin. Ajouter Carrefour ou Grand Frais revient à écrire un connecteur, sans toucher au reste. Un connecteur peut n'implémenter qu'une partie de l'interface : celui d'Intermarché ne fait que rechercher les magasins, les autres méthodes répondent « non disponible ».
 
@@ -118,11 +118,11 @@ Toutes les sources sont accessibles sans compte. Le principe : tout collecter un
 **Correspondance ingrédient → produit.** C'est le cœur du projet et sa partie la plus fragile. Chaque ingrédient de recette est ramené à un ingrédient canonique, lui-même relié à un ou plusieurs produits en magasin.
 
 - Normalisation : minuscules, singulier, suppression des précisions (« 2 gousses d'ail émincées » → ail, 2 gousses).
-- Proposition automatique du produit le plus proche (recherche textuelle), puis validation manuelle une seule fois ; l'association est mémorisée.
+- Trois suggestions classées, calculées localement sur le catalogue déjà collecté (normalisation, ingrédient canonique, pondération des mots rares, exclusion des plats cuisinés, préférence pour l'aliment cru, recouvrement minimum du nom) ; aucune n'est présélectionnée et « aucun de ces produits » est proposé en premier. Validation une seule fois par ingrédient canonique, modifiable ensuite.
 - Conversion d'unités : g, kg, ml, cl, L, pièce, gousse, c. à soupe, c. à café, avec une table d'équivalences par ingrédient (1 oignon ≈ 150 g, à ajuster). Unités réellement rendues par HelloFresh : g, ml, pièce(s), cc, cs, sachet(s), paquet(s), pot(s), cm et « selon le goût » ; ces deux dernières ne se convertissent pas et sont traitées comme quantité non chiffrée.
 - Produits de base (sel, poivre, huile) marqués « placard » : hors liste et hors coût par défaut, ou coût forfaitaire. Première liste automatique : les ingrédients que HelloFresh ne livre pas (\`shipped: false\`), à affiner à la main.
 
-**Choix du produit par ingrédient.** Le rapprochement automatique se trompe une fois sur deux (52 % de propositions fausses mesurées au lot 0) : la validation par l'utilisateur est le mécanisme principal, pas une précaution. Pour chaque ingrédient, l'utilisateur choisit :
+**Choix du produit par ingrédient.** Mesuré au lot 0 : la bonne correspondance figure dans les trois premières suggestions pour 86 % des ingrédients côté Picard et 89 % côté Ciqual (contre 64 % et 79 % pour un rapprochement naïf). Mais pour un ingrédient que la source ne vend pas, une suggestion inutile apparaît encore une fois sur trois : la validation par l'utilisateur reste le mécanisme principal. Pour chaque ingrédient, l'utilisateur choisit :
 
 - un produit Picard suggéré, tiré du catalogue local ;
 - « chez Intermarché », en produit générique ou en collant le lien d'un produit du site (le code-barres est extrait du lien, sans requête) ;
@@ -157,7 +157,7 @@ Le choix est mémorisé par ingrédient. Picard ne couvre qu'environ un tiers de
 - Après les courses, deux façons d'alimenter les prix : scanner le ticket, ou saisir le prix de chaque produit depuis la liste de courses, déjà pré-remplie.
 - Scan : chaque ligne lue est rapprochée d'un produit connu (libellé abrégé du ticket ↔ produit). L'utilisateur valide, corrige ou supprime chaque ligne ; rien n'est enregistré sans sa validation.
 - Produit déjà connu : son prix est mis à jour, l'ancien est conservé dans l'historique (statistiques, évolution des prix). Produit inconnu : il est créé (nom, format, prix, magasin), puis associé à l'ingrédient correspondant.
-- Le total lu est comparé à la somme des lignes ; un écart déclenche une demande de vérification.
+- Le total lu est comparé à la somme des lignes ; un écart déclenche une demande de vérification. Les remises sont des lignes à part : le prix de référence d'un produit est celui de sa ligne, et le budget se calcule sur le total réellement payé. Sur une facture drive, les prix viennent du prix unitaire de chaque ligne ; les frais de livraison ou de service comptent dans les dépenses, pas dans le coût d'un repas. Les libellés complets d'une facture drive (marque, conditionnement, rayon) amorcent le catalogue personnel des produits habituels ; ses prix, souvent anciens, ne servent qu'en dernier recours. Une association libellé de ticket → produit, validée une fois, est mémorisée : les libellés tronqués ne sont rapprochés automatiquement qu'environ une fois sur deux.
 - La photo du ticket est supprimée après validation ; seules les lignes sont conservées.
 
 **Niveaux de prix.** Chaque prix affiche sa provenance, pour qu'une estimation ne passe jamais pour un prix réel.
@@ -205,6 +205,16 @@ Les produits « placard » (sel, huile, épices) n'entrent pas dans ce calcul.
 - Catégories : construites à partir de `tags[].type` et `cuisines[].type`, passés par notre table de normalisation ; jamais affichées telles que l'API les nomme (mélange de français et d'anglais). « Facile » est dérivé du champ `difficulty`.
 - Saison : aucun champ dans l'API, et la date de création est trop imprécise. Si le filtre est gardé, la saison se déduit des ingrédients via une table de saisonnalité.
 - Recettes pour robot de cuisine : non détectables dans l'échantillon. Aucun filtre promis avant vérification sur la collecte complète.
+
+**Réutilisation des ingrédients.** C'est un objectif central du planning, pas un bonus : quelques recettes simples qui partagent leurs ingrédients, plutôt que des dizaines d'ingrédients achetés pour un seul plat.
+
+- Le planning cherche à limiter le nombre d'ingrédients différents sur la période, et à finir les paquets entamés : un paquet de riz de 1 kg sert à plusieurs recettes.
+- Les bases qui se conservent (riz, pâtes, pommes de terre, semoule, conserves, surgelés) peuvent revenir plusieurs fois par semaine sans pénalité. Les produits périssables (herbes fraîches, crème, salade) sont regroupés sur des recettes proches dans le temps.
+- Les recettes qui demandent un ingrédient rare, utilisé une seule fois, sont moins prioritaires.
+- L'utilisateur règle l'équilibre entre variété et réutilisation dans son profil.
+- Le reste d'un conditionnement (900 g de riz après une recette) entre au placard et est déduit des listes suivantes.
+
+**Forme d'achat.** La liste de courses porte l'ingrédient tel qu'il s'achète, en général cru (riz basmati, pommes de terre), même si une recette l'utilise cuit. Quand une source ne donne qu'un poids cuit, il est converti en poids cru (le riz cuit pèse environ 2,5 fois son poids cru).
 
 ## 7. Design, responsive et accessibilité
 
@@ -295,7 +305,7 @@ Accès réservé au rôle administrateur, avec double authentification ; chaque 
 - **Hors ligne** : liste de courses, recette du jour et planning en cours consultables sans réseau.
 - **Performance** : planning 14 jours généré en moins de 3 s ; premier affichage mobile en moins de 2 s en 4G.
 - **Sécurité** : mots de passe hachés (Argon2id), session en cookie HttpOnly et Secure, protection CSRF, limitation des tentatives de connexion, double authentification pour l'admin, en-têtes de sécurité (CSP, HSTS), dépendances auditées en CI.
-- **RGPD** : données minimales, adresse jamais stockée, photos de tickets supprimées après validation, export et suppression du compte en libre-service, politique de confidentialité.
+- **RGPD** : données minimales, adresse jamais stockée, photos de tickets supprimées après validation ; à l'import d'un ticket ou d'une facture, seules les lignes d'articles, la date, le magasin et le total sont conservés, et le nom, l'adresse, les numéros de carte de fidélité et de paiement sont écartés dès l'extraction, jamais stockés ni journalisés ; export et suppression du compte en libre-service, politique de confidentialité.
 - **Respect des sites tiers** : collecte espacée (quelques secondes entre deux requêtes), jamais en continu, hors heures de pointe ; aucun site miroir, aucune republication publique, un lien vérifié vers la source sur chaque recette.
 - **Robustesse** : un connecteur qui casse échoue proprement, garde les dernières données et alerte (section 8).
 - **Hébergement** : homelab, conteneurisé ; sauvegarde quotidienne de la base et test de restauration mensuel.
@@ -333,9 +343,9 @@ Les sites marchands ne sont lus que par les connecteurs : collectes en tâche de
 | Front | Vue 3 + Vite en PWA (service worker, IndexedDB), composants accessibles maison | Hors ligne ; une seule base de code pour mobile, tablette et ordinateur |
 | API | NestJS + TypeScript | Types partagés avec le front, un module par domaine |
 | Authentification | Session en cookie, Argon2id, double authentification (TOTP) pour l'admin | Aucun jeton stocké dans le navigateur |
-| Base | PostgreSQL + extension pg\_trgm | Recherche approchée : ingrédient → produit, libellé de ticket → produit |
+| Base | PostgreSQL + extension pg\_trgm | Recherche approchée : ingrédient → produit, libellé de ticket → produit ; suggestions calculées localement, sans service externe ni modèle d'IA |
 | Connecteurs | Workers planifiés sur file de tâches (BullMQ + Redis, ou pg-boss pour rester sur PostgreSQL), un par enseigne et par source ; Picard : fetch et microdonnées, sans navigateur | Isolés de l'API, relançables, une enseigne = un connecteur |
-| OCR des tickets | Tesseract en local, ou modèle de vision ; à départager au lot 0 | Gratuité contre précision |
+| OCR des tickets | Lecture directe des PDF (sans OCR) ; Tesseract en local pour les tickets papier, avec redressement de l'image indispensable (rotation et bruit sont les principales causes d'échec) | Gratuité contre précision |
 | Logs et erreurs | Logs JSON (pino), Loki + Grafana, suivi d'erreurs auto-hébergé (GlitchTip ou Sentry) | Recherche par identifiant de requête, alertes |
 | Tests | Vitest, Playwright, axe-core | Accessibilité vérifiée à chaque fusion |
 | Déploiement | Docker Compose, ou chart Helm dans le cluster existant | Réutilise mon infrastructure GitOps |
@@ -468,9 +478,9 @@ Tes réponses lèvent les doutes sur l'accès aux données ; il reste à le prou
 - [x] Les fiches Picard se lisent sans navigateur ; la disponibilité par magasin est exposée ou non. Validée : 1 605 fiches via le sitemap, avec prix, code-barres et disponibilité nationale ; la disponibilité par magasin est sur un chemin interdit (rapport \`docs/lot-0/picard.md\`).
 - [ ] Intermarché expose prix et disponibilité d'un magasin donné, lisibles automatiquement. Invalidée : prix absents du HTML et anti-robot actif (rapport \`docs/lot-0/intermarche.md\`).
 - [x] Les localisateurs Picard et Intermarché donnent les coordonnées de chaque magasin. Validée : Picard par son sitemap officiel, Intermarché par OpenStreetMap (complétude mesurée à 86 % sur l'étalon Picard), ville complétée par géocodage inverse (rapport \`docs/lot-0/localisateurs.md\`).
-- [ ] L'OCR lit correctement au moins 90 % des lignes sur 5 tickets réels.
+- [ ] L'OCR lit correctement au moins 90 % des lignes sur 5 tickets réels. Partielle : tickets PDF Picard lus exactement sans OCR (18 lignes sur 18), factures drive lues sans OCR, zéro donnée personnelle en sortie sur 6 documents ; OCR non tranché faute de photo réelle, à compléter avec des tickets papier Intermarché (rapport \`docs/lot-0/ocr.md\`).
 - [x] Open Food Facts couvre une part suffisante des produits (mesure sur 50 produits). Validée : 47 sur 50 codes-barres trouvés, valeurs lues sur l'emballage ; Ciqual couvre 58 des 87 ingrédients HelloFresh après revue manuelle (rapport \`docs/lot-0/open-food-facts.md\`).
-- [ ] La correspondance ingrédient → produit atteint 80 % de propositions correctes.
+- [x] La correspondance ingrédient → produit atteint 80 % de propositions correctes. Validée : bon produit dans les trois premières suggestions pour 86 % (Picard) et 89 % (Ciqual) des ingrédients à acheter qui ont un équivalent (rapport \`docs/lot-0/correspondance.md\`).
 
 **Point juridique : tranché**
 

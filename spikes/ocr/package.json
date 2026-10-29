@@ -1,0 +1,20 @@
+{
+  "name": "spike-ocr",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Prototype jetable du lot 0 : lire les tickets de caisse et les factures drive, mesurer la lecture et le rapprochement, sans qu'aucun document quitte la machine.",
+  "scripts": {
+    "extraction": "tsx src/extraction.ts",
+    "images": "tsx src/images.ts",
+    "mesure": "tsx src/mesure.ts",
+    "rapprochement": "tsx src/rapprochement.ts",
+    "factures": "tsx src/factures.ts",
+    "prix": "tsx src/prix.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.6.2",
+    "tsx": "4.19.2",
+    "typescript": "5.7.2"
+  }
+}

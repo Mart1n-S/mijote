@@ -8,7 +8,8 @@
     "mesure": "tsx src/mesure.ts",
     "couples": "tsx src/couples.ts",
     "seuil": "tsx src/seuil.ts",
-    "detail": "tsx src/detail.ts"
+    "detail": "tsx src/detail.ts",
+    "variante": "tsx src/variante.ts"
   },
   "devDependencies": {
     "@types/node": "^24.6.2",

@@ -61,6 +61,21 @@ export type Reglages = {
    *     la **part** de nom non expliquee, pas la somme de ses mots.
    */
   etatParDefaut?: boolean;
+  /**
+   * N'appliquer la restriction du mot exige au vocabulaire du catalogue
+   * **qu'en repli**, c'est-a-dire seulement quand le mot le plus discriminant
+   * de l'entree est absent de ce vocabulaire (cas d'une marque). Variante
+   * demandee apres la correction venue de l'hypothese 7, qui a fait monter les
+   * propositions absurdes cote Picard de 34 a 63 %.
+   */
+  motExigeEnRepli?: boolean;
+  /**
+   * Ne jamais se rabattre : si le mot le plus discriminant de l'entree est
+   * absent du vocabulaire du catalogue, se taire. C'est le comportement
+   * d'avant la correction de l'hypothese 7, mesure ici comme troisieme terme
+   * de comparaison.
+   */
+  sansRepli?: boolean;
 };
 
 export const METHODES: Reglages[] = [
@@ -89,6 +104,28 @@ export const METHODES: Reglages[] = [
     trigrammes: true,
     recouvrementMinimum: 0.4,
     etatParDefaut: true,
+  },
+  {
+    nom: "M8 repli seulement",
+    bruit: true,
+    canonique: true,
+    ponderation: true,
+    plats: true,
+    trigrammes: true,
+    recouvrementMinimum: 0.4,
+    etatParDefaut: true,
+    motExigeEnRepli: true,
+  },
+  {
+    nom: "M9 sans repli",
+    bruit: true,
+    canonique: true,
+    ponderation: true,
+    plats: true,
+    trigrammes: true,
+    recouvrementMinimum: 0.4,
+    etatParDefaut: true,
+    sansRepli: true,
   },
 ];
 
@@ -168,13 +205,28 @@ export function suggere(
   // marque, qui n'est dans aucun catalogue d'ingredients : aucun candidat ne
   // peut la contenir et la methode se tait a tort. Mesure a l'appui : les
   // 79 lignes de factures drive rendaient zero suggestion avant correction.
-  const motsConnus = reglages.ponderation
-    ? motsIngredient.filter((mot) => contexte.idf.has(mot))
-    : motsIngredient;
-  if (motsConnus.length === 0) return [];
-  const motExige = reglages.ponderation
-    ? [...motsConnus].sort((a, b) => poids(b, contexte, reglages) - poids(a, contexte, reglages))[0]
-    : motsConnus[0];
+  //
+  // Variante M8 : n'appliquer cette restriction qu'en repli, quand le mot le
+  // plus discriminant de l'entree est lui-meme absent du catalogue.
+  const parPoidsDecroissant = (a: string, b: string) =>
+    poids(b, contexte, reglages) - poids(a, contexte, reglages);
+  const motLePlusRare = reglages.ponderation
+    ? [...motsIngredient].sort(parPoidsDecroissant)[0]
+    : motsIngredient[0];
+
+  let motExige: string;
+  if (!reglages.ponderation) {
+    motExige = motLePlusRare;
+  } else if (reglages.sansRepli) {
+    if (!contexte.idf.has(motLePlusRare)) return [];
+    motExige = motLePlusRare;
+  } else if (reglages.motExigeEnRepli && contexte.idf.has(motLePlusRare)) {
+    motExige = motLePlusRare;
+  } else {
+    const motsConnus = motsIngredient.filter((mot) => contexte.idf.has(mot));
+    if (motsConnus.length === 0) return [];
+    motExige = [...motsConnus].sort(parPoidsDecroissant)[0];
+  }
 
   const etatsIngredient = etatsPresents(nomIngredient);
   const trigrammesIngredient = reglages.trigrammes ? trigrammes(texteIngredient) : null;

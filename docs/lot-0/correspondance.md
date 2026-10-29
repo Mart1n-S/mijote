@@ -6,7 +6,7 @@ Analyse du 28 octobre 2026. Prototype : `spikes/correspondance/`. **Aucune requ�
 
 **Validée** : le critère de 80 % est atteint sur la mesure principale. Sur le jeu de contrôle, la bonne correspondance figure dans les 3 premières suggestions pour **100 % des ingrédients côté Picard** et **89 % côté Ciqual**. Sur l'ensemble des 87 ingrédients, 86 % et 89 %. Le point de départ mesuré aux hypothèses 3 et 5, un simple rapprochement de mots, plafonnait à 64 % et 79 %.
 
-Il reste une faiblesse réelle : quand un ingrédient n'a aucun équivalent dans la source, la méthode propose quand même quelque chose **deux fois sur trois côté Picard et une fois sur deux côté Ciqual**.
+Il reste une faiblesse réelle : quand un ingrédient n'a aucun équivalent dans la source, la méthode propose quand même quelque chose. Après la mesure du repli (section 3), le réglage retenu ramène ce taux à **une fois sur trois côté Picard** et le laisse à **une fois sur deux côté Ciqual**.
 
 ## 2. Méthode
 
@@ -51,7 +51,7 @@ Les 87 ingrédients sont partagés par une règle annoncée d'avance, le rang al
 
 Deux conséquences. D'abord, exclure les plats cuisinés « par le rayon » est impossible côté Picard : il a fallu une liste de mots. Côté Ciqual, les groupes existent pour tous les aliments, donc le filtrage est propre. Ensuite, les noms réels n'étant connus que pour les 50 fiches récupérées, le rapprochement se fait partout sur le slug : utiliser les noms avantagerait justement les produits les plus susceptibles d'être la bonne réponse, ce qui fausserait la mesure. **Après une collecte complète, le connecteur disposera des noms et des catégories de tous les produits : les chiffres Picard de ce rapport sont donc un plancher.**
 
-### Les sept méthodes, en couches
+### Les sept méthodes en couches, et les deux variantes du mot exigé
 
 | Méthode | Ce qu'elle ajoute |
 | --- | --- |
@@ -63,6 +63,8 @@ Deux conséquences. D'abord, exclure les plats cuisinés « par le rayon » est 
 | **M5** | trigrammes de caractères en départage et en repli |
 | **M6** | **recouvrement** : l'ingrédient doit expliquer au moins 40 % des mots de la partie principale du nom |
 | **M7** | **état par défaut** (un ingrédient s'achète cru) et pénalité normalisée sur la part de nom non expliquée |
+| M8 | variante : la restriction du mot exigé au vocabulaire du catalogue n'est appliquée **qu'en repli**, quand le mot le plus discriminant en est absent |
+| M9 | variante : **aucun repli**, la méthode se tait quand le mot le plus discriminant est absent du catalogue. C'est le comportement d'avant la correction venue de l'hypothèse 7 |
 
 ## 3. Résultats mesurés
 
@@ -79,7 +81,11 @@ Cette hypothèse ne découvre aucune source de données : elle mesure une métho
 | M4 plats et état | 9/9 (100 %) | 8/9 (89 %) | 17/18 (94 %) | 14/18 (78 %) |
 | M5 trigrammes | 9/9 (100 %) | 8/9 (89 %) | **17/18 (94 %)** | 14/18 (78 %) |
 | M6 recouvrement | 9/9 (100 %) | 8/9 (89 %) | 16/18 (89 %) | 13/18 (72 %) |
-| **M7 état par défaut** | **9/9 (100 %)** | **9/9 (100 %)** | 16/18 (89 %) | **14/18 (78 %)** |
+| **M7 état par défaut** | **9/9 (100 %)** | **9/9 (100 %)** | **16/18 (89 %)** | **14/18 (78 %)** |
+| M8 repli seulement | 9/9 (100 %) | 9/9 (100 %) | 16/18 (89 %) | 14/18 (78 %) |
+| **M9 sans repli** | **9/9 (100 %)** | **9/9 (100 %)** | 15/18 (83 %) | 13/18 (72 %) |
+
+M8 est identique à M7 ligne pour ligne : c'est démontré plus bas, et ce n'est pas une coïncidence. Le réglage retenu est **M9 face au catalogue Picard et M7 face à Ciqual** : sur le jeu de contrôle, les deux se valent côté Picard, et M7 garde un point d'avance côté Ciqual. Ce qui les sépare est le taux de propositions absurdes, visible sur l'ensemble.
 
 ### Ensemble des 87 ingrédients, et taux de propositions absurdes
 
@@ -87,16 +93,35 @@ Cette hypothèse ne découvre aucune source de données : elle mesure une métho
 | --- | --- | --- | --- | --- | --- |
 | M0 naïve | Picard | 14/22 (64 %) | 10/22 (45 %) | 25/33 (76 %) | 24/32 (75 %) |
 | M5 trigrammes | Picard | **21/22 (95 %)** | 19/22 (86 %) | 28/33 (85 %) | 28/32 (88 %) |
-| M7 état par défaut | Picard | 19/22 (86 %) | 18/22 (82 %) | 25/33 (76 %) | **20/32 (63 %)** |
+| M7 état par défaut | Picard | 19/22 (86 %) | 18/22 (82 %) | 25/33 (76 %) | 20/32 (63 %) |
+| **M9 sans repli** | Picard | 19/22 (86 %) | 18/22 (82 %) | 22/33 (67 %) | **10/32 (31 %)** |
 | M0 naïve | Ciqual | 37/47 (79 %) | 31/47 (66 %) | 50/55 (91 %) | 6/10 (60 %) |
 | M5 trigrammes | Ciqual | **43/47 (91 %)** | 31/47 (66 %) | 50/55 (91 %) | 8/10 (80 %) |
-| M7 état par défaut | Ciqual | 42/47 (89 %) | **35/47 (74 %)** | 48/55 (87 %) | **5/10 (50 %)** |
+| **M7 état par défaut** | Ciqual | **42/47 (89 %)** | **35/47 (74 %)** | **48/55 (87 %)** | **5/10 (50 %)** |
+| M9 sans repli | Ciqual | 41/47 (87 %) | 34/47 (72 %) | 45/55 (82 %) | 3/10 (30 %) |
 
-**Lecture.** Le critère des 80 % est atteint par M4 et au-delà. M5 a le meilleur rappel brut, M7 la meilleure tenue : il propose nettement moins d'absurdités (63 % contre 88 % côté Picard) et retrouve mieux la bonne réponse au premier rang côté Ciqual (74 % contre 66 %). C'est M7 que je retiens, parce qu'une suggestion absurde coûte plus cher qu'une suggestion manquante : elle demande à l'utilisateur de la rejeter, et elle entame sa confiance dans les suivantes.
+**Lecture.** Le critère des 80 % est atteint par M4 et au-delà. M5 a le meilleur rappel brut, M7 la meilleure tenue : il propose nettement moins d'absurdités (63 % contre 88 % côté Picard) et retrouve mieux la bonne réponse au premier rang côté Ciqual (74 % contre 66 %). C'est M7 que je retiens, parce qu'une suggestion absurde coûte plus cher qu'une suggestion manquante : elle demande à l'utilisateur de la rejeter, et elle entame sa confiance dans les suivantes. Le même principe, appliqué à la mesure du repli ci-dessous, fait retenir **M9 côté Picard** : même mesure principale à 86 %, 9 points de variantes en moins, mais deux fois moins d'absurdités.
 
 ### Ce que chaque couche apporte
 
 Les deux sauts sont nets et instructifs. **M3** fait passer Picard de 67 à 100 % sur le contrôle : la pénalité sur les mots en trop écarte enfin « écrasée de pommes de terre à l'huile d'olive » proposée pour « huile d'olive ». **M4** fait gagner 11 points à Ciqual en écartant les groupes « entrées et plats composés », « glaces » et « aliments infantiles ». **M6 et M7** ne gagnent presque rien en rappel mais divisent les propositions absurdes par deux.
+
+### La variante du mot exigé, et ce que le repli coûte vraiment
+
+La correction venue de l'hypothèse 7 restreint le mot exigé au vocabulaire du catalogue visé. Elle a fait monter les propositions absurdes côté Picard de 34 à 63 %, d'où la question : ne l'appliquer **qu'en repli**, quand le mot le plus discriminant de l'entrée est absent du catalogue, serait-il mieux ?
+
+**Mesuré, et la réponse est qu'il n'y a pas de choix à faire : les deux réglages sont le même.** M8 donne exactement les mêmes suggestions que M7, sur les 65 ingrédients à acheter et sur les deux sources, **zéro différence**. La raison tient à la pondération : un mot inconnu du catalogue n'a pas de fréquence, il reçoit donc le poids maximum `log(N)`, strictement supérieur à l'IDF de n'importe quel mot connu. Le mot le plus discriminant est donc inconnu **dès qu'un mot de l'entrée l'est**, et la condition de repli est vraie exactement dans les cas où la restriction change quelque chose. « En repli » et « toujours » décrivent la même règle.
+
+La vraie alternative est donc ailleurs : **se taire** plutôt que se rabattre, ce que mesure M9.
+
+| Source | Entrées portant un mot inconnu du catalogue | Dont le repli fait parler la méthode | Proposition utilisable | Proposition absurde |
+| --- | --- | --- | --- | --- |
+| Picard | 20/65 | 13 | **3** | **10** |
+| Ciqual | 9/65 | 6 | 3 | 3 |
+
+C'est net côté Picard : le repli fait parler la méthode sur 13 ingrédients, dont 10 qu'elle ferait mieux de taire. Et la raison est de fond : quand un mot d'un ingrédient manque au catalogue Picard, c'est en général le mot principal, parce que Picard ne vend ni paprika, ni confiture, ni farine. Se rabattre sur le mot qui reste revient à proposer du saumon fumé pour « paprika fumé en poudre ». Côté Ciqual, c'est 3 contre 3, et retirer le repli coûte un point de mesure principale sur le contrôle (16/18 contre 15/18) : il reste donc en place.
+
+**Côté tickets et factures, le repli n'est pas optionnel** : sans lui, les 79 lignes de factures de l'hypothèse 7 ne rendaient **aucune** suggestion, puisque le mot le plus rare d'un libellé de caisse est la marque. Le réglage ne dépend donc pas de la méthode mais de **ce qu'on lui donne à lire** : un nom d'ingrédient propre n'a pas de mot accessoire, un libellé de caisse en a toujours.
 
 ### Cinq bugs trouvés en route, tous instructifs
 
@@ -153,7 +178,9 @@ Ce sont les cas où mon verdict est discutable. Si tu en contredis un, les chiff
 
 **La vérité de référence est la mienne.** J'ai conçu les méthodes et étiqueté les couples. La convention « tout couple proposé et non listé est faux » protège contre l'oubli d'un bon couple à mon avantage, mais pas contre une définition trop généreuse de « variante ». Les 30 couples listés en section 3 sont là pour que tu puisses me contredire.
 
-**Les propositions absurdes restent le point faible, et la correction venue de l'hypothèse 7 les a aggravées.** Pour les ingrédients que Picard ne vend pas, la méthode propose quelque chose dans 63 % des cas, contre 34 % avant correction : en acceptant de se rabattre sur un mot connu du catalogue quand le mot le plus rare en est absent, elle parle plus souvent, donc elle se trompe plus souvent aussi. La parade n'est pas technique mais d'interface : proposer, ne jamais imposer, et offrir « aucun de ces produits » comme premier choix.
+**Les propositions absurdes restent le point faible**, même après le retrait du repli côté Picard : un ingrédient que Picard ne vend pas reçoit encore une suggestion une fois sur trois, et une fois sur deux côté Ciqual. La parade n'est pas technique mais d'interface : proposer, ne jamais imposer, et offrir « aucun de ces produits » comme premier choix.
+
+**Le réglage du repli est tranché sur 13 cas côté Picard et 6 côté Ciqual.** C'est peu, et ces cas sont répartis entre le jeu de réglage et le jeu de contrôle : le choix s'appuie donc sur l'ensemble, pas sur le seul contrôle. Il est réversible d'un booléen, et il faudra le remesurer sur le catalogue Picard complet, où le vocabulaire sera plus large et les mots inconnus plus rares.
 
 **Un produit cuit rapproché d'un ingrédient cru demande une conversion de quantité.** « Riz basmati cuit » est une variante acceptable de « Riz », mais 100 g de riz cuit ne valent pas 100 g de riz cru : le riz gagne un facteur de **2,5 à 3 à la cuisson, à vérifier**, et la composition pour 100 g change d'autant. Deux conséquences. La liste de courses porte toujours la **forme d'achat, crue** : c'est elle qu'on met dans le panier et qu'on paie. Et tout rapprochement vers une forme cuite, chez Picard comme dans Ciqual, doit porter un facteur de conversion, sans quoi les quantités et la nutrition seront fausses. Ce facteur n'est pas mesuré ici : il relève de la table d'équivalences de la section 6 du cahier des charges.
 
@@ -169,18 +196,20 @@ Ce sont les cas où mon verdict est discutable. Si tu en contredis un, les chiff
 
 1. **Retenir M7** comme méthode de suggestion : normalisation, ingrédient canonique, pondération IDF, exclusion des plats, accord d'état avec préférence par défaut pour le cru, recouvrement minimum de 40 % et pénalité normalisée.
 2. **Proposer trois suggestions, jamais une seule.** L'écart entre la première suggestion et les trois premières est de 7 à 18 points : c'est l'utilisateur qui tranche, et le gain est réel.
-3. **Offrir « aucun de ces produits » en premier choix**, et ne jamais préselectionner une suggestion. C'est la seule parade honnête aux deux tiers de propositions absurdes côté Picard, et à la moitié côté Ciqual.
+3. **Offrir « aucun de ces produits » en premier choix**, et ne jamais préselectionner une suggestion. C'est la seule parade honnête au tiers de propositions absurdes côté Picard, et à la moitié côté Ciqual.
 4. **Mémoriser le choix par ingrédient canonique**, comme déjà décidé, et ne plus jamais reposer la question.
 5. **Deux sources, deux usages** : Picard pour le produit à acheter, Ciqual pour la nutrition d'un ingrédient sans code-barres. Les deux rapprochements sont indépendants et tous deux validés une fois à la main.
 6. **Préférer le filtrage par catégorie à la liste de mots** dès que les catégories Picard seront collectées, et conserver la liste comme repli.
-7. **Garder la mesure comme test de non-régression** : les 544 couples étiquetés et le partage réglage/contrôle sont reproductibles. Toute évolution de la méthode devra être mesurée sur le même jeu, et le jeu de contrôle devra rester intouché.
+7. **Le repli sur le vocabulaire du catalogue devient une option de l'appel, pas de la méthode**, parce que la bonne valeur dépend de l'entrée. Il est **désactivé pour un nom d'ingrédient de recette face au catalogue Picard** (3 suggestions utilisables gagnées contre 10 absurdités, donc mauvaise affaire), **activé face à Ciqual** (3 contre 3, et un point de mesure principale à perdre), et **activé pour tout libellé de ticket ou de facture**, où il est la condition pour obtenir une suggestion. La variante « restriction en repli seulement » n'est pas un troisième choix : elle est identique à M7, mesure faite.
+8. **Garder la mesure comme test de non-régression** : les 544 couples étiquetés et le partage réglage/contrôle sont reproductibles. Toute évolution de la méthode devra être mesurée sur le même jeu, et le jeu de contrôle devra rester intouché.
 
 ## 6. Impact sur le cahier des charges
 
 | Section | Modification à apporter |
 | --- | --- |
 | 6, correspondance ingrédient vers produit | Remplacer « proposition automatique du produit le plus proche » par « trois suggestions classées, avec « aucun de ces produits » en premier choix », et inscrire la méthode retenue (normalisation, canonique, IDF, exclusion des plats, accord d'état, recouvrement minimum) |
-| 6, correspondance | Inscrire le résultat mesuré : la bonne correspondance est dans les trois premières suggestions dans 86 % des cas côté Picard et 89 % côté Ciqual, et les ingrédients sans équivalent reçoivent encore une proposition inutile deux fois sur trois côté Picard, une fois sur deux côté Ciqual |
+| 6, correspondance | Inscrire le résultat mesuré : la bonne correspondance est dans les trois premières suggestions dans 86 % des cas côté Picard et 89 % côté Ciqual, et les ingrédients sans équivalent reçoivent encore une proposition inutile une fois sur trois côté Picard, une fois sur deux côté Ciqual |
+| 6, correspondance | Noter que le repli sur le vocabulaire du catalogue dépend de l'entrée : désactivé pour un nom d'ingrédient face au catalogue Picard, activé face à Ciqual et pour tout libellé de ticket ou de facture |
 | 3, fonctionnalités | Préciser que l'association se valide une fois par ingrédient canonique, et qu'elle est modifiable ensuite |
 | 11, stack technique | Noter que la suggestion est un calcul local sur le catalogue déjà collecté : aucun service externe, aucun modèle d'IA |
 | 12, agents et skills | La correspondance ne nécessite pas d'IA : une mesure reproductible et sept couches de règles suffisent à dépasser le critère. À reconsidérer seulement si le catalogue complet dégrade les chiffres |
@@ -191,5 +220,5 @@ Ce sont les cas où mon verdict est discutable. Si tu en contredis un, les chiff
 - Hypothèse 6 validée, sans aucune requête réseau. Le critère de 80 % est atteint : la bonne correspondance est dans les **3 premières suggestions** pour 100 % des ingrédients Picard et 89 % des Ciqual sur le jeu de contrôle, 86 % et 89 % sur l'ensemble des 87. Le rapprochement naïf des hypothèses 3 et 5 plafonnait à 64 % et 79 %.
 - Sept méthodes comparées en couches sur 544 couples étiquetés à la main, avec 29 ingrédients de contrôle jamais utilisés pour le réglage. Les deux gains décisifs : pénaliser les mots du produit absents de l'ingrédient (Picard, 67 à 100 %) et écarter les groupes de plats composés (Ciqual, plus 11 points).
 - Méthode retenue, M7 : normalisation du bruit commercial, ingrédient canonique avec retrait des mots d'unité, pondération IDF, exclusion des plats, préférence par défaut pour l'aliment cru, et recouvrement minimum de 40 % du nom du produit.
-- Faiblesse assumée : pour un ingrédient que la source ne vend pas, la méthode propose quelque chose deux fois sur trois côté Picard, et une fois sur deux côté Ciqual. Un seuil de score ne peut pas y remédier, c'est mesuré : les scores des bonnes réponses et des absurdités se chevauchent et s'inversent. La parade est l'interface, avec « aucun de ces produits » en premier choix.
-- Cinq bugs trouvés et consignés, dont un pluriel « poireaux » devenu « poireal » qui rendait l'ingrédient introuvable sans jamais lever d'erreur, et le mot exigé absent du catalogue, remonté par l'hypothèse 7 sur des libellés portant une marque.
+- Faiblesse assumée : pour un ingrédient que la source ne vend pas, la méthode propose quelque chose une fois sur trois côté Picard après le réglage du repli, et une fois sur deux côté Ciqual. Un seuil de score ne peut pas y remédier, c'est mesuré : les scores des bonnes réponses et des absurdités se chevauchent et s'inversent. La parade est l'interface, avec « aucun de ces produits » en premier choix.
+- Cinq bugs trouvés et consignés, dont un pluriel « poireaux » devenu « poireal » qui rendait l'ingrédient introuvable sans jamais lever d'erreur, et le mot exigé absent du catalogue, remonté par l'hypothèse 7. Le repli qui corrige ce dernier est mesuré : la variante « en repli seulement » est **identique** à M7, et la vraie alternative, se taire, divise par deux les absurdités côté Picard pour 3 variantes perdues. Repli désactivé face à Picard, activé face à Ciqual et sur les libellés de caisse.

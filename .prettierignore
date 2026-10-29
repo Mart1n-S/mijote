@@ -1,0 +1,14 @@
+pnpm-lock.yaml
+dist/
+coverage/
+playwright-report/
+test-results/
+.vite/
+
+# Fichiers générés par drizzle-kit
+apps/api/drizzle/meta/
+
+# Markdown exclu : la documentation est de la prose française écrite à la main
+# (cahier des charges, ADR, rapports du lot 0). Le reformatage automatique des
+# tableaux et des listes par Prettier la bousculerait sans rien y gagner.
+*.md

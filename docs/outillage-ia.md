@@ -59,6 +59,21 @@ sécurité autour du programme. Concrètement, dans `.claude/settings.json` :
 Ces règles servent à éviter l'accident, pas à résister à quelqu'un qui cherche
 à les contourner.
 
+**Les deux listes se tiennent en miroir.** Sur Windows, `Bash` et `PowerShell`
+sont deux matchers distincts : une règle `Bash(...)` ne couvre pas l'outil
+PowerShell. Toute entrée s'ajoute donc des deux côtés, dans `allow`, `ask`
+comme `deny`. Un oubli d'un seul côté ne produit aucune erreur, et JSON
+n'accepte pas de commentaire pour le rappeler sur place. Pour contrôler :
+
+```bash
+node -e "const p=require('./.claude/settings.json').permissions;
+for (const k of ['allow','ask','deny']) {
+  const b = p[k].filter(r => r.startsWith('Bash(')).map(r => r.slice(5,-1));
+  const w = new Set(p[k].filter(r => r.startsWith('PowerShell(')).map(r => r.slice(11,-1)));
+  for (const c of b) if (!w.has(c)) console.log('sans miroir dans', k, ':', c);
+}"
+```
+
 Mesuré le 30 octobre 2026 sur Claude Code 2.1.175 : le refus de lecture du
 `.env` tient pour les commandes qui nomment le fichier, en Bash
 (`wc -l < .env`) comme en PowerShell (`Get-Content .env`), et pour l'outil de

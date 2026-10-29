@@ -47,6 +47,7 @@ spikes/
 - Code tiers (dépôts clonés, scripts trouvés en ligne) : le lire pour comprendre, ne jamais l'exécuter ni installer ses dépendances.
 - Si un site bloque techniquement (captcha, 403, 429, adresse IP bloquée) : ne jamais contourner, s'arrêter et le consigner dans le rapport.
 - robots.txt respecté, sans exception : un chemin interdit n'est jamais appelé, et aucun navigateur piloté ne sert à passer outre.
+- Documents personnels (tickets, factures) : ne jamais afficher, recopier ni journaliser le nom, l'adresse, l'e-mail, le téléphone, les numéros de carte de fidélité ou de paiement. Les filtrer dans le code dès l'extraction, avant tout affichage.
 - Aucun secret dans le dépôt : clés éventuelles dans `.env` (ignoré), variables listées dans `.env.example`.
 
 ## Rapport par hypothèse

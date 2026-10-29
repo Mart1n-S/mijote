@@ -7,6 +7,7 @@ PWA de planification de repas sur 7 ou 14 jours : recettes HelloFresh, liste de 
 - `docs/cahier-des-charges.md` : la référence fonctionnelle. Ne le lis pas en entier : va chercher la section utile.
 - `docs/lot-0/` : rapports de faisabilité. À lire avant de toucher à une source de données (HelloFresh, Picard, Intermarché, Open Food Facts, Ciqual, tickets).
 - `docs/adr/` : décisions d'architecture. Ne repropose jamais une option déjà écartée par un ADR ; une décision qui change donne un nouvel ADR.
+- `docs/outillage-ia.md` : agents, rules et outils externes. Tout skill, agent ou outil externe est lu, scanné avec SkillSpector et figé à une version précise avant installation (ADR 0003).
 
 ## Phase actuelle : lot 1, socle
 
@@ -38,6 +39,8 @@ docs/
   cahier-des-charges.md
   adr/            # décisions d'architecture, numérotées
   lot-0/          # rapports de faisabilité
+  outillage-ia.md # agents, rules et outils externes, avec leur version figée
+  poste-de-dev.md # outils installés sur la machine, avec leur retrait
 ```
 
 `apps/web` et `apps/api` n'importent jamais l'un de l'autre : tout ce qui est partagé passe par `packages/shared`.

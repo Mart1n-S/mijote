@@ -1,0 +1,75 @@
+name: CI
+
+# Sur chaque pull request, et sur main pour garder un état de référence vert.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Une pull request qui reçoit un nouveau commit annule la vérification en cours.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verification:
+    name: lint, types et tests
+    runs-on: ubuntu-latest
+    steps:
+      # Les actions sont figées par l'empreinte complète de leur commit : une
+      # étiquette peut être déplacée sur un autre commit, une empreinte non.
+      - name: Récupère le dépôt
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Avant setup-node, qui a besoin de pnpm pour son cache. La version de
+      # pnpm vient du champ packageManager du package.json de la racine.
+      - name: Installe pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Installe Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Installe les dépendances
+        run: pnpm install --frozen-lockfile
+
+      - name: ESLint et Prettier
+        run: pnpm lint
+
+      - name: Vérification des types
+        run: pnpm typecheck
+
+      - name: Tests unitaires
+        run: pnpm test
+
+  e2e:
+    name: playwright et axe-core
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupère le dépôt
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Installe pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Installe Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Installe les dépendances
+        run: pnpm install --frozen-lockfile
+
+      # Chromium seul, comme dans playwright.config.ts : les autres navigateurs
+      # seraient des centaines de méga-octets téléchargés à chaque exécution.
+      - name: Installe Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Tests de bout en bout
+        run: pnpm test:e2e

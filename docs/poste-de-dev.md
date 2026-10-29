@@ -34,6 +34,24 @@ Node.js et Docker Desktop étaient déjà installés avant le lot 1 et n'ont pas
 données de développement. C'est voulu : rien d'irremplaçable n'y vit, la base se
 reconstruit par `pnpm db:migrate`.
 
+**Le conteneur publie sur 5433, pas sur 5432.** Un PostgreSQL 16 natif, installé
+avant le projet, tourne en service Windows (`postgresql-x64-16`, démarrage
+automatique) et occupe déjà 5432. Il n'appartient pas à ce projet et n'a pas été
+touché : ni arrêté, ni désactivé, ni désinstallé.
+
+Le piège est qu'il répond, lui. Une migration lancée vers `localhost:5432`
+aboutit sans erreur, dans la mauvaise base, sur une instance d'une autre version
+majeure. D'où le décalage à 5433, valeur par défaut dans `docker-compose.yml`
+comme dans `.env.example`. Pour vérifier à qui l'on parle :
+
+```powershell
+Get-NetTCPConnection -LocalPort 5432, 5433 -State Listen |
+  ForEach-Object { "$($_.LocalPort) : $((Get-Process -Id $_.OwningProcess).ProcessName)" }
+```
+
+Le conteneur se reconnaît à `com.docker.backend` ou `wslrelay`, le service natif
+à `postgres`.
+
 ## 3. Navigateurs de Playwright, à ne pas désinstaller en bloc
 
 Le dossier `ms-playwright` contient aussi des navigateurs **antérieurs au

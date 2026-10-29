@@ -9,8 +9,12 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-mijote}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?mot de passe requis, voir .env.example}
       POSTGRES_DB: ${POSTGRES_DB:-mijote}
+    # 5433 côté hôte, et non 5432 : un PostgreSQL 16 natif tourne déjà sur le
+    # poste (service Windows postgresql-x64-16) et occupe 5432. Sans ce
+    # décalage, c'est lui qui répond aux migrations, silencieusement. Le port
+    # interne du conteneur reste 5432, celui de l'image.
     ports:
-      - '${POSTGRES_PORT:-5432}:5432'
+      - '${POSTGRES_PORT:-5433}:5432'
     # Depuis la 18, l'image officielle déclare son volume sur
     # /var/lib/postgresql et non plus sur /var/lib/postgresql/data : le
     # répertoire de données vit dans un sous-dossier portant la version

@@ -105,10 +105,11 @@ La voie a été **abandonnée par décision** : elle imposait un composant local
    - produit inconnu : il est créé à partir de la ligne de ticket ou de la saisie, puis rattaché à un ingrédient canonique ;
    - chaque prix porte sa date et son magasin, et passe en « ancien » au-delà de 30 jours, selon le tableau des niveaux de prix de la section 6 du cahier des charges.
 3. **Demander l'accès à l'API partenaire officielle** (`developers.intermarche.com`), déjà déposée. Si elle est accordée, elle se branche derrière l'interface de connecteur sans rien changer d'autre. Tant qu'elle ne l'est pas, le point 2 reste la seule source.
-4. **Garder l'interface de connecteur** de la section 5, mais le connecteur Intermarché n'implémente que « rechercher les magasins », à partir de la page `infos-pratiques` autorisée. Les méthodes de prix et de disponibilité renvoient « non disponible pour cette enseigne », sans appel réseau.
-5. **Open Prices : pas une source de prix**, mais un enrichissement facultatif, à ne jamais présenter comme le prix du magasin de l'utilisateur. À reconsidérer si la couverture d'Aix progresse.
-6. **Réutiliser l'URL d'un produit trouvé, sans repasser par la recherche** (voir le détail ci-dessous). C'est ce qui permettra au futur connecteur de ne chercher qu'une seule fois par ingrédient.
-7. **Picard devient l'enseigne principale** pour les prix : son `robots.txt` n'interdit que la recherche et les pages de compte, et il publie un sitemap (`https://www.picard.fr/sitemap_0.xml`). C'est l'hypothèse 3, la prochaine.
+4. **La voie du navigateur automatisé est écartée définitivement.** Elle fonctionne techniquement, c'est mesuré, mais elle contourne une protection technique, ce que la règle du CLAUDE.md interdit sans réserve : « Si un site bloque techniquement (captcha, 403, 429, adresse IP bloquée) : ne jamais contourner, s'arrêter et le consigner dans le rapport. » Elle **ne doit pas être reprise dans les lots suivants**, ni pour Intermarché ni pour une autre enseigne. Le profil Chromium de l'essai a été supprimé.
+5. **Garder l'interface de connecteur** de la section 5, mais le connecteur Intermarché n'implémente que « rechercher les magasins », à partir de la page `infos-pratiques` autorisée. Les méthodes de prix et de disponibilité renvoient « non disponible pour cette enseigne », sans appel réseau.
+6. **Open Prices : pas une source de prix**, mais un enrichissement facultatif, à ne jamais présenter comme le prix du magasin de l'utilisateur. À reconsidérer si la couverture d'Aix progresse.
+7. **Réutiliser l'URL d'un produit trouvé, sans repasser par la recherche** (voir le détail ci-dessous). C'est ce qui permettra au futur connecteur de ne chercher qu'une seule fois par ingrédient.
+8. **Picard devient l'enseigne principale** pour les prix : son `robots.txt` n'interdit que la recherche et les pages de compte, et il publie un sitemap (`https://www.picard.fr/sitemap_0.xml`). C'est l'hypothèse 3, la prochaine.
 
 ### L'URL d'un produit, reconstructible depuis le code-barres
 

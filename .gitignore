@@ -18,6 +18,9 @@ coverage/
 spikes/**/data/
 data/raw/
 
+# Vérités de référence des tickets et factures : contiennent mes achats
+spikes/ocr/references/
+
 # Fichiers importés par les utilisateurs (tickets de caisse, PDF)
 uploads/
 

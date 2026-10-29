@@ -1,3 +1,9 @@
 packages:
   - apps/*
   - packages/*
+
+# pnpm bloque les scripts d'installation par défaut. esbuild a besoin du sien
+# pour mettre en place son binaire natif ; il arrive par drizzle-kit et par la
+# CLI NestJS. Toute autre autorisation doit être ajoutée ici sciemment.
+allowBuilds:
+  esbuild: true

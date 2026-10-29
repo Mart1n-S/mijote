@@ -1,6 +1,6 @@
 # Ce que le lot 0 a installé sur la machine
 
-Inventaire de tout ce qui a été installé ou modifié **en dehors du dépôt**, tenu à jour au fil du lot 0. Dernière mise à jour : 29 octobre 2026.
+Inventaire de tout ce qui a été installé ou modifié **en dehors du dépôt**, tenu à jour au fil du lot 0. Dernière mise à jour : 29 octobre 2026, après la suppression des trois dossiers Playwright.
 
 Rien de ce qui est listé ici n'est nécessaire à l'application : ce sont des outils de prototype. Tout peut être retiré sans conséquence sur le dépôt.
 
@@ -22,13 +22,13 @@ Rien de ce qui est listé ici n'est nécessaire à l'application : ce sont des o
 | --- | --- | --- | --- | --- |
 | `fra.traineddata` | modèle français de Tesseract, absent du paquet qui ne fournit que l'anglais | `C:\Users\marti\AppData\Local\tessdata\` | 14 Mo (28 Mo avec les copies ci-dessous) | supprimer le dossier `tessdata` |
 | Copies de `eng.traineddata` et `osd.traineddata` | pour que le dossier ci-dessus soit utilisable seul, sans écrire dans `Program Files` | même dossier | 15 Mo | idem, ce sont des copies, les originaux restent dans `Program Files` |
-| Navigateur Chromium de Playwright | essai du navigateur réel pour Intermarché, hypothèse 2, depuis abandonné | `...\AppData\Local\ms-playwright\chromium-1148` | 315 Mo | supprimer ce dossier précis |
-| Coquille sans tête de Chromium | installée avec le précédent | `...\ms-playwright\chromium_headless_shell-1148` | 193 Mo | supprimer ce dossier précis |
-| `ffmpeg-1010` | installé avec Playwright | `...\ms-playwright\ffmpeg-1010` | quelques Mo | supprimer ce dossier précis |
+| ~~Navigateur Chromium de Playwright~~ | essai du navigateur réel pour Intermarché, hypothèse 2, abandonné | `...\ms-playwright\chromium-1148` | 315 Mo | **supprimé le 29 octobre 2026** |
+| ~~Coquille sans tête de Chromium~~ | installée avec le précédent | `...\ms-playwright\chromium_headless_shell-1148` | 193 Mo | **supprimé le 29 octobre 2026** |
+| ~~`ffmpeg-1010`~~ | installé avec Playwright | `...\ms-playwright\ffmpeg-1010` | 3,4 Mo | **supprimé le 29 octobre 2026** |
 
 **Le modèle français est dans `AppData` et non dans `Program Files`** parce que l'écriture dans `Program Files` demandait les droits administrateur, que je n'ai pas pris. Il s'utilise en passant `TESSDATA_PREFIX` à la commande, sans rien installer de plus.
 
-**Les trois dossiers Playwright en `-1148` sont les seuls à supprimer**, et seulement eux : le dossier `ms-playwright` contenait déjà d'autres versions antérieures au lot 0 (voir section 4). Ne pas lancer `npx playwright uninstall --all`, qui effacerait aussi celles-là.
+**Les trois dossiers Playwright en `-1148` ont été supprimés le 29 octobre 2026**, soit 511 Mo récupérés, une fois la voie du navigateur automatisé écartée définitivement (voir `docs/lot-0/intermarche.md`). Vérifié après suppression : `ms-playwright` ne contient plus que les versions antérieures au lot 0, listées en section 4. Pour mémoire, il ne fallait surtout pas lancer `npx playwright uninstall --all`, qui les aurait effacées elles aussi.
 
 **Cache npm.** Les prototypes ont téléchargé `tsx`, `typescript` et `@types/node` dans le cache npm (`C:\Users\marti\AppData\Local\npm-cache`). C'est le fonctionnement normal de npm, partagé avec tous tes autres projets : il n'y a rien à retirer, et `npm cache clean --force` le viderait entièrement si tu y tenais.
 
@@ -63,17 +63,24 @@ Seuls les installateurs ont touché au `PATH` système, chacun pour son propre d
 
 ## 5. Tout retirer, dans l'ordre
 
+**Déjà fait le 29 octobre 2026**, 511 Mo récupérés :
+
 ```powershell
-winget uninstall --id UB-Mannheim.TesseractOCR
-winget uninstall --id ImageMagick.ImageMagick
-winget uninstall --id oschwartz10612.Poppler
-Remove-Item -Recurse -Force "$env:LOCALAPPDATA\tessdata"
 Remove-Item -Recurse -Force "$env:LOCALAPPDATA\ms-playwright\chromium-1148"
 Remove-Item -Recurse -Force "$env:LOCALAPPDATA\ms-playwright\chromium_headless_shell-1148"
 Remove-Item -Recurse -Force "$env:LOCALAPPDATA\ms-playwright\ffmpeg-1010"
 ```
 
-Soit environ 890 Mo récupérés, mesurés dossier par dossier. Le dépôt n'est pas concerné : ses `node_modules` et ses `data/` se suppriment séparément et sont déjà hors de Git.
+**Reste à retirer quand les tickets Intermarché auront été testés.** Tesseract, ImageMagick, Poppler et le modèle français sont conservés d'ici là : l'hypothèse 7 est partielle, et la lecture d'un ticket papier reste à mesurer.
+
+```powershell
+winget uninstall --id UB-Mannheim.TesseractOCR
+winget uninstall --id ImageMagick.ImageMagick
+winget uninstall --id oschwartz10612.Poppler
+Remove-Item -Recurse -Force "$env:LOCALAPPDATA\tessdata"
+```
+
+Soit environ 380 Mo de plus, mesurés dossier par dossier. Le dépôt n'est pas concerné : ses `node_modules` et ses `data/` se suppriment séparément et sont déjà hors de Git.
 
 ## 6. Ce que je ferai pour la suite
 

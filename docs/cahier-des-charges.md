@@ -22,57 +22,57 @@ Je suis le premier utilisateur, mais l'app est conçue pour d'autres : comptes, 
 
 Deux rôles : utilisateur et administrateur. En V1, l'inscription se fait uniquement sur invitation. Un compte correspond à un foyer de 1 à 35 personnes. L'app est une PWA installable sur mobile, tablette et ordinateur, sans publication sur les stores.
 
-| Inclus | Exclu (pour l'instant) |
-| --- | --- |
-| Inscription, connexion, profil, foyer de 1 à 35 personnes | Connexion via Google ou Apple |
-| Catalogue de recettes : collecte HelloFresh + recettes perso | Commande et paiement en ligne automatiques |
-| Choix des enseignes et du magasin le plus proche | Livraison, créneaux de drive |
+| Inclus                                                                     | Exclu (pour l'instant)                                             |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Inscription, connexion, profil, foyer de 1 à 35 personnes                  | Connexion via Google ou Apple                                      |
+| Catalogue de recettes : collecte HelloFresh + recettes perso               | Commande et paiement en ligne automatiques                         |
+| Choix des enseignes et du magasin le plus proche                           | Livraison, créneaux de drive                                       |
 | Planning 7 / 14 jours sous contraintes (budget, temps, régime, exclusions) | Autres enseignes (architecture prête pour Carrefour, Grand Frais…) |
-| Liste de courses par magasin | Suivi médical ou diététique |
-| Prix estimé, prix réel via ticket de caisse, statistiques | Application native iOS / Android |
-| Valeurs nutritionnelles | Partage public de recettes entre utilisateurs |
-| Espace admin, gestion des erreurs, journalisation |  |
+| Liste de courses par magasin                                               | Suivi médical ou diététique                                        |
+| Prix estimé, prix réel via ticket de caisse, statistiques                  | Application native iOS / Android                                   |
+| Valeurs nutritionnelles                                                    | Partage public de recettes entre utilisateurs                      |
+| Espace admin, gestion des erreurs, journalisation                          |                                                                    |
 
 ## 3. Fonctionnalités
 
 Le MVP tient dans les lignes « Must » : compte et profil, choix du magasin, recettes collectées, planning, liste de courses avec prix et nutrition, et l'admin minimal pour surveiller les collectes. Les priorités se modifient directement dans le tableau.
 
-| Module | Fonctionnalité | Priorité |
-| --- | --- | --- |
-| Compte | Inscription sur invitation en V1 : e-mail et mot de passe, vérification de l'e-mail | Must |
-| Compte | Connexion, déconnexion, mot de passe oublié | Must |
-| Compte | Export de mes données et suppression du compte (RGPD) | Must |
-| Profil | Foyer : nombre de personnes, de 1 à 35 (quantités estimées au-delà de 6) | Must |
-| Profil | Contraintes alimentaires et ingrédients exclus | Must |
-| Profil | Objectif (économie, équilibre, rapidité ou mélange) et budget mensuel | Must |
-| Profil | Temps de préparation maximum par repas | Should |
-| Magasins | Choix des enseignes, puis du magasin le plus proche à partir d'une adresse non enregistrée | Must |
-| Magasins | Choix proposé à l'inscription, modifiable au profil et au moment de la liste | Must |
-| Magasins | Associer chaque ingrédient à un produit : suggestion Picard, produit Intermarché (générique ou lien collé), ou recherche par l'utilisateur ; trois suggestions sans présélection, choix mémorisé par ingrédient et modifiable | Must |
-| Magasins | Mise à jour périodique des prix, puis vérification en direct de chaque produit de la liste validée (selon l'enseigne, pas Intermarché) | Must |
-| Magasins | Import du catalogue PDF Picard en secours | Could |
-| Magasins | Signaler un produit introuvable et proposer un substitut | Could |
-| Recettes | Base complète des recettes HelloFresh collectée et stockée chez moi | Must |
-| Recettes | Créer ou modifier une recette perso | Must |
-| Recettes | Recherche et filtres : temps, kcal, végé, cuisine, difficulté, ingrédients ; saison déduite des ingrédients | Should |
-| Recettes | Favoris et note après dégustation | Could |
-| Planning | Générer un planning 7 ou 14 jours (midi et/ou soir) | Must |
-| Planning | Remplacer un repas en un clic, ou par glisser-déposer avec alternative au clavier | Must |
-| Planning | Respecter budget, objectif, contraintes et temps maximum | Should |
-| Planning | Limiter le nombre d'ingrédients différents : favoriser les recettes qui partagent des ingrédients, surtout les bases qui se conservent | Must |
-| Planning | Gérer les restes : une recette 4 portions couvre 2 repas | Should |
-| Courses | Liste agrégée par magasin puis par rayon, arrondie au conditionnement | Must |
-| Courses | Déduire ce qui est déjà au placard, y compris les restes de paquets entamés par les recettes précédentes | Must |
-| Courses | Cocher les articles en magasin, hors connexion | Should |
-| Courses | Export ou partage de la liste (texte, PDF) | Could |
-| Tickets | Importer un ticket : PDF dématérialisé lu directement (voie principale, exacte au lot 0), ou photo d'un ticket papier lue par OCR ; import des factures drive (PDF) pour amorcer le catalogue personnel | Must |
-| Tickets | Valider ou corriger chaque ligne lue, ou saisir les prix depuis la liste ; produits connus mis à jour, nouveaux produits ajoutés | Must |
-| Coût et nutrition | Prix estimé par repas, par portion et par semaine ; partiel tant que des produits n'ont pas de prix, avec leur nombre affiché | Must |
-| Coût et nutrition | Valeurs par portion : kcal, protéines, glucides, lipides ; sources citées avec liens et licences (Open Food Facts, Ciqual) | Must |
-| Coût et nutrition | Totaux par jour et par semaine comparés aux objectifs | Should |
-| Statistiques | Dépenses par semaine, par mois et par plat ; écart estimé / réel | Should |
-| Admin | Utilisateurs, collectes, erreurs et journaux (détail section 9) | Must |
-| Commande | Remplir automatiquement le panier du drive | Won't (v1) |
+| Module            | Fonctionnalité                                                                                                                                                                                                                | Priorité   |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| Compte            | Inscription sur invitation en V1 : e-mail et mot de passe, vérification de l'e-mail                                                                                                                                           | Must       |
+| Compte            | Connexion, déconnexion, mot de passe oublié                                                                                                                                                                                   | Must       |
+| Compte            | Export de mes données et suppression du compte (RGPD)                                                                                                                                                                         | Must       |
+| Profil            | Foyer : nombre de personnes, de 1 à 35 (quantités estimées au-delà de 6)                                                                                                                                                      | Must       |
+| Profil            | Contraintes alimentaires et ingrédients exclus                                                                                                                                                                                | Must       |
+| Profil            | Objectif (économie, équilibre, rapidité ou mélange) et budget mensuel                                                                                                                                                         | Must       |
+| Profil            | Temps de préparation maximum par repas                                                                                                                                                                                        | Should     |
+| Magasins          | Choix des enseignes, puis du magasin le plus proche à partir d'une adresse non enregistrée                                                                                                                                    | Must       |
+| Magasins          | Choix proposé à l'inscription, modifiable au profil et au moment de la liste                                                                                                                                                  | Must       |
+| Magasins          | Associer chaque ingrédient à un produit : suggestion Picard, produit Intermarché (générique ou lien collé), ou recherche par l'utilisateur ; trois suggestions sans présélection, choix mémorisé par ingrédient et modifiable | Must       |
+| Magasins          | Mise à jour périodique des prix, puis vérification en direct de chaque produit de la liste validée (selon l'enseigne, pas Intermarché)                                                                                        | Must       |
+| Magasins          | Import du catalogue PDF Picard en secours                                                                                                                                                                                     | Could      |
+| Magasins          | Signaler un produit introuvable et proposer un substitut                                                                                                                                                                      | Could      |
+| Recettes          | Base complète des recettes HelloFresh collectée et stockée chez moi                                                                                                                                                           | Must       |
+| Recettes          | Créer ou modifier une recette perso                                                                                                                                                                                           | Must       |
+| Recettes          | Recherche et filtres : temps, kcal, végé, cuisine, difficulté, ingrédients ; saison déduite des ingrédients                                                                                                                   | Should     |
+| Recettes          | Favoris et note après dégustation                                                                                                                                                                                             | Could      |
+| Planning          | Générer un planning 7 ou 14 jours (midi et/ou soir)                                                                                                                                                                           | Must       |
+| Planning          | Remplacer un repas en un clic, ou par glisser-déposer avec alternative au clavier                                                                                                                                             | Must       |
+| Planning          | Respecter budget, objectif, contraintes et temps maximum                                                                                                                                                                      | Should     |
+| Planning          | Limiter le nombre d'ingrédients différents : favoriser les recettes qui partagent des ingrédients, surtout les bases qui se conservent                                                                                        | Must       |
+| Planning          | Gérer les restes : une recette 4 portions couvre 2 repas                                                                                                                                                                      | Should     |
+| Courses           | Liste agrégée par magasin puis par rayon, arrondie au conditionnement                                                                                                                                                         | Must       |
+| Courses           | Déduire ce qui est déjà au placard, y compris les restes de paquets entamés par les recettes précédentes                                                                                                                      | Must       |
+| Courses           | Cocher les articles en magasin, hors connexion                                                                                                                                                                                | Should     |
+| Courses           | Export ou partage de la liste (texte, PDF)                                                                                                                                                                                    | Could      |
+| Tickets           | Importer un ticket : PDF dématérialisé lu directement (voie principale, exacte au lot 0), ou photo d'un ticket papier lue par OCR ; import des factures drive (PDF) pour amorcer le catalogue personnel                       | Must       |
+| Tickets           | Valider ou corriger chaque ligne lue, ou saisir les prix depuis la liste ; produits connus mis à jour, nouveaux produits ajoutés                                                                                              | Must       |
+| Coût et nutrition | Prix estimé par repas, par portion et par semaine ; partiel tant que des produits n'ont pas de prix, avec leur nombre affiché                                                                                                 | Must       |
+| Coût et nutrition | Valeurs par portion : kcal, protéines, glucides, lipides ; sources citées avec liens et licences (Open Food Facts, Ciqual)                                                                                                    | Must       |
+| Coût et nutrition | Totaux par jour et par semaine comparés aux objectifs                                                                                                                                                                         | Should     |
+| Statistiques      | Dépenses par semaine, par mois et par plat ; écart estimé / réel                                                                                                                                                              | Should     |
+| Admin             | Utilisateurs, collectes, erreurs et journaux (détail section 9)                                                                                                                                                               | Must       |
+| Commande          | Remplir automatiquement le panier du drive                                                                                                                                                                                    | Won't (v1) |
 
 ## 4. Parcours principal
 
@@ -98,16 +98,16 @@ Le MVP tient dans les lignes « Must » : compte et profil, choix du magasin, re
 
 Toutes les sources sont accessibles sans compte. Le principe : tout collecter une fois en base chez moi, puis mettre à jour par différences, jamais en continu. Le planning ne contacte aucun site ; seule la vérification d'une liste validée interroge les magasins, produit par produit (section 6).
 
-| Source | Données | Méthode retenue | Fréquence |
-| --- | --- | --- | --- |
-| HelloFresh | Toutes les recettes FR : ingrédients, quantités, portions, étapes, nutrition, temps, photos | Bot de collecte via l'API interne (jeton public lu sur hellofresh.fr, valable 30 jours) ; un seul appel de recherche paginé renvoie tout, sans appel par recette ; JSON brut stocké (environ 370 Mo pour 14 856 recettes) puis normalisé | Collecte initiale en une soirée environ (1 486 requêtes à 4 s, moins si des pages plus grandes sont acceptées), puis uniquement les recettes absentes de la base, toutes les 2 semaines (ou une fois par mois), en parcourant les premières pages (les plus récentes d'abord) jusqu'à retomber sur du connu |
-| Picard | Catalogue : prix, prix au kilo, conditionnement, disponibilité nationale, code-barres, Planet-Score (Nutri-Score absent de l'échantillon, nutrition pour 100 g non vérifiée) | Collecte par le sitemap publié par Picard (1 605 fiches), jamais par la recherche ; microdonnées schema.org (prix, disponibilité, code-barres) lues sans navigateur ; mise à jour incrémentale par date de modification ; secours : catalogue PDF | Hebdomadaire |
-| Picard (magasin) | Disponibilité dans le magasin choisi | Existe sur le site, mais sur un chemin interdit par le robots.txt : disponibilité nationale seulement | Sans objet |
-| Intermarché | Produits, prix et disponibilité du magasin choisi | Aucune collecte (site protégé contre les robots) : produits génériques, prix issus des tickets et de la saisie (section 6) | Sans objet (prix apportés par les tickets) |
-| Magasins | Liste des magasins par enseigne avec coordonnées | Localisateur de magasins de chaque enseigne, stocké en base (Picard : sitemap officiel de magasins.picard.fr, 1 267 magasins, adresse complète ; Intermarché : OpenStreetMap, environ 2 280 magasins, ville complétée par géocodage inverse, sans requête vers leur site) | Mensuelle |
-| Adresse saisie | Coordonnées, calculées à la volée, jamais stockées | Géocodage de la Base Adresse Nationale, porté par l'IGN (data.geopf.fr/geocodage), gratuit ; sert aussi au géocodage inverse de la ville des magasins | À la demande |
-| Nutrition | Valeurs pour 100 g | Open Food Facts, API v3.6 (produits à code-barres : 47 sur 50 trouvés au lot 0 ; 15 lectures par minute, cache obligatoire) ; Ciqual 2025 de l'ANSES (aliments génériques : 3 484 aliments, fichiers XML, licence Etalab 2.0) | Mensuelle |
-| Tickets de caisse | Lignes, prix, total | PDF dématérialisé lu sans OCR (exact au lot 0), sinon photo analysée par OCR ; toujours validé par l'utilisateur | À chaque course |
+| Source            | Données                                                                                                                                                                      | Méthode retenue                                                                                                                                                                                                                                                           | Fréquence                                                                                                                                                                                                                                                                                                   |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| HelloFresh        | Toutes les recettes FR : ingrédients, quantités, portions, étapes, nutrition, temps, photos                                                                                  | Bot de collecte via l'API interne (jeton public lu sur hellofresh.fr, valable 30 jours) ; un seul appel de recherche paginé renvoie tout, sans appel par recette ; JSON brut stocké (environ 370 Mo pour 14 856 recettes) puis normalisé                                  | Collecte initiale en une soirée environ (1 486 requêtes à 4 s, moins si des pages plus grandes sont acceptées), puis uniquement les recettes absentes de la base, toutes les 2 semaines (ou une fois par mois), en parcourant les premières pages (les plus récentes d'abord) jusqu'à retomber sur du connu |
+| Picard            | Catalogue : prix, prix au kilo, conditionnement, disponibilité nationale, code-barres, Planet-Score (Nutri-Score absent de l'échantillon, nutrition pour 100 g non vérifiée) | Collecte par le sitemap publié par Picard (1 605 fiches), jamais par la recherche ; microdonnées schema.org (prix, disponibilité, code-barres) lues sans navigateur ; mise à jour incrémentale par date de modification ; secours : catalogue PDF                         | Hebdomadaire                                                                                                                                                                                                                                                                                                |
+| Picard (magasin)  | Disponibilité dans le magasin choisi                                                                                                                                         | Existe sur le site, mais sur un chemin interdit par le robots.txt : disponibilité nationale seulement                                                                                                                                                                     | Sans objet                                                                                                                                                                                                                                                                                                  |
+| Intermarché       | Produits, prix et disponibilité du magasin choisi                                                                                                                            | Aucune collecte (site protégé contre les robots) : produits génériques, prix issus des tickets et de la saisie (section 6)                                                                                                                                                | Sans objet (prix apportés par les tickets)                                                                                                                                                                                                                                                                  |
+| Magasins          | Liste des magasins par enseigne avec coordonnées                                                                                                                             | Localisateur de magasins de chaque enseigne, stocké en base (Picard : sitemap officiel de magasins.picard.fr, 1 267 magasins, adresse complète ; Intermarché : OpenStreetMap, environ 2 280 magasins, ville complétée par géocodage inverse, sans requête vers leur site) | Mensuelle                                                                                                                                                                                                                                                                                                   |
+| Adresse saisie    | Coordonnées, calculées à la volée, jamais stockées                                                                                                                           | Géocodage de la Base Adresse Nationale, porté par l'IGN (data.geopf.fr/geocodage), gratuit ; sert aussi au géocodage inverse de la ville des magasins                                                                                                                     | À la demande                                                                                                                                                                                                                                                                                                |
+| Nutrition         | Valeurs pour 100 g                                                                                                                                                           | Open Food Facts, API v3.6 (produits à code-barres : 47 sur 50 trouvés au lot 0 ; 15 lectures par minute, cache obligatoire) ; Ciqual 2025 de l'ANSES (aliments génériques : 3 484 aliments, fichiers XML, licence Etalab 2.0)                                             | Mensuelle                                                                                                                                                                                                                                                                                                   |
+| Tickets de caisse | Lignes, prix, total                                                                                                                                                          | PDF dématérialisé lu sans OCR (exact au lot 0), sinon photo analysée par OCR ; toujours validé par l'utilisateur                                                                                                                                                          | À chaque course                                                                                                                                                                                                                                                                                             |
 
 **Multi-enseigne.** Chaque enseigne est un connecteur qui implémente la même interface : rechercher les magasins, lister les produits, donner le prix et la disponibilité dans un magasin. Ajouter Carrefour ou Grand Frais revient à écrire un connecteur, sans toucher au reste. Un connecteur peut n'implémenter qu'une partie de l'interface : celui d'Intermarché ne fait que rechercher les magasins, les autres méthodes répondent « non disponible ».
 
@@ -162,13 +162,13 @@ Le choix est mémorisé par ingrédient. Picard ne couvre qu'une partie des ingr
 
 **Niveaux de prix.** Chaque prix affiche sa provenance, pour qu'une estimation ne passe jamais pour un prix réel.
 
-| Niveau | Source | Affichage |
-| --- | --- | --- |
-| Réel | Ticket (PDF ou photo) ou saisie dans ce magasin, moins de 30 jours | Prix et date |
-| Catalogue enseigne | Prix lu sur le site de l'enseigne (Picard), avec sa date et sa fin de validité. C'est le prix de vente en ligne : son égalité avec le prix en magasin n'est pas vérifiée | Prix, date et mention « prix en ligne » |
-| Ancien | Ticket ou saisie de plus de 30 jours | Prix et date, signalé comme ancien |
-| Estimé | Relevé du même produit dans un autre magasin de l'enseigne ; facture drive importée (souvent ancienne) ; Open Prices seulement pour la même enseigne et un relevé de moins de 12 mois | « environ », avec la source et la date |
-| Inconnu | Aucune donnée | « prix inconnu » ; le coût du repas indique le nombre de produits sans prix |
+| Niveau             | Source                                                                                                                                                                                | Affichage                                                                   |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Réel               | Ticket (PDF ou photo) ou saisie dans ce magasin, moins de 30 jours                                                                                                                    | Prix et date                                                                |
+| Catalogue enseigne | Prix lu sur le site de l'enseigne (Picard), avec sa date et sa fin de validité. C'est le prix de vente en ligne : son égalité avec le prix en magasin n'est pas vérifiée              | Prix, date et mention « prix en ligne »                                     |
+| Ancien             | Ticket ou saisie de plus de 30 jours                                                                                                                                                  | Prix et date, signalé comme ancien                                          |
+| Estimé             | Relevé du même produit dans un autre magasin de l'enseigne ; facture drive importée (souvent ancienne) ; Open Prices seulement pour la même enseigne et un relevé de moins de 12 mois | « environ », avec la source et la date                                      |
+| Inconnu            | Aucune donnée                                                                                                                                                                         | « prix inconnu » ; le coût du repas indique le nombre de produits sans prix |
 
 Picard : prix catalogue collectés chaque semaine, remplacés par le prix réel dès qu'un ticket le donne. Intermarché : aucune collecte automatique, les tickets, les factures et la saisie sont les seules sources. Les prix relevés dans un magasin servent à tous les utilisateurs de ce magasin, sans indiquer qui a fait les courses.
 
@@ -183,12 +183,12 @@ Picard : prix catalogue collectés chaque semaine, remplacés par le prix réel 
 
 **Ingrédient non trouvé au moment du planning** (seuils proposés, ajustables)
 
-| Situation | Traitement |
-| --- | --- |
-| Tous les ingrédients trouvés | Recette proposée normalement |
-| 1 ou 2 ingrédients secondaires manquants | Recette proposée avec le badge « disponibilité incertaine » et un substitut si possible |
-| Ingrédient principal manquant, ou plus de 2 ingrédients | Recette moins prioritaire, remplacée par une autre si possible |
-| Pas assez de recettes complètes pour remplir le planning | Meilleures recettes proposées quand même, avec l'avertissement |
+| Situation                                                | Traitement                                                                              |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Tous les ingrédients trouvés                             | Recette proposée normalement                                                            |
+| 1 ou 2 ingrédients secondaires manquants                 | Recette proposée avec le badge « disponibilité incertaine » et un substitut si possible |
+| Ingrédient principal manquant, ou plus de 2 ingrédients  | Recette moins prioritaire, remplacée par une autre si possible                          |
+| Pas assez de recettes complètes pour remplir le planning | Meilleures recettes proposées quand même, avec l'avertissement                          |
 
 Les produits « placard » (sel, huile, épices) n'entrent pas dans ce calcul.
 
@@ -230,11 +230,11 @@ Une interface sobre et élégante, lisible avant d'être décorative, utilisable
 
 **Responsive** (conception mobile d'abord)
 
-| Support | Largeur | Usage principal |
-| --- | --- | --- |
-| Mobile | < 640 px | Liste de courses en magasin, recette du jour, scan du ticket |
-| Tablette | 640 à 1024 px | Recette en cuisine sur écran posé, planning |
-| Ordinateur | > 1024 px | Planification, statistiques, admin |
+| Support    | Largeur       | Usage principal                                              |
+| ---------- | ------------- | ------------------------------------------------------------ |
+| Mobile     | < 640 px      | Liste de courses en magasin, recette du jour, scan du ticket |
+| Tablette   | 640 à 1024 px | Recette en cuisine sur écran posé, planning                  |
+| Ordinateur | > 1024 px     | Planification, statistiques, admin                           |
 
 Navigation en barre basse sur mobile, latérale sur tablette et ordinateur.
 
@@ -270,13 +270,13 @@ Toute erreur est soit gérée et expliquée à l'utilisateur, soit journalisée 
 
 **Journaux** (durées de conservation proposées, à valider)
 
-| Type | Contenu | Conservation |
-| --- | --- | --- |
-| Applicatifs | Logs JSON : niveau, horodatage, identifiant de requête, id utilisateur, route, durée | 30 jours |
-| Erreurs | Exception, trace, contexte, version déployée, regroupées par type | 90 jours |
-| Collectes | Par exécution : source, début, fin, éléments lus, créés, modifiés, en échec | 1 an |
-| Audit | Actions admin et actions sensibles : connexion, mot de passe, suppression de compte | 1 an |
-| Front | Erreurs JavaScript et appels API en échec, remontés vers l'API | 30 jours |
+| Type        | Contenu                                                                              | Conservation |
+| ----------- | ------------------------------------------------------------------------------------ | ------------ |
+| Applicatifs | Logs JSON : niveau, horodatage, identifiant de requête, id utilisateur, route, durée | 30 jours     |
+| Erreurs     | Exception, trace, contexte, version déployée, regroupées par type                    | 90 jours     |
+| Collectes   | Par exécution : source, début, fin, éléments lus, créés, modifiés, en échec          | 1 an         |
+| Audit       | Actions admin et actions sensibles : connexion, mot de passe, suppression de compte  | 1 an         |
+| Front       | Erreurs JavaScript et appels API en échec, remontés vers l'API                       | 30 jours     |
 
 - Un identifiant de corrélation suit chaque requête du navigateur à l'API, aux connecteurs et à la base.
 - Rien de sensible dans les logs : ni mot de passe, ni jeton, ni adresse saisie ; e-mails masqués.
@@ -287,16 +287,16 @@ Toute erreur est soit gérée et expliquée à l'utilisateur, soit journalisée 
 
 L'admin sert à surveiller les collectes, corriger les données et diagnostiquer les erreurs sans jamais ouvrir la base à la main.
 
-| Module | Ce que l'admin voit ou fait |
-| --- | --- |
-| Tableau de bord | Utilisateurs actifs, dernières collectes, erreurs des dernières 24 h, état des services |
-| Utilisateurs | Invitations (créer, envoyer, révoquer), liste, recherche, désactivation, suppression conforme RGPD ; aucun accès aux mots de passe |
-| Collectes | Historique par source, relance manuelle, mise en pause d'un connecteur, détail des échecs |
-| Catalogue | Recettes et produits, correction manuelle, fusion des doublons |
-| Correspondances | File des ingrédients sans produit associé, validation en masse |
-| Erreurs et journaux | Recherche par identifiant de requête, utilisateur, niveau, période |
-| Enseignes | Activer ou désactiver une enseigne, gérer ses magasins, traiter les signalements de magasins fermés ou mal placés |
-| Audit | Qui a fait quoi, et quand, dans l'admin |
+| Module              | Ce que l'admin voit ou fait                                                                                                        |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Tableau de bord     | Utilisateurs actifs, dernières collectes, erreurs des dernières 24 h, état des services                                            |
+| Utilisateurs        | Invitations (créer, envoyer, révoquer), liste, recherche, désactivation, suppression conforme RGPD ; aucun accès aux mots de passe |
+| Collectes           | Historique par source, relance manuelle, mise en pause d'un connecteur, détail des échecs                                          |
+| Catalogue           | Recettes et produits, correction manuelle, fusion des doublons                                                                     |
+| Correspondances     | File des ingrédients sans produit associé, validation en masse                                                                     |
+| Erreurs et journaux | Recherche par identifiant de requête, utilisateur, niveau, période                                                                 |
+| Enseignes           | Activer ou désactiver une enseigne, gérer ses magasins, traiter les signalements de magasins fermés ou mal placés                  |
+| Audit               | Qui a fait quoi, et quand, dans l'admin                                                                                            |
 
 Accès réservé au rôle administrateur, avec double authentification ; chaque action est tracée dans le journal d'audit.
 
@@ -339,17 +339,17 @@ flowchart TB
 
 Les sites marchands ne sont lus que par les connecteurs : collectes en tâche de fond, et vérification de la liste validée ; si l'un casse, l'app continue avec les derniers prix connus.
 
-| Couche | Choix | Pourquoi |
-| --- | --- | --- |
-| Front | Vue 3 + Vite en PWA (service worker, IndexedDB), composants accessibles maison | Hors ligne ; une seule base de code pour mobile, tablette et ordinateur |
-| API | NestJS + TypeScript | Types partagés avec le front, un module par domaine |
-| Authentification | Session en cookie, Argon2id, double authentification (TOTP) pour l'admin | Aucun jeton stocké dans le navigateur |
-| Base | PostgreSQL + extension pg\_trgm | Recherche approchée : ingrédient → produit, libellé de ticket → produit ; suggestions calculées localement, sans service externe ni modèle d'IA |
-| Connecteurs | Workers planifiés sur file de tâches (BullMQ + Redis, ou pg-boss pour rester sur PostgreSQL), un par enseigne et par source ; Picard : fetch et microdonnées, sans navigateur | Isolés de l'API, relançables, une enseigne = un connecteur |
-| OCR des tickets | Lecture directe des PDF (sans OCR) ; Tesseract en local pour les tickets papier, avec redressement de l'image indispensable (rotation et bruit sont les principales causes d'échec) | Gratuité contre précision |
-| Logs et erreurs | Logs JSON (pino), Loki + Grafana, suivi d'erreurs auto-hébergé (GlitchTip ou Sentry) | Recherche par identifiant de requête, alertes |
-| Tests | Vitest, Playwright, axe-core | Accessibilité vérifiée à chaque fusion |
-| Déploiement | Docker Compose, ou chart Helm dans le cluster existant | Réutilise mon infrastructure GitOps |
+| Couche           | Choix                                                                                                                                                                               | Pourquoi                                                                                                                                        |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Front            | Vue 3 + Vite en PWA (service worker, IndexedDB), composants Reka UI (comportement clavier et ARIA) avec styles maison ; monorepo pnpm workspaces (ADR 0001)                         | Hors ligne ; une seule base de code pour mobile, tablette et ordinateur                                                                         |
+| API              | NestJS + TypeScript                                                                                                                                                                 | Types partagés avec le front, un module par domaine                                                                                             |
+| Authentification | Session en cookie, Argon2id, double authentification (TOTP) pour l'admin                                                                                                            | Aucun jeton stocké dans le navigateur                                                                                                           |
+| Base             | PostgreSQL + extension pg\_trgm, accès par Drizzle (ADR 0001)                                                                                                                       | Recherche approchée : ingrédient → produit, libellé de ticket → produit ; suggestions calculées localement, sans service externe ni modèle d'IA |
+| Connecteurs      | Workers planifiés sur file de tâches (BullMQ + Redis, ou pg-boss pour rester sur PostgreSQL), un par enseigne et par source ; Picard : fetch et microdonnées, sans navigateur       | Isolés de l'API, relançables, une enseigne = un connecteur                                                                                      |
+| OCR des tickets  | Lecture directe des PDF (sans OCR) ; Tesseract en local pour les tickets papier, avec redressement de l'image indispensable (rotation et bruit sont les principales causes d'échec) | Gratuité contre précision                                                                                                                       |
+| Logs et erreurs  | Logs JSON (pino), Loki + Grafana, suivi d'erreurs auto-hébergé (GlitchTip ou Sentry)                                                                                                | Recherche par identifiant de requête, alertes                                                                                                   |
+| Tests            | Vitest, Playwright, axe-core                                                                                                                                                        | Accessibilité vérifiée à chaque fusion                                                                                                          |
+| Déploiement      | Docker Compose, ou chart Helm dans le cluster existant                                                                                                                              | Réutilise mon infrastructure GitOps                                                                                                             |
 
 ## 12. Agents IA et skills
 
@@ -372,16 +372,16 @@ Une revue bloquante renvoie au code-writer ; après trois allers-retours, la mai
 
 **Agents**
 
-| Agent | Rôle | Outils | Peut écrire | Modèle indicatif |
-| --- | --- | --- | --- | --- |
-| test-planner | Liste les tests unitaires, d'intégration et e2e à partir des critères d'acceptation | Read, Grep, Glob, Bash (gh en lecture) | docs/test-plans/ | opus |
-| test-writer | Écrit les tests du plan et vérifie qu'ils échouent | Read, Grep, Glob, Edit, Write, Bash | Fichiers de test uniquement | sonnet |
-| code-writer | Écrit le code jusqu'à ce que les tests passent | Read, Grep, Glob, Edit, Write, Bash | Tout sauf les tests | sonnet ou opus |
-| code-reviewer | Revue neutre du diff | Read, Grep, Glob, Bash | Rien | opus |
-| security-reviewer | Autorisations, IDOR, données personnelles, secrets | Read, Grep, Glob, Bash | Rien | opus |
-| a11y-reviewer (nouveau) | Conformité RGAA 4.1 AA du diff et du HTML rendu, lecture des résultats axe-core | Read, Grep, Glob, Bash | Rien | opus |
-| doc-writer | ADR quand la story introduit une décision | Read, Grep, Glob, Write | docs/ | sonnet |
-| pr-manager | Branche, commits, PR liée à l'issue | Read, Bash (git, gh) | Rien | sonnet |
+| Agent                   | Rôle                                                                                | Outils                                 | Peut écrire                 | Modèle indicatif |
+| ----------------------- | ----------------------------------------------------------------------------------- | -------------------------------------- | --------------------------- | ---------------- |
+| test-planner            | Liste les tests unitaires, d'intégration et e2e à partir des critères d'acceptation | Read, Grep, Glob, Bash (gh en lecture) | docs/test-plans/            | opus             |
+| test-writer             | Écrit les tests du plan et vérifie qu'ils échouent                                  | Read, Grep, Glob, Edit, Write, Bash    | Fichiers de test uniquement | sonnet           |
+| code-writer             | Écrit le code jusqu'à ce que les tests passent                                      | Read, Grep, Glob, Edit, Write, Bash    | Tout sauf les tests         | sonnet ou opus   |
+| code-reviewer           | Revue neutre du diff                                                                | Read, Grep, Glob, Bash                 | Rien                        | opus             |
+| security-reviewer       | Autorisations, IDOR, données personnelles, secrets                                  | Read, Grep, Glob, Bash                 | Rien                        | opus             |
+| a11y-reviewer (nouveau) | Conformité RGAA 4.1 AA du diff et du HTML rendu, lecture des résultats axe-core     | Read, Grep, Glob, Bash                 | Rien                        | opus             |
+| doc-writer              | ADR quand la story introduit une décision                                           | Read, Grep, Glob, Write                | docs/                       | sonnet           |
+| pr-manager              | Branche, commits, PR liée à l'issue                                                 | Read, Bash (git, gh)                   | Rien                        | sonnet           |
 
 **a11y-reviewer en détail**
 
@@ -392,15 +392,15 @@ Une revue bloquante renvoie au code-writer ; après trois allers-retours, la mai
 
 **Rules, skills et garde-fous**
 
-| Brique | Contenu pour ce projet |
-| --- | --- |
-| CLAUDE.md | Stack, commandes, conventions, les 4 principes Karpathy ; moins de 200 lignes |
-| Rules | writing-style.md, security.md, typescript.md (paths sur les .ts), accessibility.md (paths sur les .vue) |
-| Skills | feature-pipeline (/feature \<issue> : enchaîne les agents, met à jour le kanban), test-plan-format, write-adr, rgaa-checklist |
-| Hooks | test-writer limité aux fichiers de test ; code-writer interdit sur les tests |
-| Permissions (deny) | Lecture des .env, git push --force, gh pr merge |
-| Suivi | GitHub Issues + GitHub Projects |
-| CI | gitleaks, Semgrep, Trivy, OSV-Scanner, Renovate, axe-core ; OWASP ZAP en pré-production |
+| Brique             | Contenu pour ce projet                                                                                                        |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| CLAUDE.md          | Stack, commandes, conventions, les 4 principes Karpathy ; moins de 200 lignes                                                 |
+| Rules              | writing-style.md, security.md, typescript.md (paths sur les .ts), accessibility.md (paths sur les .vue)                       |
+| Skills             | feature-pipeline (/feature \<issue> : enchaîne les agents, met à jour le kanban), test-plan-format, write-adr, rgaa-checklist |
+| Hooks              | test-writer limité aux fichiers de test ; code-writer interdit sur les tests                                                  |
+| Permissions (deny) | Lecture des .env, git push --force, gh pr merge                                                                               |
+| Suivi              | GitHub Issues + GitHub Projects                                                                                               |
+| CI                 | gitleaks, Semgrep, Trivy, OSV-Scanner, Renovate, axe-core ; OWASP ZAP en pré-production                                       |
 
 **Sécurité des skills et du code.** Deux outils distincts, à ne pas confondre :
 
@@ -413,16 +413,16 @@ Mise en place progressive : CLAUDE.md, rules et code-reviewer d'abord, puis un a
 
 Le lot 0 vient avant tout code applicatif ; la journalisation et l'accessibilité entrent dès le lot 1, pas à la fin.
 
-| Lot | Contenu | Terminé quand |
-| --- | --- | --- |
-| 0. Faisabilité | Prototypes jetables pour les sept hypothèses de la section 15 : HelloFresh, Intermarché, Picard, localisateurs de magasins, Open Food Facts et Ciqual, correspondance ingrédient → produit, lecture des tickets ; un rapport par hypothèse dans docs/lot-0/ | Chaque hypothèse de la section 15 est validée ou a un plan B |
-| 1. Socle | Design system, comptes sur invitation, profil foyer, format d'erreur, journalisation, CI avec axe-core | Inscription, connexion et profil fonctionnent, accessibles et journalisés |
-| 2. Recettes | Bot HelloFresh, stockage, recherche, recettes perso | Toute la base FR en local, nouvelles recettes ajoutées toutes les 2 semaines |
-| 3. Magasins | Connecteurs Picard et Intermarché, choix du magasin, correspondance ingrédient → produit | 80 % des ingrédients à acheter de 20 recettes reçoivent une suggestion acceptée ou un produit choisi par l'utilisateur |
-| 4. Planning et courses | Planning, liste par magasin, prix estimé, nutrition | Je planifie une vraie semaine et fais mes courses avec |
-| 5. Tickets et statistiques | Scan, correction, saisie manuelle, statistiques | Un mois de dépenses réelles suivi dans l'app |
-| 6. Admin | Tableau de bord, collectes, correspondances, journaux, audit | Une collecte en échec se diagnostique sans ouvrir la base |
-| 7. Confort | Hors ligne complet, placard, export, favoris, nouvelles enseignes | Liste utilisée en magasin sans réseau |
+| Lot                        | Contenu                                                                                                                                                                                                                                                     | Terminé quand                                                                                                          |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| 0. Faisabilité             | Prototypes jetables pour les sept hypothèses de la section 15 : HelloFresh, Intermarché, Picard, localisateurs de magasins, Open Food Facts et Ciqual, correspondance ingrédient → produit, lecture des tickets ; un rapport par hypothèse dans docs/lot-0/ | Chaque hypothèse de la section 15 est validée ou a un plan B                                                           |
+| 1. Socle                   | Design system, comptes sur invitation, profil foyer, format d'erreur, journalisation, CI avec axe-core                                                                                                                                                      | Inscription, connexion et profil fonctionnent, accessibles et journalisés                                              |
+| 2. Recettes                | Bot HelloFresh, stockage, recherche, recettes perso                                                                                                                                                                                                         | Toute la base FR en local, nouvelles recettes ajoutées toutes les 2 semaines                                           |
+| 3. Magasins                | Connecteurs Picard et Intermarché, choix du magasin, correspondance ingrédient → produit                                                                                                                                                                    | 80 % des ingrédients à acheter de 20 recettes reçoivent une suggestion acceptée ou un produit choisi par l'utilisateur |
+| 4. Planning et courses     | Planning, liste par magasin, prix estimé, nutrition                                                                                                                                                                                                         | Je planifie une vraie semaine et fais mes courses avec                                                                 |
+| 5. Tickets et statistiques | Scan, correction, saisie manuelle, statistiques                                                                                                                                                                                                             | Un mois de dépenses réelles suivi dans l'app                                                                           |
+| 6. Admin                   | Tableau de bord, collectes, correspondances, journaux, audit                                                                                                                                                                                                | Une collecte en échec se diagnostique sans ouvrir la base                                                              |
+| 7. Confort                 | Hors ligne complet, placard, export, favoris, nouvelles enseignes                                                                                                                                                                                           | Liste utilisée en magasin sans réseau                                                                                  |
 
 Intention hors V1 : contribuer en retour aux bases ouvertes (produits manquants vers Open Food Facts, prix adossés aux tickets vers Open Prices), uniquement avec le consentement de l'utilisateur et après anonymisation du ticket. Conséquence dès le lot 5 : les lignes d'un ticket sont stockées séparément de son image.
 
@@ -430,16 +430,16 @@ Intention hors V1 : contribuer en retour aux bases ouvertes (produits manquants 
 
 **HelloFreshCrawler** ([dépôt GitHub](https://github.com/alexcodito/HelloFreshCrawler)) : code lu, pas exécuté. Rien de malveillant, la méthode est la bonne, mais il ne récupère pas ce dont on a besoin ; on le réécrit plutôt que de l'utiliser.
 
-| Point | Constat |
-| --- | --- |
-| Ce qu'il fait | Charge la page d'accueil hellofresh.com, extrait un jeton d'accès présent dans le HTML, interroge l'API interne de recherche de recettes (gw.hellofresh.com) par pages de 500, puis télécharge les fiches recettes en PDF |
-| Ce qu'il ne fait pas | Il jette le JSON (ingrédients, quantités, nutrition) et ne garde que les PDF ; c'est pourtant le JSON qui nous intéresse |
-| Code | Environ 300 lignes de JavaScript lisibles, 2 dépendances (axios, yargs), aucun script d'installation, paquets venant du registre npm officiel |
-| Sécurité | Versions verrouillées anciennes (axios 0.21.4, follow-redirects 1.15.3) qui ont des vulnérabilités publiées depuis |
-| Bugs | Nombre de pages arrondi (risque de rater la dernière), PDF déjà téléchargés réécrits à chaque lot, filtre figé à 60 min de préparation |
-| Charge sur le site | 10 téléchargements en parallèle, 250 ms entre les lots : trop agressif pour notre règle de collecte |
-| Maintenance | Dernier commit le 2 novembre 2024 (ajout du français) ; l'API interne a pu changer depuis |
-| France | Le jeton se lit bien sur hellofresh.fr (vérifié au lot 0). En France, \`cardLink\` est nul : le dépôt ne téléchargerait aucun PDF |
+| Point                | Constat                                                                                                                                                                                                                   |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ce qu'il fait        | Charge la page d'accueil hellofresh.com, extrait un jeton d'accès présent dans le HTML, interroge l'API interne de recherche de recettes (gw.hellofresh.com) par pages de 500, puis télécharge les fiches recettes en PDF |
+| Ce qu'il ne fait pas | Il jette le JSON (ingrédients, quantités, nutrition) et ne garde que les PDF ; c'est pourtant le JSON qui nous intéresse                                                                                                  |
+| Code                 | Environ 300 lignes de JavaScript lisibles, 2 dépendances (axios, yargs), aucun script d'installation, paquets venant du registre npm officiel                                                                             |
+| Sécurité             | Versions verrouillées anciennes (axios 0.21.4, follow-redirects 1.15.3) qui ont des vulnérabilités publiées depuis                                                                                                        |
+| Bugs                 | Nombre de pages arrondi (risque de rater la dernière), PDF déjà téléchargés réécrits à chaque lot, filtre figé à 60 min de préparation                                                                                    |
+| Charge sur le site   | 10 téléchargements en parallèle, 250 ms entre les lots : trop agressif pour notre règle de collecte                                                                                                                       |
+| Maintenance          | Dernier commit le 2 novembre 2024 (ajout du français) ; l'API interne a pu changer depuis                                                                                                                                 |
+| France               | Le jeton se lit bien sur hellofresh.fr (vérifié au lot 0). En France, \`cardLink\` est nul : le dépôt ne téléchargerait aucun PDF                                                                                         |
 
 Décision proposée : un connecteur TypeScript dans notre stack qui reprend le principe (jeton, recherche paginée, JSON), stocke le JSON brut, espace les requêtes de 2 à 5 s, puis ne récupère toutes les 2 semaines que les recettes absentes de la base.
 
@@ -460,18 +460,18 @@ Tes réponses lèvent les doutes sur l'accès aux données ; il reste à le prou
 
 **Réponses apportées**
 
-| Question | Réponse |
-| --- | --- |
-| Foyer | Moi seul ; l'app propose de 1 à 35 personnes |
-| Magasins | Choisis par l'utilisateur à l'inscription, au profil ou au moment de la liste ; adresse non enregistrée |
-| Contraintes alimentaires | Aucune pour moi ; espace dédié dans le profil |
-| Objectif | Défini par l'utilisateur ; pour moi : courses simplifiées, équilibré, pas cher, rapide à cuisiner |
-| Plateforme | Web, PWA |
-| Budget | Défini par l'utilisateur ; pour moi 100 à 200 € par mois |
-| HelloFresh | Recettes accessibles par URL ; collecte complète en base |
-| Picard | Catalogue accessible sans compte ; catalogue PDF en secours |
-| Intermarché | Site protégé contre les robots : pas de collecte, prix par tickets et saisie ; accès à l'API partenaire demandé |
-| Collecte | Rien de bloquant trouvé tant qu'on ne collecte pas en continu et qu'on ne crée ni miroir ni service concurrent ; sauf Intermarché, protégé par un anti-robot |
+| Question                 | Réponse                                                                                                                                                      |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Foyer                    | Moi seul ; l'app propose de 1 à 35 personnes                                                                                                                 |
+| Magasins                 | Choisis par l'utilisateur à l'inscription, au profil ou au moment de la liste ; adresse non enregistrée                                                      |
+| Contraintes alimentaires | Aucune pour moi ; espace dédié dans le profil                                                                                                                |
+| Objectif                 | Défini par l'utilisateur ; pour moi : courses simplifiées, équilibré, pas cher, rapide à cuisiner                                                            |
+| Plateforme               | Web, PWA                                                                                                                                                     |
+| Budget                   | Défini par l'utilisateur ; pour moi 100 à 200 € par mois                                                                                                     |
+| HelloFresh               | Recettes accessibles par URL ; collecte complète en base                                                                                                     |
+| Picard                   | Catalogue accessible sans compte ; catalogue PDF en secours                                                                                                  |
+| Intermarché              | Site protégé contre les robots : pas de collecte, prix par tickets et saisie ; accès à l'API partenaire demandé                                              |
+| Collecte                 | Rien de bloquant trouvé tant qu'on ne collecte pas en continu et qu'on ne crée ni miroir ni service concurrent ; sauf Intermarché, protégé par un anti-robot |
 
 **Hypothèses à prouver au lot 0**
 

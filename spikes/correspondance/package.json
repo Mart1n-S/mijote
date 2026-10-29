@@ -1,0 +1,18 @@
+{
+  "name": "spike-correspondance",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Prototype jetable du lot 0 : quelle methode de rapprochement ingredient vers produit atteint 80 % de bonnes propositions ? Aucune requete reseau.",
+  "scripts": {
+    "mesure": "tsx src/mesure.ts",
+    "couples": "tsx src/couples.ts",
+    "seuil": "tsx src/seuil.ts",
+    "detail": "tsx src/detail.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.6.2",
+    "tsx": "4.19.2",
+    "typescript": "5.7.2"
+  }
+}

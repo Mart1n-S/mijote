@@ -21,6 +21,7 @@ la CLI GitHub.
 | Coquille sans tête de Chromium | build 1248 | ce que Playwright lance réellement en mode sans tête | `...\ms-playwright\chromium_headless_shell-1248` | voir section 3 |
 | FFmpeg de Playwright | build 1013 | enregistrement vidéo des tests en échec | `...\ms-playwright\ffmpeg-1013` | voir section 3 |
 | CLI GitHub (`gh`) | 2.103.3 | ouverture et suivi des pull requests en ligne de commande | `C:\Program Files\GitHub CLI` | `winget uninstall --id GitHub.cli` |
+| SkillSpector | commit `abd82935b67f765a9541013c0866c6349251dcdf` (étiquette v2.13.2) | scanner tout skill ou agent externe avant installation | `C:\Users\marti\AppData\Local\skillspector-venv` | `Remove-Item -Recurse -Force "$env:LOCALAPPDATA\skillspector-venv"` |
 
 Node.js et Docker Desktop étaient déjà installés avant le lot 1 et n'ont pas
 été modifiés. pnpm aussi, par `npm install -g`. Les trois lignes Playwright et
@@ -91,7 +92,60 @@ Réinstaller ensuite se fait par `pnpm exec playwright install chromium`, qui
 retélécharge exactement les versions attendues par la version de Playwright
 figée dans le dépôt.
 
-## 4. Variables d'environnement
+## 4. SkillSpector, installation et usage
+
+Installé dans un environnement virtuel Python dédié, hors du dépôt, pour ne pas
+toucher au Python global du poste et pour éviter d'installer `uv`, absent de la
+machine. Le paquet exige Python `>=3.12,<3.15` et le poste a 3.12.1.
+
+Le commit est figé, et non l'étiquette : une étiquette Git peut être déplacée
+sur un autre commit, une empreinte non.
+
+```powershell
+python -m venv "$env:LOCALAPPDATA\skillspector-venv"
+& "$env:LOCALAPPDATA\skillspector-venv\Scripts\pip.exe" install `
+  "skillspector @ git+https://github.com/NVIDIA/SkillSpector.git@abd82935b67f765a9541013c0866c6349251dcdf"
+```
+
+Usage, toujours en `--no-llm` pour qu'aucun contenu de skill ne parte vers un
+service d'inférence :
+
+```powershell
+& "$env:LOCALAPPDATA\skillspector-venv\Scripts\skillspector.exe" scan <dossier> --no-llm
+```
+
+### Deux limites mesurées le 30 octobre 2026, en v2.13.2
+
+**`--no-llm` ne supprime pas tout appel réseau.** L'option coupe l'étape
+d'analyse par modèle de langage, mais pas la requête vers OSV.dev : celle-ci
+appartient à l'analyse statique, contrôle SC4. Dans le paquet installé,
+`static_patterns_supply_chain.py` importe `osv_client.py`, qui appelle
+`https://api.osv.dev/v1/querybatch`. Aucune option ni variable
+d'environnement ne la désactive : la seule disponible est
+`SKILLSPECTOR_OSV_TIMEOUT`, et l'outil se replie sur une liste statique quand
+l'API est injoignable. Ce qui part est une liste de noms de dépendances, pas le
+contenu des fichiers scannés. Pour zéro trafic sortant, il faut bloquer au
+niveau du réseau et accepter le repli.
+
+**`--output` ne fonctionne pas sous Windows.** La commande échoue avec « Safe
+file output is unsupported on this platform », code de sortie 2, et aucun
+fichier n'est écrit. L'outil indique lui-même le contournement, vérifié :
+omettre `--output` et rediriger la sortie standard.
+
+```powershell
+& "$env:LOCALAPPDATA\skillspector-venv\Scripts\skillspector.exe" `
+  scan <dossier> --no-llm --format json > rapport.json
+```
+
+**L'installation tire un gros arbre de dépendances**, dont `openai`,
+`anthropic`, `langchain` et `boto3`, qui servent à l'analyse par modèle de
+langage. En `--no-llm` ils ne sont pas sollicités, mais ils sont présents dans
+l'environnement virtuel.
+
+Premier scan de contrôle, sur `.claude/agents/code-reviewer.md` : score 0,
+sévérité `LOW`, recommandation `SAFE`, aucun constat, couverture 100 %.
+
+## 5. Variables d'environnement
 
 Aucune variable d'environnement permanente n'est créée par le projet. Les
 variables de l'application vivent dans un `.env` à la racine du dépôt, jamais

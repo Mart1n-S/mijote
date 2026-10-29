@@ -7,7 +7,8 @@ des prototypes du lot 0 et qui sera vidé une fois ces prototypes terminés.
 Tenu à jour au fil des lots : toute nouvelle installation est ajoutée au
 tableau **avant** d'être lancée, avec sa commande de retrait.
 
-Dernière mise à jour : 29 octobre 2026, lot 1, création du squelette.
+Dernière mise à jour : 29 octobre 2026, lot 1, création du squelette et ajout de
+la CLI GitHub.
 
 ## 1. Ce qu'il faut pour développer
 
@@ -19,10 +20,18 @@ Dernière mise à jour : 29 octobre 2026, lot 1, création du squelette.
 | Chromium de Playwright | build 1248 (Chrome for Testing 156.0.8078.4) | tests de bout en bout et contrôle axe-core | `C:\Users\marti\AppData\Local\ms-playwright\chromium-1248` | voir section 3 |
 | Coquille sans tête de Chromium | build 1248 | ce que Playwright lance réellement en mode sans tête | `...\ms-playwright\chromium_headless_shell-1248` | voir section 3 |
 | FFmpeg de Playwright | build 1013 | enregistrement vidéo des tests en échec | `...\ms-playwright\ffmpeg-1013` | voir section 3 |
+| CLI GitHub (`gh`) | 2.103.3 | ouverture et suivi des pull requests en ligne de commande | `C:\Program Files\GitHub CLI` | `winget uninstall --id GitHub.cli` |
 
 Node.js et Docker Desktop étaient déjà installés avant le lot 1 et n'ont pas
-été modifiés. pnpm aussi, par `npm install -g`. Les trois lignes Playwright ont
-été installées le 29 octobre 2026 pour ce lot.
+été modifiés. pnpm aussi, par `npm install -g`. Les trois lignes Playwright et
+la CLI GitHub ont été installées le 29 octobre 2026 pour ce lot.
+
+**La CLI GitHub n'est pas nécessaire à l'application** : elle ne sert qu'au
+travail sur le dépôt, et tout ce qu'elle fait reste possible depuis le
+navigateur. Elle garde son propre jeton, hors du dépôt, dans
+`C:\Users\marti\AppData\Roaming\GitHub CLI\hosts.yml`. La désinstaller ne le
+supprime pas : pour révoquer l'accès, faire `gh auth logout` avant, ou
+supprimer le jeton depuis les réglages du compte GitHub.
 
 ## 2. Images Docker
 

@@ -79,9 +79,14 @@ circonflexe, conformément au CLAUDE.md.
 
 - Le socle n'est pas sur la dernière version de TypeScript, et son outillage de
   lint non plus. C'est le prix d'un lint typé qui fonctionne.
-- Les règles ESLint typées sont coupées sur `apps/web` : le service de types
+- ~~Les règles ESLint typées sont coupées sur `apps/web` : le service de types
   d'ESLint ne lit pas les composants monofichiers sans le greffon TypeScript de
-  Vue. `vue-tsc` tient ce rôle, dans `pnpm typecheck` comme dans le build.
+  Vue.~~ **Levé le 29 octobre 2026** : `@vue/typescript-plugin` a été approuvé
+  et ajouté, et les règles typées sont actives sur les `.ts` de `apps/web`. Les
+  fichiers `.vue` en restent exclus, non par manque de types mais parce que les
+  règles s'appliqueraient alors au TypeScript généré derrière le composant, et
+  non au composant écrit. `vue-tsc` reste leur vérificateur de types, dans
+  `pnpm typecheck` comme dans le build.
 
 ## Quand revoir cette décision
 

@@ -17,11 +17,19 @@ export default tseslint.config(
     ],
   },
   js.configs.recommended,
-  tseslint.configs.recommendedTypeChecked,
   {
+    // Règles typées sur les .ts seulement, jamais sur les .vue : voir plus bas.
+    files: ['**/*.ts'],
+    extends: [tseslint.configs.recommendedTypeChecked],
     languageOptions: {
       parserOptions: {
-        projectService: true,
+        projectService: {
+          // Charge les greffons déclarés dans les tsconfig, dont celui de Vue
+          // pour apps/web. Sans lui, un composant monofichier importé depuis un
+          // .ts est vu comme un type en erreur. Désactivé par défaut, pour la
+          // vitesse.
+          loadTypeScriptPlugins: true,
+        },
         tsconfigRootDir: import.meta.dirname,
         // Sans quoi le service de types ignore les composants monofichiers, et
         // les fichiers .ts qui en importent n'ont plus de types.
@@ -35,6 +43,12 @@ export default tseslint.config(
     languageOptions: {
       parserOptions: {
         parser: tseslint.parser,
+        // Les composants sont analysés sur leur source par vue-eslint-parser.
+        // Leur donner le service de types ferait linter le TypeScript que le
+        // greffon de Vue génère derrière eux, avec ses identifiants __VLS_*,
+        // au lieu du composant réellement écrit. Leurs types sont couverts par
+        // vue-tsc, dans pnpm typecheck comme dans le build.
+        projectService: false,
       },
     },
   },
@@ -42,14 +56,6 @@ export default tseslint.config(
     // Les fichiers de configuration n'appartiennent à aucun tsconfig de paquet :
     // les règles typées n'ont pas de programme sur lequel s'appuyer.
     files: ['*.js', '*.ts', '**/*.config.{js,ts}'],
-    extends: [tseslint.configs.disableTypeChecked],
-  },
-  {
-    // Le service de types d'ESLint ne sait pas lire un composant monofichier :
-    // il faudrait pour cela le greffon TypeScript de Vue, une dépendance de
-    // plus. Les règles typées sont donc coupées sur le front, où vue-tsc est
-    // déjà le vérificateur de types, dans pnpm typecheck comme dans le build.
-    files: ['apps/web/**/*.ts', 'apps/web/**/*.vue'],
     extends: [tseslint.configs.disableTypeChecked],
   },
   prettier,

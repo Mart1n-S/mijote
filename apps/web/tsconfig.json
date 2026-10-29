@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["node", "vite/client", "vite-plugin-pwa/vue"],
+    "noEmit": true
+  },
+  "include": ["src/**/*.ts", "src/**/*.vue", "e2e/**/*.ts", "vite.config.ts", "vitest.config.ts"]
+}

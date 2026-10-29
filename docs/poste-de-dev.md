@@ -98,8 +98,7 @@ Installé dans un environnement virtuel Python dédié, hors du dépôt, pour ne
 toucher au Python global du poste et pour éviter d'installer `uv`, absent de la
 machine. Le paquet exige Python `>=3.12,<3.15` et le poste a 3.12.1.
 
-Le commit est figé, et non l'étiquette : une étiquette Git peut être déplacée
-sur un autre commit, une empreinte non.
+Le commit est figé, et non l'étiquette, pour la raison donnée dans l'ADR 0003.
 
 ```powershell
 python -m venv "$env:LOCALAPPDATA\skillspector-venv"

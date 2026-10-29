@@ -13,9 +13,9 @@ Règle : un skill, un agent ou un outil externe est **lu**, **scanné avec Skill
 | `code-reviewer` | agent, lecture seule | écrit pour le projet | dépôt | sans objet | 30 octobre 2026 |
 | `skillspector` | outil externe, scanner local | [NVIDIA/SkillSpector](https://github.com/NVIDIA/SkillSpector), Apache-2.0 | commit `abd82935b67f765a9541013c0866c6349251dcdf`, qui porte l'étiquette v2.13.2 | sans objet : c'est le scanner lui-même, son README a été lu à la place | 30 octobre 2026 |
 
-Le commit est figé, et non l'étiquette : une étiquette Git peut être déplacée
-sur un autre commit, une empreinte non. L'emplacement sur le poste et la
-commande de retrait sont dans `docs/poste-de-dev.md`.
+Le commit est figé, et non l'étiquette, pour la raison donnée dans l'ADR 0003.
+L'emplacement sur le poste et la commande de retrait sont dans
+`docs/poste-de-dev.md`.
 
 ## 2. Calendrier des outils externes
 

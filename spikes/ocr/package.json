@@ -10,7 +10,8 @@
     "mesure": "tsx src/mesure.ts",
     "rapprochement": "tsx src/rapprochement.ts",
     "factures": "tsx src/factures.ts",
-    "prix": "tsx src/prix.ts"
+    "prix": "tsx src/prix.ts",
+    "recurrence": "tsx src/recurrence.ts"
   },
   "devDependencies": {
     "@types/node": "^24.6.2",

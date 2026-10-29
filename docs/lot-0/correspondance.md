@@ -6,7 +6,7 @@ Analyse du 28 octobre 2026. Prototype : `spikes/correspondance/`. **Aucune requ�
 
 **Validée** : le critère de 80 % est atteint sur la mesure principale. Sur le jeu de contrôle, la bonne correspondance figure dans les 3 premières suggestions pour **100 % des ingrédients côté Picard** et **89 % côté Ciqual**. Sur l'ensemble des 87 ingrédients, 86 % et 89 %. Le point de départ mesuré aux hypothèses 3 et 5, un simple rapprochement de mots, plafonnait à 64 % et 79 %.
 
-Il reste une faiblesse réelle : quand un ingrédient n'a aucun équivalent dans la source, la méthode propose quand même quelque chose une fois sur trois.
+Il reste une faiblesse réelle : quand un ingrédient n'a aucun équivalent dans la source, la méthode propose quand même quelque chose **deux fois sur trois côté Picard et une fois sur deux côté Ciqual**.
 
 ## 2. Méthode
 
@@ -19,7 +19,9 @@ Il reste une faiblesse réelle : quand un ingrédient n'a aucun équivalent dans
 | Première suggestion | la même, limitée au premier rang, pour comparer |
 | Sécurité | sur les ingrédients **sans aucun équivalent**, la méthode propose-t-elle quand même quelque chose ? |
 
-La condition « qui ont un équivalent » est indispensable : sans elle, Picard plafonnerait mécaniquement à un tiers, puisqu'il ne vend ni farine, ni vinaigre, ni sucre. Et la restriction aux ingrédients à acheter écarte les 22 produits de placard que HelloFresh ne livre pas (`shipped: false`).
+La condition « qui ont un équivalent » est indispensable : sans elle, Picard plafonnerait mécaniquement à un tiers, puisqu'il ne vend ni farine, ni vinaigre, ni sucre. Et la restriction aux ingrédients à acheter écarte les 22 produits de placard que HelloFresh ne livre pas (`shipped: false`), ce qui laisse 65 ingrédients.
+
+**Ce comptage remplace celui de `picard.md`.** Sur ces 65 ingrédients à acheter, **22 ont un équivalent « bon » chez Picard et 33 un équivalent utilisable**, verdicts affinés après la revue des 544 couples de cette hypothèse. Le rapport de l'hypothèse 3 annonçait 13 correspondances franches et 29 utilisables sur les 87 ingrédients, produits de placard compris : c'est le même catalogue vu avec une vérité de référence plus large et un périmètre différent, et ce sont les chiffres de cette hypothèse qui font foi.
 
 ### Vérité de référence
 
@@ -153,7 +155,7 @@ Ce sont les cas où mon verdict est discutable. Si tu en contredis un, les chiff
 
 **Les propositions absurdes restent le point faible, et la correction venue de l'hypothèse 7 les a aggravées.** Pour les ingrédients que Picard ne vend pas, la méthode propose quelque chose dans 63 % des cas, contre 34 % avant correction : en acceptant de se rabattre sur un mot connu du catalogue quand le mot le plus rare en est absent, elle parle plus souvent, donc elle se trompe plus souvent aussi. La parade n'est pas technique mais d'interface : proposer, ne jamais imposer, et offrir « aucun de ces produits » comme premier choix.
 
-**Un produit cuit rapproché d'un ingrédient cru demande une conversion de quantité.** « Riz basmati cuit » est une variante acceptable de « Riz », mais 100 g de riz cuit ne valent pas 100 g de riz cru : le poids change du simple au triple à la cuisson, et la composition pour 100 g avec lui. Deux conséquences. La liste de courses porte toujours la **forme d'achat, crue** : c'est elle qu'on met dans le panier et qu'on paie. Et tout rapprochement vers une forme cuite, chez Picard comme dans Ciqual, doit porter un facteur de conversion, sans quoi les quantités et la nutrition seront fausses. Ce facteur n'est pas mesuré ici : il relève de la table d'équivalences de la section 6 du cahier des charges.
+**Un produit cuit rapproché d'un ingrédient cru demande une conversion de quantité.** « Riz basmati cuit » est une variante acceptable de « Riz », mais 100 g de riz cuit ne valent pas 100 g de riz cru : le riz gagne un facteur de **2,5 à 3 à la cuisson, à vérifier**, et la composition pour 100 g change d'autant. Deux conséquences. La liste de courses porte toujours la **forme d'achat, crue** : c'est elle qu'on met dans le panier et qu'on paie. Et tout rapprochement vers une forme cuite, chez Picard comme dans Ciqual, doit porter un facteur de conversion, sans quoi les quantités et la nutrition seront fausses. Ce facteur n'est pas mesuré ici : il relève de la table d'équivalences de la section 6 du cahier des charges.
 
 **Le rapprochement par les slugs sous-estime Picard.** Les slugs perdent les accents, la ponctuation et parfois des mots (`1kg-puree-carotte-srp`). Avec les noms réels et les catégories d'une collecte complète, les résultats devraient monter.
 
@@ -167,7 +169,7 @@ Ce sont les cas où mon verdict est discutable. Si tu en contredis un, les chiff
 
 1. **Retenir M7** comme méthode de suggestion : normalisation, ingrédient canonique, pondération IDF, exclusion des plats, accord d'état avec préférence par défaut pour le cru, recouvrement minimum de 40 % et pénalité normalisée.
 2. **Proposer trois suggestions, jamais une seule.** L'écart entre la première suggestion et les trois premières est de 7 à 18 points : c'est l'utilisateur qui tranche, et le gain est réel.
-3. **Offrir « aucun de ces produits » en premier choix**, et ne jamais préselectionner une suggestion. C'est la seule parade honnête au tiers de propositions absurdes.
+3. **Offrir « aucun de ces produits » en premier choix**, et ne jamais préselectionner une suggestion. C'est la seule parade honnête aux deux tiers de propositions absurdes côté Picard, et à la moitié côté Ciqual.
 4. **Mémoriser le choix par ingrédient canonique**, comme déjà décidé, et ne plus jamais reposer la question.
 5. **Deux sources, deux usages** : Picard pour le produit à acheter, Ciqual pour la nutrition d'un ingrédient sans code-barres. Les deux rapprochements sont indépendants et tous deux validés une fois à la main.
 6. **Préférer le filtrage par catégorie à la liste de mots** dès que les catégories Picard seront collectées, et conserver la liste comme repli.
@@ -178,7 +180,7 @@ Ce sont les cas où mon verdict est discutable. Si tu en contredis un, les chiff
 | Section | Modification à apporter |
 | --- | --- |
 | 6, correspondance ingrédient vers produit | Remplacer « proposition automatique du produit le plus proche » par « trois suggestions classées, avec « aucun de ces produits » en premier choix », et inscrire la méthode retenue (normalisation, canonique, IDF, exclusion des plats, accord d'état, recouvrement minimum) |
-| 6, correspondance | Inscrire le résultat mesuré : la bonne correspondance est dans les trois premières suggestions dans 86 % des cas côté Picard et 89 % côté Ciqual, et un tiers des ingrédients sans équivalent reçoit encore une proposition inutile |
+| 6, correspondance | Inscrire le résultat mesuré : la bonne correspondance est dans les trois premières suggestions dans 86 % des cas côté Picard et 89 % côté Ciqual, et les ingrédients sans équivalent reçoivent encore une proposition inutile deux fois sur trois côté Picard, une fois sur deux côté Ciqual |
 | 3, fonctionnalités | Préciser que l'association se valide une fois par ingrédient canonique, et qu'elle est modifiable ensuite |
 | 11, stack technique | Noter que la suggestion est un calcul local sur le catalogue déjà collecté : aucun service externe, aucun modèle d'IA |
 | 12, agents et skills | La correspondance ne nécessite pas d'IA : une mesure reproductible et sept couches de règles suffisent à dépasser le critère. À reconsidérer seulement si le catalogue complet dégrade les chiffres |

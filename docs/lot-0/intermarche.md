@@ -38,7 +38,7 @@ Collecte du 28 octobre 2026. Prototype : `spikes/intermarche/`. Magasin de test 
 | 5 | `/produit/riz-basmati/3038354536002` | autorisé | 200, 329 ko |
 | 6 | `/rayons/epicerie-salee/.../riz-basmati/5653` | autorisé | **403, DataDome** |
 
-**État du prototype livré.** L'exception au `robots.txt` a été retirée du CLAUDE.md en même temps que la collecte était abandonnée. Dans le code commité, les trois chemins concernés (recherche, API, `?pdvref=`) sont donc passés en interdits absolus du garde-fou : les requêtes 3 et 4 du tableau ne sont plus reproductibles, et leurs réponses brutes restent dans `data/`.
+**État du prototype livré.** L'exception au `robots.txt` **a existé le temps de cette hypothèse, puis a été retirée** du CLAUDE.md en même temps que la collecte était abandonnée. La règle en vigueur est désormais « robots.txt respecté, sans exception » : **les requêtes 3 et 4 du tableau seraient aujourd'hui interdites**, et le garde-fou du code commité les refuse, les trois chemins concernés (recherche, API, `?pdvref=`) étant passés en interdits absolus. Leurs réponses brutes restent dans `data/`.
 
 L'hôte d'API trouvé dans la configuration du site, `api.internal.intermarche.com` (clé `API_HOST_DOMAIN`), **ne résout pas** depuis l'extérieur : échec DNS, aucune requête HTTP émise. Son `robots.txt` n'a donc pas pu être lu, et aucun appel `/api/` n'a été tenté faute de chemin connu.
 
@@ -81,15 +81,15 @@ Aucune clé de disponibilité, aucun prix au kilo, aucune mention du magasin : n
 | Lancement | Quand | Ce qui a été chargé | Résultat |
 | --- | --- | --- | --- |
 | 1 | 28 octobre 2026, vers 20 h 22 | `https://www.intermarche.com/`, page d'accueil | captcha DataDome affiché immédiatement, script arrêté, navigateur fermé |
-| 2 | 28 octobre 2026, 20 h 23 à 20 h 27 | la même page d'accueil | **le défi DataDome s'est levé tout seul**, sans aucune intervention, puis le script a attendu quatre minutes une sélection de magasin qui n'est pas venue, et s'est arrêté |
+| 2 | 28 octobre 2026, 20 h 23 à 20 h 27 | la même page d'accueil | **le défi DataDome s'est levé sans intervention**, observé une fois sur les deux lancements, puis le script a attendu quatre minutes une sélection de magasin qui n'est pas venue, et s'est arrêté |
 
 **Deux chargements de la page d'accueil, et rien d'autre** : aucune recherche, aucune fiche produit, aucun appel d'API, et **zéro donnée captée** (`reponsesApiCaptees: 0` dans la trace `data/navigateur.json`). Chaque chargement a néanmoins entraîné le téléchargement des ressources de la page, dont les scripts de DataDome, en nombre que je n'ai pas instrumenté.
 
-Ce que l'essai a prouvé : **un vrai navigateur lève le défi DataDome sans intervention**, parce qu'il exécute le JavaScript que `fetch` ignore. Ce qu'il n'a pas prouvé : rien sur les prix, puisque la sélection du magasin demande un clic humain au premier lancement et que personne n'a cliqué.
+Ce que l'essai suggère, sur deux lancements seulement : **un vrai navigateur peut lever le défi DataDome sans intervention**, une fois sur deux ici, vraisemblablement parce qu'il exécute le JavaScript que `fetch` ignore. Le premier lancement, lui, s'est arrêté sur le captcha. Ce qu'il n'a pas prouvé : rien sur les prix, puisque la sélection du magasin demande un clic humain au premier lancement et que personne n'a cliqué.
 
 La voie a été **abandonnée par décision** : elle imposait un composant local hors de la PWA, elle cassait à chaque refonte du site, et elle revenait à neutraliser un dispositif anti-robot. Le code de l'essai (`src/navigateur.ts`) et la dépendance Playwright ont été retirés du prototype ; seul ce constat est gardé.
 
-**Reste sur la machine**, hors du dépôt Git : le profil Chromium créé pour cet essai, dans `spikes/intermarche/data/profil-chromium`, qui contient les cookies posés par le site, dont celui de DataDome. Il est ignoré par Git et peut être supprimé sans conséquence. Les navigateurs téléchargés par Playwright sont inventoriés dans `docs/lot-0/installations.md`, avec leur commande de retrait.
+**Ce que l'essai a laissé sur la machine, et qui a été supprimé depuis** : le profil Chromium créé pour l'occasion, dans `spikes/intermarche/data/profil-chromium`, qui contenait les cookies posés par le site, dont celui de DataDome. Il était hors du dépôt Git, et il a été **supprimé le 29 octobre 2026** (18 Mo), en même temps que les navigateurs téléchargés par Playwright. Inventaire et commandes de retrait : `docs/lot-0/installations.md`.
 
 **Piste de l'API partenaire officielle.** Une demande d'accès a été déposée sur `developers.intermarche.com`. C'est la seule voie propre pour obtenir prix et disponibilité par magasin : accès autorisé, contrat de données stable, pas de détection de bot à affronter. Statut à ce jour : demande envoyée, réponse inconnue. Tant qu'elle n'est pas accordée, rien ne change pour l'application ; si elle l'est, elle se branche derrière l'interface de connecteur existante, sans toucher au reste.
 
@@ -140,7 +140,7 @@ Ces modifications ont été appliquées au cahier des charges le 28 octobre 2026
 ## 7. Résumé de suivi
 
 - Hypothèse 2 invalidée pour la collecte automatique : aucun prix dans le HTML accessible, blocage DataDome (403 puis captcha) dès la 6e requête, sur un chemin autorisé par leur propre `robots.txt`, à 4 s d'écart et sans parallélisme.
-- Un navigateur réel (Chromium, fenêtre visible) a bien été lancé, deux fois le 28 octobre, avec l'autorisation explicite de Martin : **deux chargements de la page d'accueil, rien d'autre, zéro donnée captée**. Le défi DataDome s'est levé tout seul, donc la voie était techniquement ouverte, mais elle est abandonnée par décision, car elle imposait un composant local hors de la PWA et revenait à neutraliser un anti-robot. Le code de l'essai et la dépendance Playwright ont été retirés.
+- Un navigateur réel (Chromium, fenêtre visible) a bien été lancé, deux fois le 28 octobre, avec l'autorisation explicite de Martin : **deux chargements de la page d'accueil, rien d'autre, zéro donnée captée**. Le défi DataDome s'est levé sans intervention sur un lancement des deux, donc la voie semblait techniquement ouverte, mais elle est abandonnée par décision, car elle imposait un composant local hors de la PWA et revenait à neutraliser un anti-robot. Le code de l'essai, la dépendance Playwright et le profil Chromium ont été retirés.
 - Décision : Intermarché reste une enseigne de la liste, mais ses prix viennent uniquement des tickets et de la saisie après les courses, produit connu mis à jour avec historique, produit inconnu créé. Accès à l'API partenaire officielle demandé sur developers.intermarche.com, à brancher s'il est accordé.
 - Exploitable malgré tout : la fiche magasin `infos-pratiques` est rendue côté serveur (adresse, téléphone, horaires, coordonnées GPS, identifiant), et le code-barres est dans l'URL des fiches produit, qui sont sur un chemin autorisé.
 - Open Prices ne remplace pas : 337 466 prix et 229 Intermarché en France, mais zéro Intermarché à Aix-en-Provence, et le seul prix du produit témoin date de février 2024, dans un Carrefour de Lille. Prochaine hypothèse : Picard.

@@ -43,7 +43,7 @@ spikes/
 - Chaque prototype est autonome : son propre `package.json`, TypeScript exécuté avec `tsx`, aucune dépendance partagée entre prototypes.
 - Dépendances minimales : préférer le `fetch` natif de Node.
 - Données collectées uniquement dans `spikes/<hypothese>/data/`. Ne jamais les commiter.
-- Collecte respectueuse : une requête toutes les 3 secondes minimum, jamais en parallèle, échantillons limités (20 recettes, 10 produits).
+- Collecte respectueuse : une requête toutes les 3 secondes minimum, jamais en parallèle, échantillons limités (20 recettes, 10 produits). Exception accordée pour l'hypothèse 5 : 50 codes-barres, donc 40 fiches produit de plus que le plafond, avec les mêmes règles de rythme.
 - Code tiers (dépôts clonés, scripts trouvés en ligne) : le lire pour comprendre, ne jamais l'exécuter ni installer ses dépendances.
 - Si un site bloque techniquement (captcha, 403, 429, adresse IP bloquée) : ne jamais contourner, s'arrêter et le consigner dans le rapport.
 - robots.txt respecté, sans exception : un chemin interdit n'est jamais appelé, et aucun navigateur piloté ne sert à passer outre.
@@ -56,7 +56,7 @@ Fichier `docs/lot-0/<hypothese>.md`, toujours dans cet ordre :
 
 1. **Verdict** : validée, partielle ou invalidée, en une phrase.
 2. **Méthode** : URL, endpoints, paramètres, jetons utilisés.
-3. **Données disponibles** : liste des champs et leur format (structure seulement, pas de contenu recopié).
+3. **Données disponibles** : liste des champs et leur format (structure seulement, pas de contenu recopié). Pour une hypothèse qui mesure une méthode plutôt qu'une source, ce titre peut devenir **Résultats mesurés**, avec les taux obtenus et le protocole de mesure.
 4. **Limites et risques**.
 5. **Décisions prises** et pourquoi.
 6. **Impact sur le cahier des charges** : sections à modifier.

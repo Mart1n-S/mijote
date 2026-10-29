@@ -144,18 +144,7 @@ Structure : un fichier d'aliments (`alim_code`, `alim_nom_fr`, groupes), un fich
 9. **Attribution dans l'interface** : mention et liens vers Open Food Facts et l'ODbL, mention de Ciqual et de la licence Etalab 2.0 avec la version et sa date. À inscrire au cahier des charges, pas à improviser.
 10. **Agent utilisateur de l'application** : à trancher au lot concerné, avec une adresse dédiée au projet et non l'adresse personnelle de Martin.
 
-## 6. Contribuer en retour, et pas seulement lire
-
-La question se pose parce que nos tickets de caisse produiront exactement ce qui manque à ces bases. Réponse : **oui, les deux types de contribution sont prévus par le projet Open Food Facts.**
-
-- **Produits** : leur API documente les écritures, et précise même « There is no limit on product write queries », là où les lectures sont plafonnées à 15 par minute. Leur page de données demande explicitement aux réutilisateurs de renvoyer leurs contributions. Les trois produits Picard absents de la base sont donc des candidats naturels : nous en connaissons le code-barres, le nom, la marque, le conditionnement et le prix.
-- **Prix** : c'est le rôle d'Open Prices, mesuré à l'hypothèse 2 (337 466 prix, 229 lieux Intermarché, mais zéro à Aix-en-Provence). Son modèle de données porte les champs `proof`, `proof_id` et `receipt_quantity` : un prix peut être **adossé à une preuve**, dont une photo de ticket de caisse. C'est précisément notre cas d'usage.
-
-**Trois réserves avant d'y aller.** Contribuer signifie publier sous licence ouverte, donc de façon irréversible. Une photo de ticket contient des informations personnelles, à commencer par le magasin, la date, l'heure, un numéro de carte de fidélité et parfois les derniers chiffres d'une carte bancaire : il faudrait un découpage ou un floutage avant tout envoi, et le consentement explicite de l'utilisateur. Enfin, la qualité de ce qu'on renvoie engage le projet : mieux vaut peu de contributions vérifiées que beaucoup d'automatique.
-
-**Décision** : hors V1, mais à inscrire comme intention au cahier des charges, parce que ça change la conception du stockage des tickets. Si on sait dès maintenant qu'un ticket pourra un jour être exporté, on le stocke avec ses lignes séparées de son image, et on prépare le découpage.
-
-## 7. Impact sur le cahier des charges
+## 6. Impact sur le cahier des charges
 
 | Section | Modification à apporter |
 | --- | --- |
@@ -167,10 +156,23 @@ La question se pose parce que nos tickets de caisse produiront exactement ce qui
 | 13, découpage en lots | Ajouter une intention de contribution en retour : produits manquants vers Open Food Facts, prix adossés aux tickets vers Open Prices, hors V1, avec anonymisation préalable |
 | 15, hypothèses | Cocher l'hypothèse 5, avec les deux chiffres : 47/50 pour les codes-barres, 58/87 pour Ciqual après revue manuelle |
 
-## 8. Résumé de suivi
+## 7. Résumé de suivi
 
 - Hypothèse 5 validée. Sur 50 codes-barres (10 fiches Picard de l'hypothèse 3, 40 nouvelles, 1 Intermarché), Open Food Facts trouve **47 produits**, et pour tous les 47 les quatre valeurs pour 100 g sont présentes et **lues sur l'emballage**, pas estimées. Sucres et sel à 100 %, fibres à 94 %, Nutri-Score à 100 %, fiches toutes modifiées en 2025 ou 2026.
 - Piège d'API : en v3.6 `product.nutriments` est **vide**, tout est dans `nutrition.aggregated_set.nutrients`, où chaque valeur porte sa provenance (`packaging` ou `estimate`) et sa base (`source_per`). Un produit de l'échantillon donne tout **par portion** : il faut vérifier `source_per` avant d'utiliser une valeur.
 - Mon contrôle 4/4/9 signalait trois produits à tort en oubliant les fibres (2 kcal/g). Corrigé, il ne reste **aucune valeur manifestement fausse** dans l'échantillon.
 - Ciqual 2025 (3 484 aliments, licence Etalab 2.0, XML, pas d'API) couvre **58 des 87 ingrédients** HelloFresh après revue manuelle, dont 41 franchement, là où le rapprochement automatique annonçait 83. Certaines teneurs sont textuelles : « traces », « < 0,5 », « - ».
 - Obligations : attribution ODbL visible pour Open Food Facts, Etalab 2.0 pour Ciqual, cache obligatoire (15 lectures/min). Contribuer en retour est possible, produits par leur API d'écriture et prix par Open Prices avec preuve de ticket, mais hors V1 et seulement après anonymisation.
+
+## Annexe : contribuer en retour, et pas seulement lire
+
+La question se pose parce que nos tickets de caisse produiront exactement ce qui manque à ces bases. Réponse : **oui, les deux types de contribution sont prévus par le projet Open Food Facts.**
+
+- **Produits** : leur API documente les écritures, et précise même « There is no limit on product write queries », là où les lectures sont plafonnées à 15 par minute. Leur page de données demande explicitement aux réutilisateurs de renvoyer leurs contributions. Les trois produits Picard absents de la base sont donc des candidats naturels : nous en connaissons le code-barres, le nom, la marque, le conditionnement et le prix.
+- **Prix** : c'est le rôle d'Open Prices, mesuré à l'hypothèse 2 (337 466 prix, 229 lieux Intermarché, mais zéro à Aix-en-Provence). Son modèle de données porte les champs `proof`, `proof_id` et `receipt_quantity` : un prix peut être **adossé à une preuve**, dont une photo de ticket de caisse. C'est précisément notre cas d'usage.
+
+**Trois réserves avant d'y aller.** Contribuer signifie publier sous licence ouverte, donc de façon irréversible. Une photo de ticket contient des informations personnelles, à commencer par le magasin, la date, l'heure, un numéro de carte de fidélité et parfois les derniers chiffres d'une carte bancaire : il faudrait un découpage ou un floutage avant tout envoi, et le consentement explicite de l'utilisateur. Enfin, la qualité de ce qu'on renvoie engage le projet : mieux vaut peu de contributions vérifiées que beaucoup d'automatique.
+
+**Décision** : hors V1, mais à inscrire comme intention au cahier des charges, parce que ça change la conception du stockage des tickets. Si on sait dès maintenant qu'un ticket pourra un jour être exporté, on le stocke avec ses lignes séparées de son image, et on prépare le découpage.
+
+Cette annexe est hors du plan de rapport imposé : elle répond à une question posée en plus, et elle ne conditionne aucune décision du lot 0.

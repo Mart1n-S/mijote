@@ -14,6 +14,8 @@ Collecte du 28 octobre 2026. Prototype : `spikes/picard/`. Magasin de test : Pic
 
 **Charge réelle : 28 requêtes, 28 réponses 200.** Aucun 403, aucun captcha, aucune page de blocage. Journal complet dans `data/requetes.log`.
 
+**À ces 28 requêtes s'en ajoutent 40**, émises plus tard sur `picard.fr` pour l'hypothèse 5, afin de récupérer 40 fiches produit de plus et leurs codes-barres (voir `docs/lot-0/open-food-facts.md`). **Soit 68 requêtes au total sur ce domaine pour le lot 0**, toutes en 200, toutes à 4 s d'écart.
+
 | Étape | Script | Requêtes |
 | --- | --- | --- |
 | `robots.txt` et sitemap du catalogue | `src/sitemap.ts` | 2 |
@@ -114,7 +116,7 @@ L'hypothèse 4 est donc déjà à moitié traitée pour Picard. Attention au nom
 
 **Prix en ligne contre prix en magasin.** Les prix relevés sont ceux du site de vente en ligne. Rien ne garantit qu'ils soient identiques en magasin. À vérifier avec un ticket de caisse réel, ce que l'hypothèse 7 permettra de faire.
 
-**Fragilité de l'extraction.** Les microdonnées `schema.org` sont stables par nature, mais le prix au kilo et le conditionnement sont lus dans des classes CSS (`pi-ProductDetails-kiloPrice`, `pi-ProductDetails-weight`) qui disparaîtront à la première refonte. Il faut traiter ces deux champs comme optionnels et savoir recalculer le prix au kilo depuis le prix et le conditionnement.
+**Fragilité de l'extraction.** Les microdonnées `schema.org` devraient être plus stables, puisqu'un site les maintient pour les moteurs de recherche, mais ce n'est qu'une hypothèse, que rien ne garantit. Le prix au kilo et le conditionnement sont lus dans des classes CSS (`pi-ProductDetails-kiloPrice`, `pi-ProductDetails-weight`) qui disparaîtront à la première refonte. Il faut traiter ces deux champs comme optionnels et savoir recalculer le prix au kilo depuis le prix et le conditionnement.
 
 **Volume.** Les fiches pèsent de 400 à 790 ko de HTML. Recharger les 1 605 fiches représente environ 800 Mo de transfert et, à 4 s d'écart, près de 2 heures. D'où l'intérêt du `lastmod` : en régime établi, seules quelques dizaines de fiches changent par semaine.
 

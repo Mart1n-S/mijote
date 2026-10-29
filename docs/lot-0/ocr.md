@@ -10,7 +10,7 @@ Analyse des 28 et 29 octobre 2026. Prototype : `spikes/ocr/`. Tout en local : au
 
 Il reste à prouver ce que donnerait une **photo réelle de ticket thermique**, que personne n'a encore déposée, et les **tickets papier Intermarché** attendus après les prochaines courses. Le critère des 90 % n'est donc ni atteint ni réfuté pour le cas qui compte.
 
-Les factures drive, elles, se lisent sans OCR sur les trois modèles rencontrés, avec quantité et prix unitaire sur 100 % des lignes.
+Les factures drive, elles, se lisent sans OCR sur les **deux modèles rencontrés** parmi trois factures, avec quantité et prix unitaire sur 100 % des lignes.
 
 ## 2. Méthode
 
@@ -105,7 +105,21 @@ Une correction de méthode à consigner : l'analyseur du PDF s'appuie sur l'alig
 
 Quantité commandée, quantité livrée et prix unitaire sont présents sur **100 % des lignes**, et la catégorie de rayon sur 55 à 95 % selon la facture. Les deux écarts à exactement 10,00 € désignent un frais de livraison ou de service : **le total d'une facture n'est jamais la somme de ses lignes.**
 
-Elles sont toutes de **2024**, et non de 2025 : quinze à vingt-et-un mois d'ancienneté. La troisième suit un **modèle différent** des deux autres, sans en-tête de comptage et avec d'autres positions de colonnes. Les positions codées en dur ont donc été remplacées par une détection par document : au moins deux montants sur la ligne, le dernier est le total, les entiers qui précèdent sont les quantités, et le libellé est ce qui se trouve à gauche du premier chiffre. Les trois modèles passent avec cette seule règle.
+Elles sont toutes de **2024**, et non de 2025 : quinze à vingt-et-un mois d'ancienneté. Deux d'entre elles partagent la même mise en page ; la troisième suit un **second modèle**, sans en-tête de comptage et avec d'autres positions de colonnes. **Deux modèles sur trois factures**, donc, et rien ne dit qu'il n'y en a pas d'autres. Les positions codées en dur ont été remplacées par une détection par document : au moins deux montants sur la ligne, le dernier est le total, les entiers qui précèdent sont les quantités, et le libellé est ce qui se trouve à gauche du premier chiffre. Les deux modèles passent avec cette seule règle.
+
+### Récurrence des lignes d'une commande à l'autre
+
+Mesure hors ligne, sur les trois factures, par rapprochement des libellés normalisés.
+
+| Mesure | Valeur |
+| --- | --- |
+| Produits distincts sur les trois commandes | 48 |
+| Présents dans au moins deux commandes | **15/48 (31 %)** |
+| Présents dans les trois | 0/48 |
+| Recouvrement entre les deux grosses commandes (23 et 30 lignes) | **14 produits, 61 %** |
+| Recouvrement avec la petite commande (10 lignes) | 1 produit (10 %) et 0 produit |
+
+C'est cette mesure qui fonde la décision 5, et elle corrige une impression : la récurrence est réelle entre deux commandes comparables, faible dès qu'une commande est petite, et nulle sur les trois. Trois commandes ne suffisent pas à dégager un socle de produits habituels.
 
 ### Rapprochement par la méthode M7 de l'hypothèse 6
 
@@ -118,6 +132,8 @@ Trois mesures séparées, parce que les entrées n'ont rien de comparable.
 | **B2.** libellés complets des factures vers les 3 484 aliments Ciqual | 79 | 25/79 (32 %) | 16/25 (64 %) | 14/25 (56 %) |
 
 Le chiffre retenu est la **précision quand la méthode propose**, parce que le rappel n'est pas mesurable ici : les 87 ingrédients viennent de 20 recettes, donc la plupart des articles d'un panier réel n'ont légitimement aucun équivalent. C'est bien ce qu'on observe, et c'est sain : la méthode se tait sur 44 lignes de factures sur 79 face aux ingrédients HelloFresh.
+
+**Comparaison des trois mesures entre elles**, qui est la seule comparaison légitime : les chiffres de l'hypothèse 6 portaient sur des noms d'ingrédients propres, pas sur des libellés de caisse, et les mettre en regard n'aurait pas de sens. A **parle le plus souvent** (15 lignes sur 18) mais se trompe une fois sur trois, parce qu'un libellé tronqué ressemble à beaucoup de choses. B2 **parle le moins souvent** mais le plus justement (64 % d'utilisables), parce que les 3 484 aliments Ciqual couvrent aussi les produits transformés d'un panier réel. B1 est la plus faible des trois sur les deux plans à la fois, ce qui tient à la taille de sa cible : 87 ingrédients ne peuvent pas couvrir un panier de courses.
 
 **La troncature est le vrai obstacle**, et elle est spécifique aux tickets. Un libellé coupé à seize caractères perd la fin des mots : trois lignes sur dix-huit n'ont reçu **aucune** suggestion uniquement pour cette raison, parce qu'un mot tronqué ne correspond exactement à aucun mot du catalogue, et parce qu'un libellé court explique trop peu du nom complet du produit pour passer le seuil de recouvrement de M7.
 
@@ -151,10 +167,10 @@ Le chiffre retenu est la **précision quand la méthode propose**, parce que le 
 2. **Remises** : le prix de référence d'un produit est **le prix de sa ligne**. La remise est conservée comme **une ligne à part**, et le budget se calcule sur le **total réellement payé**.
 3. **Factures drive** : les prix viennent du **prix unitaire de chaque ligne**, jamais du total. Les frais de livraison ou de service comptent dans les dépenses, **mais pas dans le coût d'un repas**.
 4. **Prix des factures de 2024 : dernier recours.** Ils entrent au niveau « estimé » du tableau des niveaux de prix de la section 6 du cahier des charges, avec leur date affichée, et ne remplacent jamais un relevé récent. Leur vrai intérêt est ailleurs (point 5).
-5. **Les factures servent surtout à connaître les produits habituels.** Elles donnent des **libellés complets avec marque et conditionnement**, des quantités, des catégories de rayon, et un historique de ce qui est acheté réellement. C'est une base d'amorçage du catalogue personnel bien plus utile que leurs prix : 79 lignes sur trois commandes, dont la majorité reviennent d'une commande à l'autre.
+5. **Les factures servent surtout à connaître les produits habituels**, mais la récurrence est plus faible que je ne le pensais, et la mesure a corrigé mon impression. Sur 48 produits distincts relevés dans les trois commandes, **15 reviennent dans au moins deux commandes (31 %) et aucun dans les trois**. Le recouvrement dépend surtout de la taille des commandes : **61 % entre les deux grosses commandes** (23 et 30 lignes), mais 10 % et 0 % avec la petite (10 lignes). Elles restent une base d'amorçage utile du catalogue personnel, par leurs **libellés complets avec marque et conditionnement**, leurs quantités et leurs catégories de rayon, mais il faudra plus de trois commandes pour dégager un socle de produits habituels.
 6. **Deux analyseurs assumés** : un pour le texte d'un PDF, qui s'appuie sur l'alignement des colonnes, un tolérant pour l'OCR, qui ne s'y fie pas. Les confondre coûtait 100 % des lignes.
 7. **Filtre des données personnelles obligatoire dès l'extraction**, par liste blanche de sortie et non par nettoyage, avec le détecteur comme contrôle automatique. À appliquer aussi à toute image conservée.
-8. **Vérifier `source_per` de M7** sur toute entrée portant une marque : le mot exigé doit appartenir au vocabulaire du catalogue visé, sinon la méthode se tait à tort.
+8. **Vérifier le mot exigé de M7** sur toute entrée portant une marque : le mot exigé doit appartenir au vocabulaire du catalogue visé, sinon la méthode se tait à tort.
 9. **Ne pas promettre la lecture d'une photo** avant de l'avoir mesurée sur une vraie photo.
 
 ## 6. Impact sur le cahier des charges
@@ -165,7 +181,7 @@ Le chiffre retenu est la **précision quand la méthode propose**, parce que le 
 | 5, tableau des sources | Ligne Tickets de caisse : distinguer le ticket dématérialisé (couche de texte, lecture exacte) du ticket papier (OCR, non encore mesuré sur photo réelle) |
 | 5, tableau des sources | Ajouter les factures de commande drive comme source de **libellés et de quantités**, avec leurs prix au niveau « estimé » seulement |
 | 6, règles métier | Inscrire les deux règles : remise conservée comme ligne à part avec budget sur le total payé, et prix issus du prix unitaire de chaque ligne de facture, frais de livraison exclus du coût d'un repas |
-| 6, correspondance | Noter que les libellés de tickets sont **tronqués**, ce qui fait tomber le rapprochement à 67 % d'utilisables contre 86 % sur des libellés complets : prévoir un rapprochement par préfixe ou par trigrammes pour ce cas |
+| 6, correspondance | Noter que les libellés de tickets sont **tronqués** : leur rapprochement n'aboutit que sur 15 lignes sur 18, là où les libellés complets des factures reçoivent une suggestion bien plus rarement mais plus souvent juste. Prévoir un rapprochement par préfixe ou par trigrammes pour le cas tronqué |
 | 8, gestion des erreurs | Ajouter le cas du ticket illisible : proposer la saisie manuelle plutôt qu'un résultat douteux |
 | 10, exigences non fonctionnelles | Inscrire que l'OCR tourne en local, qu'aucun document ne sort, et que les champs personnels sont filtrés dès l'extraction |
 | 15, hypothèses | Marquer l'hypothèse 7 **partielle** : lecture exacte des tickets dématérialisés, OCR mesuré sur images seulement, critère des 90 % non tranché faute de photo réelle et de ticket Intermarché |
@@ -175,5 +191,5 @@ Le chiffre retenu est la **précision quand la méthode propose**, parce que le 
 - Hypothèse 7 **partielle**. Les trois tickets Picard sont dématérialisés et portent une couche de texte : leur lecture sans OCR est exacte, **18 lignes sur 18**, remise et multiplicateur compris, et les totaux se réconcilient au centime. « Importer un ticket PDF » devient donc la voie principale, l'OCR restant pour le papier.
 - OCR mesuré sur des **images rendues depuis ces PDF**, donc parfaites : 94 % des lignes à 150 points par pouce sur image nette, mais **6 % avec cinq degrés de rotation** et **0 % avec du bruit**. Rotation et bruit sont les deux ennemis. Avec 18 lignes, ces chiffres donnent un ordre de grandeur, pas une précision, et **ils ne valident pas le critère des 90 % pour une photo**, qui reste à mesurer.
 - Les six documents portaient nom, adresse, téléphone et numéro de fidélité, **non masqués**. Le filtre par liste blanche de sortie n'a laissé passer **aucune donnée personnelle sur les six**, y compris sur les factures où le bloc d'adresse du client se trouve à la même hauteur que les premières lignes d'articles.
-- Factures drive : trois modèles différents, lus sans OCR, avec quantité et prix unitaire sur 100 % des lignes. Elles datent de 2024, donc leurs prix ne servent que d'estimation de dernier recours, mais leurs **libellés complets avec marque et conditionnement** sont une bonne base pour amorcer le catalogue personnel.
+- Factures drive : deux modèles de mise en page sur trois factures, lus sans OCR, avec quantité et prix unitaire sur 100 % des lignes. Elles datent de 2024, donc leurs prix ne servent que d'estimation de dernier recours, mais leurs **libellés complets avec marque et conditionnement** sont une bonne base pour amorcer le catalogue personnel.
 - Rapprochement M7 : 67 % d'utilisables sur les libellés **tronqués** des tickets, 54 % vers les ingrédients HelloFresh et 64 % vers Ciqual sur les libellés complets des factures. Un bug de M7 a été trouvé et corrigé : le mot le plus discriminant d'un libellé de facture est la marque, absente des catalogues, ce qui faisait taire la méthode sur les 79 lignes.

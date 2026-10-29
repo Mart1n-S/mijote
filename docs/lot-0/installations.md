@@ -12,7 +12,7 @@ Rien de ce qui est listé ici n'est nécessaire à l'application : ce sont des o
 | ImageMagick | 7.1.2-34 Q16-HDRI | dégradations d'images (flou, rotation, bruit, contraste), hypothèse 7 | `C:\Program Files\ImageMagick-7.1.2-Q16-HDRI` | 62 Mo | `winget uninstall --id ImageMagick.ImageMagick` |
 | Poppler | 25.07.0-0 | rendu des PDF en images (`pdftoppm`), hypothèse 7 | `C:\Users\marti\AppData\Local\Microsoft\WinGet\Packages\oschwartz10612.Poppler_*` | 54 Mo | `winget uninstall --id oschwartz10612.Poppler` |
 
-**Installés par `winget`, depuis les paquets officiels, sans élévation de privilèges demandée au-delà de ce que `winget` fait lui-même.** Les trois sont des logiciels libres, et aucun ne communique avec l'extérieur dans l'usage qu'on en fait.
+**Installés par `winget`, depuis les paquets officiels, sans élévation de privilèges demandée au-delà de ce que `winget` fait lui-même.** Les trois sont des logiciels libres, et **rien dans l'usage qu'on en fait ne nécessite qu'ils communiquent avec l'extérieur** : les commandes lancées lisent et écrivent des fichiers locaux. Je n'ai pas vérifié leur trafic réseau, donc je ne peux pas l'affirmer.
 
 **Attention à un effet de bord de Poppler.** Son installation a ajouté des alias de commande (`pdftoppm`, `pdftotext`, `pdftops`, `pdfunite`, `zstd`) dans le dossier de liens de `winget`, qui est dans le `PATH`. Or `pdftotext` existait déjà, fourni par Git for Windows (`/mingw64/bin`). Selon l'ordre du `PATH`, c'est désormais peut-être la version de Poppler qui répond. Les deux font la même chose, mais si un outil tiers dépendait de la version de Git, c'est le seul point à surveiller.
 
@@ -25,6 +25,7 @@ Rien de ce qui est listé ici n'est nécessaire à l'application : ce sont des o
 | ~~Navigateur Chromium de Playwright~~ | essai du navigateur réel pour Intermarché, hypothèse 2, abandonné | `...\ms-playwright\chromium-1148` | 315 Mo | **supprimé le 29 octobre 2026** |
 | ~~Coquille sans tête de Chromium~~ | installée avec le précédent | `...\ms-playwright\chromium_headless_shell-1148` | 193 Mo | **supprimé le 29 octobre 2026** |
 | ~~`ffmpeg-1010`~~ | installé avec Playwright | `...\ms-playwright\ffmpeg-1010` | 3,4 Mo | **supprimé le 29 octobre 2026** |
+| ~~Profil Chromium de l'essai~~ | profil persistant créé par le lancement du navigateur réel, contenait les cookies posés par intermarche.com dont celui de DataDome | `spikes\intermarche\data\profil-chromium`, hors Git | 18 Mo | **supprimé le 29 octobre 2026** |
 
 **Le modèle français est dans `AppData` et non dans `Program Files`** parce que l'écriture dans `Program Files` demandait les droits administrateur, que je n'ai pas pris. Il s'utilise en passant `TESSDATA_PREFIX` à la commande, sans rien installer de plus.
 
@@ -63,12 +64,13 @@ Seuls les installateurs ont touché au `PATH` système, chacun pour son propre d
 
 ## 5. Tout retirer, dans l'ordre
 
-**Déjà fait le 29 octobre 2026**, 511 Mo récupérés :
+**Déjà fait le 29 octobre 2026**, 529 Mo récupérés :
 
 ```powershell
 Remove-Item -Recurse -Force "$env:LOCALAPPDATA\ms-playwright\chromium-1148"
 Remove-Item -Recurse -Force "$env:LOCALAPPDATA\ms-playwright\chromium_headless_shell-1148"
 Remove-Item -Recurse -Force "$env:LOCALAPPDATA\ms-playwright\ffmpeg-1010"
+Remove-Item -Recurse -Force ".\spikes\intermarche\data\profil-chromium"
 ```
 
 **Reste à retirer quand les tickets Intermarché auront été testés.** Tesseract, ImageMagick, Poppler et le modèle français sont conservés d'ici là : l'hypothèse 7 est partielle, et la lecture d'un ticket papier reste à mesurer.

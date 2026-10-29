@@ -109,7 +109,7 @@ Testé sur 5 magasins incomplets autour d'Aix, plus un témoin de contrôle dont
 
 ## 4. Limites et risques
 
-**OpenStreetMap n'est pas exhaustif, et on peut le mesurer.** Picard sert d'étalon : 1 090 magasins dans OSM contre **1 267 fiches officielles** relevées dans son sitemap, soit **86 % de complétude**. Transposé à Intermarché, cela donnerait un réseau réel d'environ 2 650 magasins. À prendre comme un ordre de grandeur et non comme un chiffre : ce calcul suppose que les deux enseignes sont cartographiées avec le même soin, et il ne corrige ni les magasins fermés restés dans OSM, ni les doublons que le regroupement à 80 m n'attrape pas.
+**OpenStreetMap n'est pas exhaustif, et on peut le mesurer.** Picard sert d'étalon : 1 090 magasins dans OSM contre **1 267 fiches officielles** relevées dans son sitemap, soit **86 % de complétude**. **Ce taux ne se transpose pas à Intermarché**, et je ne l'extrapole donc pas. Il supposerait que les deux enseignes sont cartographiées avec le même soin, et surtout il entrerait en contradiction avec le soupçon exprimé plus bas : les 2 280 magasins Intermarché dépassent déjà l'ordre de grandeur attendu, ce qui suggère un surcomptage plutôt qu'un manque. Les deux corrections joueraient en sens inverse, et rien ne permet de les chiffrer.
 
 **Pas de liste de référence pour Intermarché.** C'est la conséquence directe de la décision d'arrêter toute collecte chez eux : on ne peut pas vérifier le compte OSM contre une source officielle, comme on l'a fait pour Picard.
 

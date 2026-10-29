@@ -25,7 +25,7 @@ Deux étapes, exactement le principe lu dans `alexcodito/HelloFreshCrawler` (cod
 
 **Fiche détaillée.** `GET https://gw.hellofresh.com/api/recipes/{id}` répond aussi, mais renvoie exactement le même objet qu'un item de recherche (comparaison octet par octet : identique, zéro champ en plus). Un second appel par recette est donc inutile.
 
-**Jeton, durée de vie.** C'est un JWT de 205 caractères, charge utile `iat`, `exp`, `iss`, `jti` (aucune donnée personnelle, aucune portée). Durée de vie annoncée : 2 629 743 s, soit 30,4 jours. Le jeton obtenu était déjà émis depuis quelques minutes au moment de la collecte, donc il est mis en cache côté site et partagé entre visiteurs. Il n'a été écrit ni dans `data/`, ni dans le journal, ni ici : seules ses dates sortent du module `src/jeton.ts`.
+**Jeton, durée de vie.** C'est un JWT de 205 caractères, charge utile `iat`, `exp`, `iss`, `jti` (aucune donnée personnelle, aucune portée). Durée de vie annoncée : 2 629 743 s, soit 30,4 jours. Le jeton obtenu était déjà émis depuis quelques minutes au moment de la collecte, **ce qui suggère qu'il est mis en cache côté site, et peut-être partagé entre visiteurs**. Une seule observation : ce n'est pas établi. Il n'a été écrit ni dans `data/`, ni dans le journal, ni ici : seules ses dates sortent du module `src/jeton.ts`.
 
 **Charge appliquée.** 9 requêtes par le prototype, strictement séquentielles, 4 s d'attente entre chacune (au-dessus du minimum de 3 s), agent utilisateur honnête annonçant le prototype. Aucun statut 403, 429 ni captcha. Aucun PDF de fiche recette téléchargé. Journal complet dans `data/requetes.log`. S'y ajoutent 3 appels manuels à des pages publiques du site, pour vérifier les URL de recettes (section 4), soit 12 requêtes pour toute l'hypothèse.
 

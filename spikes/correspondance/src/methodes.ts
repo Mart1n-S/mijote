@@ -161,9 +161,20 @@ export function suggere(
   // Mot exige : le premier mot pour les methodes naives, le plus discriminant
   // des que l'on dispose de l'IDF. « Filet de poulet » doit exiger « poulet »,
   // pas « filet ».
+  //
+  // Correction venue de l'hypothese 7 : le mot exige doit **exister dans le
+  // catalogue vise**. Sans cette condition, un libelle qui porte une marque
+  // (« PETIT NAVIRE - Thon entier ») exige le mot le plus rare, c'est-a-dire la
+  // marque, qui n'est dans aucun catalogue d'ingredients : aucun candidat ne
+  // peut la contenir et la methode se tait a tort. Mesure a l'appui : les
+  // 79 lignes de factures drive rendaient zero suggestion avant correction.
+  const motsConnus = reglages.ponderation
+    ? motsIngredient.filter((mot) => contexte.idf.has(mot))
+    : motsIngredient;
+  if (motsConnus.length === 0) return [];
   const motExige = reglages.ponderation
-    ? [...motsIngredient].sort((a, b) => poids(b, contexte, reglages) - poids(a, contexte, reglages))[0]
-    : motsIngredient[0];
+    ? [...motsConnus].sort((a, b) => poids(b, contexte, reglages) - poids(a, contexte, reglages))[0]
+    : motsConnus[0];
 
   const etatsIngredient = etatsPresents(nomIngredient);
   const trigrammesIngredient = reglages.trigrammes ? trigrammes(texteIngredient) : null;

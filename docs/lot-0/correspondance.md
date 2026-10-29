@@ -73,8 +73,8 @@ Cette hypothèse ne découvre aucune source de données : elle mesure une métho
 | M0 naïve | 5/9 (56 %) | 4/9 (44 %) | 13/18 (72 %) | 12/18 (67 %) |
 | M1 normalisation | 5/9 (56 %) | 4/9 (44 %) | 14/18 (78 %) | 13/18 (72 %) |
 | M2 canonique | 6/9 (67 %) | 5/9 (56 %) | 14/18 (78 %) | 13/18 (72 %) |
-| M3 pondération | 9/9 (100 %) | 6/9 (67 %) | 14/18 (78 %) | 12/18 (67 %) |
-| M4 plats et état | 9/9 (100 %) | 8/9 (89 %) | 16/18 (89 %) | 13/18 (72 %) |
+| M3 pondération | 9/9 (100 %) | 6/9 (67 %) | 15/18 (83 %) | 13/18 (72 %) |
+| M4 plats et état | 9/9 (100 %) | 8/9 (89 %) | 17/18 (94 %) | 14/18 (78 %) |
 | M5 trigrammes | 9/9 (100 %) | 8/9 (89 %) | **17/18 (94 %)** | 14/18 (78 %) |
 | M6 recouvrement | 9/9 (100 %) | 8/9 (89 %) | 16/18 (89 %) | 13/18 (72 %) |
 | **M7 état par défaut** | **9/9 (100 %)** | **9/9 (100 %)** | 16/18 (89 %) | **14/18 (78 %)** |
@@ -84,25 +84,27 @@ Cette hypothèse ne découvre aucune source de données : elle mesure une métho
 | Méthode | Source | 3 premières (bon) | 1re (bon) | 3 premières (utilisables) | Propositions absurdes |
 | --- | --- | --- | --- | --- | --- |
 | M0 naïve | Picard | 14/22 (64 %) | 10/22 (45 %) | 25/33 (76 %) | 24/32 (75 %) |
-| M5 trigrammes | Picard | **21/22 (95 %)** | 19/22 (86 %) | 25/33 (76 %) | 17/32 (53 %) |
-| M7 état par défaut | Picard | 19/22 (86 %) | 18/22 (82 %) | 22/33 (67 %) | **11/32 (34 %)** |
+| M5 trigrammes | Picard | **21/22 (95 %)** | 19/22 (86 %) | 28/33 (85 %) | 28/32 (88 %) |
+| M7 état par défaut | Picard | 19/22 (86 %) | 18/22 (82 %) | 25/33 (76 %) | **20/32 (63 %)** |
 | M0 naïve | Ciqual | 37/47 (79 %) | 31/47 (66 %) | 50/55 (91 %) | 6/10 (60 %) |
-| M5 trigrammes | Ciqual | **43/47 (91 %)** | 31/47 (66 %) | 47/55 (85 %) | 5/10 (50 %) |
-| M7 état par défaut | Ciqual | 42/47 (89 %) | **35/47 (74 %)** | 46/55 (84 %) | **3/10 (30 %)** |
+| M5 trigrammes | Ciqual | **43/47 (91 %)** | 31/47 (66 %) | 50/55 (91 %) | 8/10 (80 %) |
+| M7 état par défaut | Ciqual | 42/47 (89 %) | **35/47 (74 %)** | 48/55 (87 %) | **5/10 (50 %)** |
 
-**Lecture.** Le critère des 80 % est atteint par M4 et au-delà. M5 a le meilleur rappel brut, M7 la meilleure tenue : il propose nettement moins d'absurdités (34 % contre 53 % côté Picard) et retrouve mieux la bonne réponse au premier rang côté Ciqual (74 % contre 66 %). C'est M7 que je retiens, parce qu'une suggestion absurde coûte plus cher qu'une suggestion manquante : elle demande à l'utilisateur de la rejeter, et elle entame sa confiance dans les suivantes.
+**Lecture.** Le critère des 80 % est atteint par M4 et au-delà. M5 a le meilleur rappel brut, M7 la meilleure tenue : il propose nettement moins d'absurdités (63 % contre 88 % côté Picard) et retrouve mieux la bonne réponse au premier rang côté Ciqual (74 % contre 66 %). C'est M7 que je retiens, parce qu'une suggestion absurde coûte plus cher qu'une suggestion manquante : elle demande à l'utilisateur de la rejeter, et elle entame sa confiance dans les suivantes.
 
 ### Ce que chaque couche apporte
 
 Les deux sauts sont nets et instructifs. **M3** fait passer Picard de 67 à 100 % sur le contrôle : la pénalité sur les mots en trop écarte enfin « écrasée de pommes de terre à l'huile d'olive » proposée pour « huile d'olive ». **M4** fait gagner 11 points à Ciqual en écartant les groupes « entrées et plats composés », « glaces » et « aliments infantiles ». **M6 et M7** ne gagnent presque rien en rappel mais divisent les propositions absurdes par deux.
 
-### Quatre bugs trouvés en route, tous instructifs
+### Cinq bugs trouvés en route, tous instructifs
 
 **Le pluriel en `-eaux`.** Ma règle « `-aux` devient `-al` » (chevaux, journaux) transformait « poireaux » en « poireal ». Résultat : plus aucun produit ne correspondait à l'ingrédient « Poireau », et l'erreur était invisible, puisqu'elle se traduisait seulement par une absence de suggestion. L'ordre des règles compte.
 
 **Le mot d'unité plus lourd que l'aliment.** « Gousse d'ail » proposait « Vanille, gousse » : « gousse » est plus rare que « ail », donc plus lourd en IDF. En retirant les mots d'unité de l'ingrédient, « Ail, cru » et `ail-coupe` arrivent en tête.
 
 **L'état traité comme du bruit.** J'avais mis `cuit` et `precuit` dans la liste du bruit Picard, avec les formats et les origines. Ils décrivent l'état de l'aliment : « Riz précuit » ne pouvait plus trouver « Riz blanc, précuit, cuit ».
+
+**Le mot exigé absent du catalogue, trouvé par l'hypothèse 7.** La méthode exige la présence du mot le plus discriminant de l'ingrédient. Sur une entrée qui porte une marque, comme un libellé de facture de courses, le mot le plus rare **est** la marque, et aucun catalogue d'ingrédients ne la contient : la méthode se taisait alors complètement, sur les 79 lignes de factures de l'hypothèse 7. Corrigé en restreignant le mot exigé au vocabulaire du catalogue visé. L'effet sur les mesures de cette hypothèse est double et honnête : Ciqual gagne quelques points en rappel (M4 passe de 89 à 94 % sur le contrôle), mais les propositions absurdes côté Picard passent de 34 à 63 %, parce qu'une méthode qui se rabat sur un mot connu parle plus souvent. Les tableaux ci-dessus sont ceux d'après correction.
 
 **Le seuil de score qui ne peut pas fonctionner.** J'ai voulu calibrer un seuil sous lequel ne rien proposer. Mesure faite : côté Picard, une bonne première suggestion score entre 3,0 et 5,7, et un ingrédient **sans équivalent** monte jusqu'à 8,9, parce que des dizaines de plats contiennent le mot « huile d'olive ». Les deux populations se chevauchent et s'inversent : un seuil absolu est inutilisable. C'est ce constat qui a mené au recouvrement, qui est une mesure relative, donc comparable d'un ingrédient à l'autre.
 
@@ -149,7 +151,7 @@ Ce sont les cas où mon verdict est discutable. Si tu en contredis un, les chiff
 
 **La vérité de référence est la mienne.** J'ai conçu les méthodes et étiqueté les couples. La convention « tout couple proposé et non listé est faux » protège contre l'oubli d'un bon couple à mon avantage, mais pas contre une définition trop généreuse de « variante ». Les 30 couples listés en section 3 sont là pour que tu puisses me contredire.
 
-**Un tiers de propositions absurdes subsiste.** Pour les ingrédients que Picard ne vend pas, la méthode propose encore quelque chose dans 34 % des cas. La parade n'est pas technique mais d'interface : proposer, ne jamais imposer, et offrir « aucun de ces produits » comme premier choix.
+**Les propositions absurdes restent le point faible, et la correction venue de l'hypothèse 7 les a aggravées.** Pour les ingrédients que Picard ne vend pas, la méthode propose quelque chose dans 63 % des cas, contre 34 % avant correction : en acceptant de se rabattre sur un mot connu du catalogue quand le mot le plus rare en est absent, elle parle plus souvent, donc elle se trompe plus souvent aussi. La parade n'est pas technique mais d'interface : proposer, ne jamais imposer, et offrir « aucun de ces produits » comme premier choix.
 
 **Un produit cuit rapproché d'un ingrédient cru demande une conversion de quantité.** « Riz basmati cuit » est une variante acceptable de « Riz », mais 100 g de riz cuit ne valent pas 100 g de riz cru : le poids change du simple au triple à la cuisson, et la composition pour 100 g avec lui. Deux conséquences. La liste de courses porte toujours la **forme d'achat, crue** : c'est elle qu'on met dans le panier et qu'on paie. Et tout rapprochement vers une forme cuite, chez Picard comme dans Ciqual, doit porter un facteur de conversion, sans quoi les quantités et la nutrition seront fausses. Ce facteur n'est pas mesuré ici : il relève de la table d'équivalences de la section 6 du cahier des charges.
 
@@ -187,5 +189,5 @@ Ce sont les cas où mon verdict est discutable. Si tu en contredis un, les chiff
 - Hypothèse 6 validée, sans aucune requête réseau. Le critère de 80 % est atteint : la bonne correspondance est dans les **3 premières suggestions** pour 100 % des ingrédients Picard et 89 % des Ciqual sur le jeu de contrôle, 86 % et 89 % sur l'ensemble des 87. Le rapprochement naïf des hypothèses 3 et 5 plafonnait à 64 % et 79 %.
 - Sept méthodes comparées en couches sur 544 couples étiquetés à la main, avec 29 ingrédients de contrôle jamais utilisés pour le réglage. Les deux gains décisifs : pénaliser les mots du produit absents de l'ingrédient (Picard, 67 à 100 %) et écarter les groupes de plats composés (Ciqual, plus 11 points).
 - Méthode retenue, M7 : normalisation du bruit commercial, ingrédient canonique avec retrait des mots d'unité, pondération IDF, exclusion des plats, préférence par défaut pour l'aliment cru, et recouvrement minimum de 40 % du nom du produit.
-- Faiblesse assumée : pour un ingrédient que la source ne vend pas, la méthode propose encore quelque chose une fois sur trois. Un seuil de score ne peut pas y remédier, c'est mesuré : les scores des bonnes réponses et des absurdités se chevauchent et s'inversent. La parade est l'interface, avec « aucun de ces produits » en premier choix.
-- Quatre bugs trouvés et consignés, dont un pluriel « poireaux » devenu « poireal » qui rendait l'ingrédient introuvable sans jamais lever d'erreur. Prochaine et dernière hypothèse : l'OCR sur cinq tickets réels.
+- Faiblesse assumée : pour un ingrédient que la source ne vend pas, la méthode propose quelque chose deux fois sur trois côté Picard, et une fois sur deux côté Ciqual. Un seuil de score ne peut pas y remédier, c'est mesuré : les scores des bonnes réponses et des absurdités se chevauchent et s'inversent. La parade est l'interface, avec « aucun de ces produits » en premier choix.
+- Cinq bugs trouvés et consignés, dont un pluriel « poireaux » devenu « poireal » qui rendait l'ingrédient introuvable sans jamais lever d'erreur, et le mot exigé absent du catalogue, remonté par l'hypothèse 7 sur des libellés portant une marque.

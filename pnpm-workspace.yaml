@@ -1,0 +1,38 @@
+packages:
+  - apps/*
+  - packages/*
+
+# pnpm bloque les scripts d'installation par défaut. esbuild a besoin du sien
+# pour mettre en place son binaire natif ; il arrive par drizzle-kit et par la
+# CLI NestJS. Toute autre autorisation doit être ajoutée ici sciemment.
+allowBuilds:
+  esbuild: true
+
+# drizzle-kit charge sa configuration par @esbuild-kit/esm-loader, déprécié, qui
+# réclame un esbuild antérieur à 0.25, vulnérable (GHSA-67mh-4wv8-2f99 : le
+# serveur de développement d'esbuild répond à n'importe quelle origine).
+# La surcharge ne vise que cette arête : écrite en plage, elle réécrirait aussi
+# les dépendances de pair sur esbuild ailleurs dans l'arbre.
+overrides:
+  '@esbuild-kit/core-utils>esbuild': 0.25.12
+
+# Exception d'audit, à réexaminer le 29 janvier 2027.
+#
+# GHSA-gcqx-w48m-w2h4 : deepmerge, empoisonnement de prototype par
+# mergeObject(). Aucune version corrigée n'est publiée, et la dernière version
+# de @rollup/plugin-node-resolve (16.0.3) en dépend encore, donc l'alerte n'est
+# pas corrigeable par mise à jour.
+#
+# Gravité basse, et le chemin n'est pas atteignable à l'exécution :
+# vite-plugin-pwa > workbox-build > @rollup/plugin-node-resolve > deepmerge,
+# soit de l'outillage de construction, qui ne fusionne que notre propre
+# configuration. Rien de ce code ne part dans le paquet livré au navigateur.
+#
+# À la date de réexamen : vérifier si deepmerge a publié un correctif, ou si
+# @rollup/plugin-node-resolve s'en est débarrassé, et retirer cette exception
+# le cas échéant.
+#   npm view deepmerge versions
+#   npm view @rollup/plugin-node-resolve dependencies.deepmerge
+auditConfig:
+  ignoreGhsas:
+    - GHSA-gcqx-w48m-w2h4

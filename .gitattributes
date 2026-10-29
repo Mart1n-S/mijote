@@ -1,0 +1,15 @@
+# Fins de ligne normalisées en LF dans le dépôt, quelle que soit la machine.
+* text=auto eol=lf
+
+# Fichiers binaires : ni conversion de fins de ligne, ni diff textuel.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+
+# Le verrou de pnpm est généré : pas de diff dans les revues.
+pnpm-lock.yaml -diff linguist-generated=true

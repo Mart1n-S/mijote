@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["node", "vite/client", "vite-plugin-pwa/vue"],
+    "noEmit": true,
+    // Greffon du service de langage, lu par le service de types de
+    // typescript-eslint : sans lui, les composants monofichiers importés
+    // depuis un .ts sont vus comme des types en erreur, et les règles typées
+    // deviennent inexploitables sur le front. tsc l'ignore, vue-tsc gère les
+    // .vue par lui-même.
+    "plugins": [{ "name": "@vue/typescript-plugin" }]
+  },
+  "include": ["src/**/*.ts", "src/**/*.vue", "e2e/**/*.ts", "vite.config.ts", "vitest.config.ts"]
+}

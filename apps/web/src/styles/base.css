@@ -47,10 +47,14 @@ h2,
 h3 {
   line-height: var(--leading-tight);
   font-weight: var(--weight-bold);
+  /* Aux grandes tailles, l'approche d'une police pensée pour le texte courant
+     paraît lâche : on la resserre. */
+  letter-spacing: var(--tracking-tight);
 }
 
 h1 {
   font-size: var(--text-2xl);
+  font-weight: var(--weight-display);
 }
 
 h2 {
@@ -70,6 +74,10 @@ a {
 
 a:hover {
   color: var(--color-accent-hover);
+}
+
+a:active {
+  color: var(--color-accent-active);
 }
 
 /*

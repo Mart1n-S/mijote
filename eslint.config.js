@@ -80,6 +80,14 @@ export default tseslint.config(
         projectService: false,
       },
     },
+    rules: {
+      // Par défaut, la règle exige à la fois l'imbrication du champ dans le
+      // label et le couple for/id. Le RGAA se contente de l'un des deux, et
+      // l'imbrication interdirait de placer l'aide du champ entre le label et
+      // le champ, où le lecteur d'écran la restitue au bon moment. On garde
+      // donc for/id, qui est l'association explicite.
+      'vuejs-accessibility/label-has-for': ['error', { required: { some: ['nesting', 'id'] } }],
+    },
   },
   {
     // Les fichiers de configuration n'appartiennent à aucun tsconfig de paquet :

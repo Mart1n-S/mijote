@@ -1,6 +1,6 @@
-import { AxeBuilder } from '@axe-core/playwright';
-import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
+
+import { accessibilityViolations } from './accessibility';
 
 /*
   La page de démonstration du design system sert de support au contrôle
@@ -13,16 +13,6 @@ import { expect, test } from '@playwright/test';
   que Reka UI fait à la fin de l'animation de sortie.
 */
 
-// RGAA 4.1 niveau AA s'appuie sur WCAG 2.1 niveau AA : ce sont les étiquettes
-// axe-core correspondantes.
-const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
-
-async function violations(page: Page) {
-  const result = await new AxeBuilder({ page }).withTags(TAGS).analyze();
-
-  return result.violations;
-}
-
 test.describe('page de démonstration du design system', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/design-system');
@@ -33,7 +23,7 @@ test.describe('page de démonstration du design system', () => {
     test.use({ colorScheme: 'light' });
 
     test("n'a aucune violation d'accessibilité", async ({ page }) => {
-      expect(await violations(page)).toEqual([]);
+      expect(await accessibilityViolations(page)).toEqual([]);
     });
   });
 
@@ -41,7 +31,7 @@ test.describe('page de démonstration du design system', () => {
     test.use({ colorScheme: 'dark' });
 
     test("n'a aucune violation d'accessibilité", async ({ page }) => {
-      expect(await violations(page)).toEqual([]);
+      expect(await accessibilityViolations(page)).toEqual([]);
     });
   });
 
@@ -116,7 +106,7 @@ test.describe('page de démonstration du design system', () => {
       await page.getByRole('button', { name: 'Supprimer la semaine' }).click();
       await expect(page.getByRole('dialog')).toBeVisible();
 
-      expect(await violations(page)).toEqual([]);
+      expect(await accessibilityViolations(page)).toEqual([]);
     });
   });
 
@@ -183,11 +173,13 @@ test.describe('page de démonstration du design system', () => {
       });
 
       expect(overlap).not.toBeNull();
-      expect(overlap ?? 0).toBeLessThanOrEqual(1);
+      // Zéro et non une tolérance : la réserve de place compte le liseré de la
+      // barre, donc rien ne doit passer dessous, pas même un pixel.
+      expect(overlap ?? 0).toBeLessThanOrEqual(0);
     });
 
     test("n'a aucune violation d'accessibilité", async ({ page }) => {
-      expect(await violations(page)).toEqual([]);
+      expect(await accessibilityViolations(page)).toEqual([]);
     });
   });
 });

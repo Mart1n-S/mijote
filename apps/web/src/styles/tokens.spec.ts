@@ -95,6 +95,18 @@ const PAIRS: ReadonlyArray<{
   { foreground: 'accent', background: 'background', threshold: 4.5, usage: 'lien' },
   { foreground: 'accent', background: 'surface', threshold: 4.5, usage: 'lien sur surface' },
   {
+    foreground: 'accent-hover',
+    background: 'background',
+    threshold: 4.5,
+    usage: 'lien survolé',
+  },
+  {
+    foreground: 'accent',
+    background: 'surface-hover',
+    threshold: 4.5,
+    usage: 'lien de navigation courant survolé',
+  },
+  {
     foreground: 'on-accent',
     background: 'accent',
     threshold: 4.5,

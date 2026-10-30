@@ -140,7 +140,9 @@ describe('BaseDialog', () => {
       expect(dialog.contains(document.activeElement)).toBe(true);
     });
 
-    it('se ferme par Échap et rend le focus au déclencheur', async () => {
+    // Le retour du focus sur le déclencheur n'est pas vérifiable ici, pour la
+    // raison dite en tête de fichier : il est couvert par le test Playwright.
+    it('se ferme par Échap', async () => {
       const wrapper = mountDialog();
       const trigger = triggerButton();
       const dialog = await openDialog(wrapper);

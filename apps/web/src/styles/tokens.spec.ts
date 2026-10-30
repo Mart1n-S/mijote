@@ -8,7 +8,9 @@ import { describe, expect, it } from 'vitest';
   dans les deux thèmes. Une couleur changée à la main qui ferait tomber un
   seuil fait tomber ce test.
 
-  Les ratios qu'il mesure sont ceux consignés dans docs/design-system.md.
+  Il tient les seuils, pas les valeurs : les ratios consignés dans
+  docs/design-system.md sont saisis à la main et sont à reporter avec la
+  couleur.
 */
 
 const SOURCE = readFileSync(new URL('./tokens.css', import.meta.url), 'utf8');
@@ -55,126 +57,57 @@ const darkBlockStart = SOURCE.indexOf(DARK_BLOCK);
 const lightTheme = colorsIn(SOURCE.slice(0, darkBlockStart));
 const darkTheme = new Map([...lightTheme, ...colorsIn(SOURCE.slice(darkBlockStart))]);
 
-/*
-  Chaque couple est un usage réel : du texte posé sur un fond (seuil 4,5:1),
-  ou un élément d'interface qui porte une information visuelle (seuil 3:1).
-  Ajouter un usage dans un composant veut dire ajouter son couple ici.
-*/
-const PAIRS: ReadonlyArray<{
+interface Pair {
   foreground: string;
   background: string;
   threshold: number;
   usage: string;
-}> = [
-  { foreground: 'text', background: 'background', threshold: 4.5, usage: 'texte courant' },
-  { foreground: 'text', background: 'surface', threshold: 4.5, usage: 'texte sur surface' },
-  {
-    foreground: 'text',
-    background: 'surface-hover',
-    threshold: 4.5,
-    usage: 'texte sur surface survolée',
-  },
-  {
-    foreground: 'text-muted',
-    background: 'background',
-    threshold: 4.5,
-    usage: 'texte secondaire',
-  },
-  {
-    foreground: 'text-muted',
-    background: 'surface',
-    threshold: 4.5,
-    usage: 'texte secondaire sur surface',
-  },
-  {
-    foreground: 'text-muted',
-    background: 'surface-hover',
-    threshold: 4.5,
-    usage: 'texte secondaire sur surface survolée',
-  },
-  { foreground: 'accent', background: 'background', threshold: 4.5, usage: 'lien' },
-  { foreground: 'accent', background: 'surface', threshold: 4.5, usage: 'lien sur surface' },
-  {
-    foreground: 'accent-hover',
-    background: 'background',
-    threshold: 4.5,
-    usage: 'lien survolé',
-  },
-  {
-    foreground: 'accent',
-    background: 'surface-hover',
-    threshold: 4.5,
-    usage: 'lien de navigation courant survolé',
-  },
-  {
-    foreground: 'on-accent',
-    background: 'accent',
-    threshold: 4.5,
-    usage: 'libellé du bouton principal',
-  },
-  {
-    foreground: 'on-accent',
-    background: 'accent-hover',
-    threshold: 4.5,
-    usage: 'libellé du bouton principal survolé',
-  },
-  {
-    foreground: 'on-danger',
-    background: 'danger',
-    threshold: 4.5,
-    usage: 'libellé du bouton de danger',
-  },
-  {
-    foreground: 'on-danger',
-    background: 'danger-hover',
-    threshold: 4.5,
-    usage: 'libellé du bouton de danger survolé',
-  },
-  {
-    foreground: 'border-strong',
-    background: 'background',
-    threshold: 3,
-    usage: "contour d'un champ",
-  },
-  {
-    foreground: 'border-strong',
-    background: 'surface',
-    threshold: 3,
-    usage: "contour d'un champ sur surface",
-  },
-  { foreground: 'focus', background: 'background', threshold: 3, usage: 'anneau de focus' },
-  {
-    foreground: 'focus',
-    background: 'surface',
-    threshold: 3,
-    usage: 'anneau de focus sur surface',
-  },
-  { foreground: 'success', background: 'background', threshold: 3, usage: 'repère de succès' },
-  {
-    foreground: 'success',
-    background: 'surface',
-    threshold: 3,
-    usage: 'repère de succès sur surface',
-  },
-  {
-    foreground: 'warning',
-    background: 'background',
-    threshold: 3,
-    usage: "repère d'avertissement",
-  },
-  {
-    foreground: 'warning',
-    background: 'surface',
-    threshold: 3,
-    usage: "repère d'avertissement sur surface",
-  },
-  { foreground: 'danger', background: 'background', threshold: 3, usage: "repère d'erreur" },
-  {
-    foreground: 'danger',
-    background: 'surface',
-    threshold: 3,
-    usage: "repère d'erreur sur surface",
-  },
+}
+
+/** Du texte posé sur un fond : seuil 4,5:1. */
+function text(foreground: string, background: string, usage: string): Pair {
+  return { foreground, background, threshold: 4.5, usage };
+}
+
+/** Un élément d'interface qui porte une information visuelle : seuil 3:1. */
+function ui(foreground: string, background: string, usage: string): Pair {
+  return { foreground, background, threshold: 3, usage };
+}
+
+/** Les quatre fonds sur lesquels du contenu peut être posé. */
+const SURFACES = ['background', 'surface', 'surface-hover', 'surface-active', 'raised'] as const;
+
+/*
+  Chaque couple est un usage réel. Ajouter un usage dans un composant veut dire
+  ajouter son couple ici, et une ligne dans le tableau de docs/design-system.md.
+*/
+const PAIRS: readonly Pair[] = [
+  // Texte courant et texte secondaire, sur chacun des fonds possibles.
+  ...SURFACES.map((surface) => text('text', surface, `texte courant sur ${surface}`)),
+  ...SURFACES.map((surface) => text('text-muted', surface, `texte secondaire sur ${surface}`)),
+
+  // L'accent sert de couleur de lien, donc de texte, sur chacun des fonds.
+  ...SURFACES.map((surface) => text('accent', surface, `lien sur ${surface}`)),
+
+  // Les trois états d'un bouton plein, dans les deux familles.
+  text('on-accent', 'accent', 'libellé du bouton principal au repos'),
+  text('on-accent', 'accent-hover', 'libellé du bouton principal survolé'),
+  text('on-accent', 'accent-active', 'libellé du bouton principal enfoncé'),
+  text('on-danger', 'danger', 'libellé du bouton de danger au repos'),
+  text('on-danger', 'danger-hover', 'libellé du bouton de danger survolé'),
+  text('on-danger', 'danger-active', 'libellé du bouton de danger enfoncé'),
+
+  // Contours de contrôle et anneau de focus, sur chacun des fonds.
+  ...SURFACES.map((surface) => ui('border-strong', surface, `contour d'un champ sur ${surface}`)),
+  ...SURFACES.map((surface) => ui('focus', surface, `anneau de focus sur ${surface}`)),
+
+  // Repères d'état : liserés et pastilles des messages.
+  ...SURFACES.map((surface) => ui('success', surface, `repère de succès sur ${surface}`)),
+  ...SURFACES.map((surface) => ui('warning', surface, `repère d'avertissement sur ${surface}`)),
+  ...SURFACES.map((surface) => ui('danger', surface, `repère d'erreur sur ${surface}`)),
+
+  // Le contour d'un champ invalide, qui est le repère d'erreur lui-même.
+  ui('danger', 'background', "contour d'un champ invalide"),
 ];
 
 describe('jetons de couleur', () => {
@@ -187,6 +120,13 @@ describe('jetons de couleur', () => {
     // Un nom présent en clair mais pas en sombre laisserait un composant avec
     // la couleur du thème clair sur un fond sombre.
     expect([...darkTheme.keys()].sort()).toEqual([...lightTheme.keys()].sort());
+  });
+
+  it('couvre chaque fond sur lequel du contenu est posé', () => {
+    // Un fond ajouté à tokens.css sans être ajouté ici passerait sans mesure.
+    for (const surface of SURFACES) {
+      expect(lightTheme.get(surface), `--color-${surface} doit être déclaré`).toBeDefined();
+    }
   });
 
   describe.each([

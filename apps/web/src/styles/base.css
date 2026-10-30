@@ -1,0 +1,148 @@
+/*
+  Styles des éléments natifs, posés une fois pour toutes. Tout passe par les
+  jetons de tokens.css : ce fichier ne décide d'aucune valeur.
+*/
+
+@import './tokens.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body,
+h1,
+h2,
+h3,
+h4,
+p,
+figure,
+blockquote,
+dl,
+dd {
+  margin: 0;
+}
+
+html {
+  /* Le défilement amené par un lien d'évitement ou une ancre reste doux,
+     sauf si l'utilisateur a demandé à réduire les animations (voir plus bas). */
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-background);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  /* L'ajustement automatique de iOS casse le zoom à 200 %. */
+  -webkit-text-size-adjust: 100%;
+}
+
+h1,
+h2,
+h3 {
+  line-height: var(--leading-tight);
+  font-weight: var(--weight-bold);
+}
+
+h1 {
+  font-size: var(--text-2xl);
+}
+
+h2 {
+  font-size: var(--text-xl);
+}
+
+h3 {
+  font-size: var(--text-lg);
+}
+
+a {
+  color: var(--color-accent);
+  /* Le soulignement reste : un lien ne doit pas se reconnaître à sa seule
+     couleur, y compris au milieu d'un paragraphe. */
+  text-decoration: underline;
+}
+
+a:hover {
+  color: var(--color-accent-hover);
+}
+
+/*
+  Anneau de focus unique pour toute l'application. L'écart de 2 px laisse
+  voir le fond de page entre le contrôle et l'anneau : il reste donc visible
+  même sur un bouton rempli de la couleur d'accent.
+
+  :focus-visible et non :focus, pour ne pas poser l'anneau sur un clic de
+  souris ; le clavier le déclenche toujours.
+*/
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Les images ne débordent jamais, y compris au zoom à 200 %. */
+img,
+picture,
+svg,
+video {
+  display: block;
+  max-width: 100%;
+}
+
+/* Les champs natifs héritent de la typographie plutôt que de celle du système. */
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+:where(ul, ol).list-reset {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/*
+  Texte réservé aux technologies d'assistance : il porte une information que
+  le visuel donne autrement (un témoin d'activité, l'état d'un champ). Il est
+  retiré de l'affichage sans être retiré de l'arbre d'accessibilité, ce que
+  ni display: none ni visibility: hidden ne permettent.
+*/
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/*
+  Réduction des animations. L'utilisateur a demandé au système de les couper :
+  on ne les raccourcit pas, on les supprime. La durée de 0,01 ms plutôt que
+  zéro garde l'événement de fin de transition, dont dépendent des composants
+  comme le dialogue de Reka UI pour savoir quand se démonter.
+*/
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,111 @@
+/*
+  Jetons de design de Mijote. Fichier unique : aucune couleur, taille,
+  espacement ni rayon n'est écrit en dur ailleurs dans apps/web.
+
+  Le mode sombre redéfinit les mêmes noms, jamais d'autres : un composant
+  n'a donc pas à savoir dans quel thème il est rendu.
+
+  Les ratios de contraste de chaque couple réellement utilisé sont mesurés
+  par tokens.spec.ts et consignés dans docs/design-system.md. Changer une
+  couleur ici fait échouer ce test si un seuil tombe.
+*/
+
+:root {
+  /* Couleurs, thème clair */
+  --color-background: #ffffff;
+  --color-surface: #f5f5f4;
+  --color-surface-hover: #ebebe9;
+
+  /* border sépare, border-strong cerne un contrôle : seul le second doit
+     tenir 3:1, parce que lui porte une information d'interface. */
+  --color-border: #e2e0dd;
+  --color-border-strong: #8a8783;
+
+  --color-text: #1a1a19;
+  --color-text-muted: #5c5955;
+
+  /* Une seule couleur d'accent, section 7 du cahier des charges. Le rouge
+     reste réservé au danger : les deux ne doivent jamais se confondre. */
+  --color-accent: #0f6b58;
+  --color-accent-hover: #0b5244;
+  --color-on-accent: #ffffff;
+
+  --color-success: #156b3c;
+  --color-warning: #8a5300;
+  --color-danger: #b3261e;
+  --color-danger-hover: #8f1e17;
+  --color-on-danger: #ffffff;
+
+  --color-focus: #0f6b58;
+
+  /* Typographie : pile système, aucune requête vers un service tiers. */
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', Menlo, Consolas, monospace;
+
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 2rem;
+
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-bold: 700;
+
+  /* Espacements : échelle de 4 px, en rem pour suivre le zoom texte. */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-7: 2rem;
+  --space-8: 3rem;
+
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-full: 9999px;
+
+  /* 44 px, le minimum RGAA pour une zone tactile. En rem : au zoom, la
+     cible grandit avec le texte au lieu de rester en arrière. */
+  --tap-min: 2.75rem;
+
+  --duration-fast: 150ms;
+
+  /* Largeur à partir de laquelle la navigation passe de la barre basse à
+     la colonne latérale (section 7 : mobile sous 640 px). Une requête de
+     media ne lit pas une propriété personnalisée : la valeur est répétée
+     dans les @media de base.css, et ce jeton sert de référence écrite. */
+  --breakpoint-nav: 40rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-background: #16181a;
+    --color-surface: #212426;
+    --color-surface-hover: #2a2e30;
+
+    --color-border: #32373a;
+    --color-border-strong: #6f7579;
+
+    --color-text: #ececea;
+    --color-text-muted: #b0b3b0;
+
+    /* En sombre, l'accent s'éclaircit et c'est le texte posé dessus qui
+       devient foncé : le couple reste au-dessus de 4,5:1 dans les deux sens. */
+    --color-accent: #4fcdac;
+    --color-accent-hover: #74dcc1;
+    --color-on-accent: #0a1512;
+
+    --color-success: #5fd18a;
+    --color-warning: #e3a74a;
+    --color-danger: #ff8b82;
+    --color-danger-hover: #ffa8a1;
+    --color-on-danger: #2a0a08;
+
+    --color-focus: #4fcdac;
+  }
+}

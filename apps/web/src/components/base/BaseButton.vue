@@ -72,13 +72,29 @@ function onClick(event: MouseEvent): void {
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   font-size: var(--text-base);
-  font-weight: var(--weight-medium);
+  font-weight: var(--weight-semibold);
   line-height: var(--leading-tight);
   text-align: center;
   cursor: pointer;
   transition:
     background-color var(--duration-fast) ease,
-    border-color var(--duration-fast) ease;
+    border-color var(--duration-fast) ease,
+    translate var(--duration-fast) ease;
+}
+
+/*
+  L'état enfoncé se voit aussi sans la couleur : le bouton descend d'un pixel.
+  Le déplacement est supprimé sous prefers-reduced-motion, où la couleur suffit
+  (base.css neutralise déjà la transition, pas la position d'arrivée).
+*/
+.button:active:not(:disabled, [aria-disabled='true']) {
+  translate: 0 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button:active:not(:disabled, [aria-disabled='true']) {
+    translate: none;
+  }
 }
 
 .button--primary {
@@ -88,6 +104,10 @@ function onClick(event: MouseEvent): void {
 
 .button--primary:hover:not(:disabled, [aria-disabled='true']) {
   background-color: var(--color-accent-hover);
+}
+
+.button--primary:active:not(:disabled, [aria-disabled='true']) {
+  background-color: var(--color-accent-active);
 }
 
 .button--secondary {
@@ -100,6 +120,10 @@ function onClick(event: MouseEvent): void {
   background-color: var(--color-surface-hover);
 }
 
+.button--secondary:active:not(:disabled, [aria-disabled='true']) {
+  background-color: var(--color-surface-active);
+}
+
 .button--danger {
   background-color: var(--color-danger);
   color: var(--color-on-danger);
@@ -107,6 +131,10 @@ function onClick(event: MouseEvent): void {
 
 .button--danger:hover:not(:disabled, [aria-disabled='true']) {
   background-color: var(--color-danger-hover);
+}
+
+.button--danger:active:not(:disabled, [aria-disabled='true']) {
+  background-color: var(--color-danger-active);
 }
 
 /* Un contrôle inactif est hors du champ des seuils de contraste (WCAG 1.4.3,

@@ -91,9 +91,12 @@ const open = defineModel<boolean>('open', { default: false });
   max-height: calc(100vh - 2 * var(--space-4));
   overflow-y: auto;
   padding: var(--space-5);
-  background-color: var(--color-background);
+  /* Le dialogue sort du plan de la page : surface surélevée et troisième
+     niveau d'ombre, le seul endroit de l'application qui l'utilise. */
+  background-color: var(--color-raised);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-3);
 }
 
 .dialog__title {

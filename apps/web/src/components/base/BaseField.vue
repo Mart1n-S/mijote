@@ -10,6 +10,8 @@ const props = withDefaults(
     /** Message d'erreur. Un message non vide rend le champ invalide. */
     error?: string;
     required?: boolean;
+    /** Indisponible : le champ sort de l'ordre de tabulation. */
+    disabled?: boolean;
     autocomplete?: string;
   }>(),
   {
@@ -17,6 +19,7 @@ const props = withDefaults(
     help: undefined,
     error: undefined,
     required: false,
+    disabled: false,
     autocomplete: undefined,
   },
 );
@@ -72,6 +75,7 @@ const describedBy = computed<string | undefined>(() => {
       :class="{ 'field__input--invalid': hasError }"
       :type="type"
       :required="required"
+      :disabled="disabled"
       :autocomplete="autocomplete"
       :aria-describedby="describedBy"
       :aria-invalid="hasError ? 'true' : undefined"
@@ -95,7 +99,7 @@ const describedBy = computed<string | undefined>(() => {
 }
 
 .field__label {
-  font-weight: var(--weight-medium);
+  font-weight: var(--weight-semibold);
 }
 
 .field__required {
@@ -117,6 +121,28 @@ const describedBy = computed<string | undefined>(() => {
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
   color: var(--color-text);
+  transition:
+    background-color var(--duration-fast) ease,
+    border-color var(--duration-fast) ease;
+}
+
+/*
+  Un champ réagit au survol et à l'enfoncement comme n'importe quel contrôle :
+  sans cela, rien ne distingue une zone de saisie d'un bloc de texte tant qu'on
+  n'a pas cliqué.
+*/
+.field__input:hover:not(:disabled) {
+  border-color: var(--color-text-muted);
+}
+
+.field__input:active:not(:disabled) {
+  background-color: var(--color-surface-hover);
+}
+
+.field__input:disabled {
+  background-color: var(--color-surface);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
 }
 
 .field__input--invalid {

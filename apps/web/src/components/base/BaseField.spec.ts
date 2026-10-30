@@ -160,6 +160,12 @@ describe('BaseField', () => {
     expect(wrapper.emitted('update:modelValue')).toEqual([['250']]);
   });
 
+  it("sort de l'ordre de tabulation quand il est désactivé", () => {
+    const wrapper = mountField({ disabled: true });
+
+    expect(wrapper.get('input').attributes('disabled')).toBeDefined();
+  });
+
   it('reste atteignable au clavier, même en erreur', () => {
     // Un champ en erreur est précisément celui qu'il faut pouvoir corriger :
     // ni disabled, ni readonly, ni sorti de l'ordre de tabulation.

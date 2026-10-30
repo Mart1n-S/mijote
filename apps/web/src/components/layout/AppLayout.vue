@@ -90,6 +90,11 @@ const links = computed(() =>
     'main'
     'footer';
   grid-template-rows: auto 1fr auto;
+  /* minmax(0, 1fr) et non 1fr : une colonne de grille vaut min-content par
+     défaut, donc elle s'élargit à son contenu le plus large et étire toute la
+     page. Un tableau large ferait alors défiler l'écran entier au lieu de
+     défiler lui-même. */
+  grid-template-columns: minmax(0, 1fr);
   /* dvh et non vh : sur mobile, vh compte la barre d'adresse et laisse le pied
      de page sous le bord de l'écran. */
   min-height: 100dvh;
@@ -109,7 +114,7 @@ const links = computed(() =>
 
 .layout__brand {
   font-size: var(--text-lg);
-  font-weight: var(--weight-bold);
+  font-weight: var(--weight-display);
 }
 
 .layout__main {
@@ -125,17 +130,24 @@ const links = computed(() =>
   font-size: var(--text-sm);
 }
 
-/* Sous 640 px : barre fixe en bas de l'écran. */
+/*
+  Sous 640 px : barre fixe en bas de l'écran. Elle reste au-dessus du contenu
+  qui défile, donc c'est une surface surélevée : fond raised et deuxième
+  niveau d'ombre. En sombre, c'est la surface plus claire qui fait le travail,
+  l'ombre noire ne se voyant pas (voir tokens.css).
+*/
 .layout__nav {
   position: fixed;
   right: 0;
   bottom: 0;
   left: 0;
   z-index: 1;
-  background-color: var(--color-surface);
+  background-color: var(--color-raised);
   border-top: var(--nav-border-width) solid var(--color-border);
-  /* Encoche et barre de gestes des téléphones. */
-  padding-bottom: env(safe-area-inset-bottom, 0);
+  box-shadow: var(--shadow-2);
+  /* Encoche et barre de gestes des téléphones : la barre garde sa hauteur
+     utile et pousse son fond jusqu'au bord bas de l'écran. */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .layout__nav-list {
@@ -146,28 +158,45 @@ const links = computed(() =>
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Zone tactile de 44 px minimum, RGAA. */
+  /* Zone tactile de 44 px minimum, RGAA. La barre ne porte aucun espacement
+     vertical propre : sa hauteur est donc celle-ci plus son liseré, ce que la
+     réserve de place du conteneur recalcule à l'identique. */
   min-height: var(--tap-min);
   min-width: var(--tap-min);
   padding: var(--space-2) var(--space-3);
   color: var(--color-text);
+  /* Plus petit que le texte courant : quatre entrées doivent tenir sur une
+     seule ligne à 320 px, et le gras de la page courante ne doit pas déborder
+     de sa colonne. */
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
   text-align: center;
   text-decoration: none;
+  transition: background-color var(--duration-fast) ease;
 }
 
 .layout__nav-link:hover {
   background-color: var(--color-surface-hover);
 }
 
+.layout__nav-link:active {
+  background-color: var(--color-surface-active);
+}
+
 /*
-  La page courante se signale par un trait et par une graisse, pas seulement
-  par une couleur. aria-current vient de RouterLink : la règle suit donc l'état
-  réel annoncé au lecteur d'écran, et non une classe tenue à la main.
+  La page courante se signale par trois choses, dont deux ne sont pas des
+  couleurs : un trait épais sur le bord de la barre, une graisse plus forte, et
+  seulement en troisième la couleur d'accent. Un écran monochrome ou un
+  daltonisme laisse les deux premières lisibles.
+
+  aria-current vient de RouterLink : la règle suit donc l'état réel annoncé au
+  lecteur d'écran, et non une classe tenue à la main.
 */
 .layout__nav-link[aria-current='page'] {
-  box-shadow: inset 0 -3px 0 0 var(--color-accent);
+  box-shadow: inset 0 3px 0 0 var(--color-accent);
   color: var(--color-accent);
-  font-weight: var(--weight-bold);
+  font-weight: var(--weight-display);
 }
 
 @media (min-width: 40rem) {
@@ -176,7 +205,7 @@ const links = computed(() =>
       'header header'
       'nav main'
       'nav footer';
-    grid-template-columns: minmax(9rem, auto) 1fr;
+    grid-template-columns: minmax(9rem, auto) minmax(0, 1fr);
     /* La barre est revenue dans le flux : plus rien à réserver. */
     padding-bottom: 0;
   }
@@ -204,6 +233,12 @@ const links = computed(() =>
 
   .layout__nav-link[aria-current='page'] {
     box-shadow: inset 3px 0 0 0 var(--color-accent);
+  }
+
+  /* En colonne, la barre n'est plus au-dessus de rien : pas d'ombre. */
+  .layout__nav {
+    box-shadow: none;
+    background-color: var(--color-surface);
   }
 }
 </style>

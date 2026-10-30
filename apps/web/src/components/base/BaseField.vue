@@ -131,8 +131,13 @@ const describedBy = computed<string | undefined>(() => {
   sans cela, rien ne distingue une zone de saisie d'un bloc de texte tant qu'on
   n'a pas cliqué.
 */
-.field__input:hover:not(:disabled) {
-  border-color: var(--color-text-muted);
+/*
+  L'état invalide est exclu du survol, et pas par style : sans cela, sa
+  spécificité plus forte remplaçait le contour rouge par le contour de survol
+  au moment précis où l'utilisateur pointe le champ à corriger.
+*/
+.field__input:hover:not(:disabled, .field__input--invalid) {
+  border-color: var(--color-border-hover);
 }
 
 .field__input:active:not(:disabled) {

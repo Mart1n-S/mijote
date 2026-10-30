@@ -87,11 +87,27 @@ a:active {
 
   :focus-visible et non :focus, pour ne pas poser l'anneau sur un clic de
   souris ; le clavier le déclenche toujours.
+
+  Aucun border-radius ici : un contour suit déjà la forme de l'élément, rayon
+  compris. En imposer un changerait la forme du contrôle lui-même au moment
+  où il reçoit le focus.
 */
 :focus-visible {
   outline: 2px solid var(--color-focus);
   outline-offset: 2px;
-  border-radius: var(--radius-sm);
+}
+
+/*
+  Un identifiant long, un nom de jeton ou une adresse ne doivent pas élargir la
+  page : ils se coupent là où il faut plutôt que de déborder. Sans cette règle,
+  un seul mot insécable fait défiler l'écran entier au texte agrandi.
+*/
+code,
+samp,
+kbd {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  overflow-wrap: anywhere;
 }
 
 /* Les images ne débordent jamais, y compris au zoom à 200 %. */

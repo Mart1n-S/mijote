@@ -34,13 +34,18 @@
   /* Assombri d'un cran par rapport à la maquette : il doit encore tenir 3:1
      sur la surface enfoncée, qui est le plus foncé des cinq fonds clairs. */
   --color-border-strong: #74758b;
+  /* Le même contour, renforcé au survol. « Renforcé » et non « assombri » :
+     en thème sombre il est plus clair, pas plus foncé. */
+  --color-border-hover: #4e4d61;
 
   --color-text: #1d1c28;
   --color-text-muted: #4e4d61;
 
   /* Une seule couleur d'accent, section 7 du cahier des charges. L'indigo
-     reste à plus de 38 points de dE2000 de chaque couleur d'état : aucune
-     chance de lire un accent comme une erreur ou un avertissement. */
+     est à bonne distance de chaque couleur d'état, dans les deux thèmes :
+     aucune chance de lire un accent comme une erreur ou un avertissement.
+     Les écarts mesurés sont dans docs/design-system.md, qui est le seul
+     endroit où ces chiffres vivent. */
   --color-accent: #44367d;
   --color-accent-hover: #342864;
   --color-accent-active: #281d4f;
@@ -83,6 +88,8 @@
   --font-sans:
     'Atkinson Hyperlegible Next', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
     Arial, sans-serif;
+  /* Pour le code et les identifiants, posée sur code, samp et kbd par
+     base.css. Pile système : aucune police à charger de plus. */
   --font-mono: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', Menlo, Consolas, monospace;
 
   --text-sm: 0.875rem;
@@ -149,6 +156,7 @@
 
     --color-border: #322f45;
     --color-border-strong: #7b7896;
+    --color-border-hover: #a7a3bd;
 
     --color-text: #eceaf4;
     --color-text-muted: #aba9bf;

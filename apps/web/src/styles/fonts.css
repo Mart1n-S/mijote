@@ -1,7 +1,8 @@
 /*
   Police du projet, hébergée dans le dépôt. Aucune requête vers Google Fonts
   ni vers un autre service tiers : le fichier est servi par l'application
-  elle-même, et son empreinte est consignée dans docs/design-system.md.
+  elle-même, et sa provenance comme son empreinte SHA-256 sont consignées
+  dans docs/design-system.md.
 
   Atkinson Hyperlegible Next, dessinée par la Braille Institute pour la basse
   vision : ses lettres sont différenciées là où les sans-serif se ressemblent

@@ -18,11 +18,14 @@ export default defineConfig({
         start_url: '/',
         scope: '/',
         // Un manifeste ne lit pas une propriété CSS personnalisée : ces deux
-        // valeurs sont donc recopiées des jetons du thème clair, qui est
-        // celui que le système d'exploitation affiche au lancement, avant que
-        // la page ne soit rendue. Voir apps/web/src/styles/tokens.css.
-        background_color: '#ffffff',
-        theme_color: '#0f6b58',
+        // valeurs sont donc recopiées à la main des jetons du thème clair,
+        // --color-background et --color-accent, qui est ce que le système
+        // d'exploitation affiche au lancement, avant que la page ne soit
+        // rendue. Toute refonte du coloris doit repasser ici : c'est le seul
+        // endroit du projet où une couleur vit hors de tokens.css, et
+        // docs/design-system.md le signale.
+        background_color: '#fbfbfe',
+        theme_color: '#44367d',
         icons: [
           {
             src: 'icon.svg',

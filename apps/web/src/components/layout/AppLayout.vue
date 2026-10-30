@@ -145,6 +145,13 @@ const links = computed(() =>
   background-color: var(--color-raised);
   border-top: var(--nav-border-width) solid var(--color-border);
   box-shadow: var(--shadow-2);
+  /*
+    Au texte agrandi, les libellés finissent par ne plus tenir. C'est la barre
+    qui défile alors, et pas la page : sa hauteur reste celle d'une ligne, donc
+    la réserve de place calculée plus haut reste exacte à toute taille de
+    texte, et aucun libellé n'est tronqué.
+  */
+  overflow-x: auto;
   /* Encoche et barre de gestes des téléphones : la barre garde sa hauteur
      utile et pousse son fond jusqu'au bord bas de l'écran. */
   padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -172,6 +179,9 @@ const links = computed(() =>
   font-weight: var(--weight-semibold);
   line-height: var(--leading-tight);
   text-align: center;
+  /* Sur une seule ligne : c'est ce qui rend la hauteur de la barre prévisible,
+     et donc la réserve de place exacte. */
+  white-space: nowrap;
   text-decoration: none;
   transition: background-color var(--duration-fast) ease;
 }
@@ -210,12 +220,19 @@ const links = computed(() =>
     padding-bottom: 0;
   }
 
-  /* Au-delà de 640 px : colonne latérale, dans le flux cette fois. */
+  /*
+    Au-delà de 640 px : colonne latérale, dans le flux cette fois. Elle n'est
+    plus au-dessus de rien, donc elle perd son ombre, reprend le fond de
+    surface et n'a plus à défiler.
+  */
   .layout__nav {
     position: static;
     grid-area: nav;
+    overflow-x: visible;
+    background-color: var(--color-surface);
     border-top: 0;
     border-right: 1px solid var(--color-border);
+    box-shadow: none;
     padding-bottom: 0;
   }
 
@@ -233,12 +250,6 @@ const links = computed(() =>
 
   .layout__nav-link[aria-current='page'] {
     box-shadow: inset 3px 0 0 0 var(--color-accent);
-  }
-
-  /* En colonne, la barre n'est plus au-dessus de rien : pas d'ombre. */
-  .layout__nav {
-    box-shadow: none;
-    background-color: var(--color-surface);
   }
 }
 </style>

@@ -11,6 +11,7 @@ Règle : un skill, un agent ou un outil externe est **lu**, **scanné avec Skill
 | `writing-style`, `security` | rules (toujours chargées) | écrites pour le projet | dépôt | sans objet | 30 octobre 2026 |
 | `typescript`, `vue-accessibility`, `api` | rules (selon les chemins) | écrites pour le projet | dépôt | sans objet | 30 octobre 2026 |
 | `code-reviewer` | agent, lecture seule | écrit pour le projet | dépôt | sans objet | 30 octobre 2026 |
+| `backlog-manager` | agent, écrit dans GitHub, jamais dans le dépôt | écrit pour le projet | dépôt | sans objet | 30 octobre 2026 |
 | `skillspector` | outil externe, scanner local | [NVIDIA/SkillSpector](https://github.com/NVIDIA/SkillSpector), Apache-2.0 | commit `abd82935b67f765a9541013c0866c6349251dcdf`, qui porte l'étiquette v2.13.2 | sans objet : c'est le scanner lui-même, son README a été lu à la place | 30 octobre 2026 |
 
 Le commit est figé, et non l'étiquette, pour la raison donnée dans l'ADR 0003.
@@ -33,13 +34,15 @@ L'emplacement sur le poste et la commande de retrait sont dans
 
 ## 3. Pipeline cible, mis en place progressivement
 
+Les numéros renvoient à l'ordre des neuf stories de `docs/backlog/lot-1.md`.
+
 | Story du lot 1 | Agent ajouté |
 | --- | --- |
-| Jetons de design et design system | `code-reviewer` |
-| Format d'erreur et journalisation | `security-reviewer`, `a11y-reviewer` |
-| Comptes sur invitation | `test-planner`, `test-writer` (limité aux fichiers de test par un hook) |
-| Profil foyer | `code-writer`, `doc-writer`, `pr-manager` |
-| Suivantes | skill `/feature <issue>`, qui enchaîne le pipeline |
+| 1, poser le design system et les jetons de design | `code-reviewer` (en place) |
+| 2, uniformiser les erreurs et la journalisation | `security-reviewer`, `a11y-reviewer` |
+| 4, créer les comptes, la connexion et la session | `test-planner`, `test-writer` (limité aux fichiers de test par un hook) |
+| 6, inviter et inscrire un utilisateur | `code-writer`, `doc-writer`, `pr-manager` |
+| À partir de 7 | skill `/feature <issue>`, qui enchaîne le pipeline |
 
 ## 4. Limites connues
 

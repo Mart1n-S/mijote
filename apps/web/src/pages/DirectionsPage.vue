@@ -1,70 +1,65 @@
 <script setup lang="ts">
 /*
-  PAGE TEMPORAIRE. Elle sert à choisir une direction visuelle et disparaît
-  avant la fusion de la PR #17, avec sa route et ce fichier. Seule la direction
-  retenue entre dans tokens.css.
+  PAGE TEMPORAIRE. Elle sert à choisir un coloris et disparaît avant la fusion
+  de la PR #17, avec sa route et ce fichier. Seul le coloris retenu entre dans
+  tokens.css.
 
-  Les trois palettes sont posées ici en dur, et c'est volontaire : il faut
-  pouvoir afficher les six thèmes en même temps, donc sans dépendre de
-  prefers-color-scheme ni des jetons du projet. Chaque cadre redéfinit les
-  mêmes noms de jetons dans sa propre portée.
+  La structure est fixée : c'est celle de la direction Marmite, retenue le
+  30 octobre 2026. Arrondis 3, 6 et 10 px, audace sur le prix, barre basse à
+  trait épais, Atkinson Hyperlegible Next. Seules les couleurs changent d'un
+  coloris à l'autre, et les neutres changent avec l'accent.
+
+  Les palettes sont posées en dur, et c'est volontaire : il faut afficher les
+  dix thèmes en même temps, donc sans dépendre de prefers-color-scheme ni des
+  jetons du projet. Chaque cadre redéfinit les mêmes noms dans sa portée.
 */
 
 type ThemeId = 'light' | 'dark';
 
+/** Écarts perceptuels (dE2000) entre l'accent et les couleurs à ne pas confondre. */
+interface Gaps {
+  danger: number;
+  warning: number;
+  success: number;
+  terracotta: number;
+}
+
 interface ThemeSpec {
   /** Les jetons de couleur, sans le préfixe `--color-`. */
   colors: Record<string, string>;
-  /** Deux niveaux d'ombre, le second pour ce qui flotte au-dessus du reste. */
-  shadows: { 1: string; 2: string };
-  /** Comment l'élévation se marque dans ce thème. */
-  elevation: string;
+  /** Teinte des ombres, reprise de la couleur de texte du coloris. */
+  shadowTint: string;
+  tightest: string[];
+  gaps: Gaps;
 }
 
-interface Direction {
+interface Colourway {
   id: string;
   name: string;
   tagline: string;
-  rationale: string;
-  /** L'unique endroit où cette direction se permet d'être forte. */
-  bold: string;
-  radii: { sm: string; md: string; lg: string; pill: string };
-  typography: {
-    body: number;
-    label: number;
-    heading: number;
-    tracking: string;
-    leading: string;
-    scale: string;
-  };
-  /** Comment la page courante se signale, en plus de la couleur. */
-  navIndicator: 'bar' | 'pill' | 'underline';
+  /** Ce que j'en pense, réserves comprises. */
+  note: string;
   themes: Record<ThemeId, ThemeSpec>;
-  tightest: { light: string[]; dark: string[] };
 }
 
-const FONT = "'Atkinson Hyperlegible Next', system-ui, sans-serif";
+/* Structure commune, celle de Marmite. */
+const STRUCTURE = {
+  radii: { sm: '3px', md: '6px', lg: '10px', pill: '999px' },
+  weights: { body: '400', label: '600', heading: '800' },
+  tracking: '-0.01em',
+  leading: '1.5',
+  font: "'Atkinson Hyperlegible Next', system-ui, sans-serif",
+};
 
-const DIRECTIONS: Direction[] = [
+const COLOURWAYS: Colourway[] = [
   {
-    id: 'marmite',
-    name: 'Marmite',
-    tagline: 'roux de fonte',
-    rationale:
-      "Un roux profond, couleur d'oignon revenu, posé sur des neutres tirés vers le brun. La " +
-      "direction la plus proche de la cuisine, mais tenue à l'écart du terracotta : l'accent est " +
-      'plus foncé et plus saturé, et le fond est un blanc à peine tiède, pas une crème.',
-    bold: 'Le prix par personne, seul élément mis en couleur et en gros. Le reste est calme.',
-    radii: { sm: '3px', md: '6px', lg: '10px', pill: '999px' },
-    typography: {
-      body: 400,
-      label: 600,
-      heading: 800,
-      tracking: '-0.01em',
-      leading: '1.5',
-      scale: 'resserrée, titres compacts',
-    },
-    navIndicator: 'bar',
+    id: 'roux',
+    name: 'Roux de fonte',
+    tagline: 'la référence, celle que vous avez vue',
+    note:
+      "Contrastes tenus, mais c'est le coloris dont l'accent s'approche le plus des couleurs " +
+      "d'état : 12,9 de l'erreur et 11,9 de l'avertissement en clair. Un repère orange et un " +
+      "repère d'erreur rouge se ressemblent, surtout en petit.",
     themes: {
       light: {
         colors: {
@@ -86,11 +81,9 @@ const DIRECTIONS: Direction[] = [
           'on-danger': '#ffffff',
           focus: '#9a4b16',
         },
-        shadows: {
-          1: '0 1px 2px rgb(42 33 28 / 8%)',
-          2: '0 4px 14px rgb(42 33 28 / 14%)',
-        },
-        elevation: 'ombre portée, teintée du brun du texte',
+        shadowTint: '42 33 28',
+        tightest: ['accent sur surface survolée, 4,79:1', 'liseré de contrôle sur surface, 3,50:1'],
+        gaps: { danger: 12.9, warning: 11.9, success: 44.3, terracotta: 20.5 },
       },
       dark: {
         colors: {
@@ -112,43 +105,85 @@ const DIRECTIONS: Direction[] = [
           'on-danger': '#330d08',
           focus: '#f0a06a',
         },
-        shadows: {
-          1: '0 1px 2px rgb(0 0 0 / 30%)',
-          2: '0 4px 14px rgb(0 0 0 / 38%)',
-        },
-        elevation: 'surface plus claire que le fond, ombre réduite au minimum',
+        shadowTint: '0 0 0',
+        tightest: [
+          'liseré de contrôle sur surface surélevée, 3,48:1',
+          'liseré de contrôle sur surface, 3,75:1',
+        ],
+        gaps: { danger: 15.3, warning: 11.7, success: 42.7, terracotta: 12.9 },
       },
-    },
-    tightest: {
-      light: [
-        'accent sur surface survolée, 4,79:1 pour 4,5',
-        'liseré de contrôle sur surface, 3,50:1 pour 3',
-      ],
-      dark: [
-        'liseré de contrôle sur surface surélevée, 3,48:1 pour 3',
-        'liseré de contrôle sur surface, 3,75:1 pour 3',
-      ],
     },
   },
   {
-    id: 'aubergine',
-    name: 'Aubergine',
-    tagline: 'prune et rondeur',
-    rationale:
-      "Une prune sourde, chaude parce qu'elle penche vers le rouge et non vers le bleu. C'est la " +
-      "direction la plus inattendue des trois, et celle qui ne risque jamais d'être confondue " +
-      'avec un avertissement ou une erreur. Formes plus rondes, transitions plus douces.',
-    bold: "L'action principale, seule forme en pilule pleine de la page.",
-    radii: { sm: '6px', md: '12px', lg: '18px', pill: '999px' },
-    typography: {
-      body: 400,
-      label: 500,
-      heading: 700,
-      tracking: '0',
-      leading: '1.6',
-      scale: 'aérée, interlignes larges',
+    id: 'fonte',
+    name: 'Bleu de fonte émaillée',
+    tagline: 'un bleu franc, jamais bleu-vert',
+    note:
+      "Le plus net du lot sur tous les écarts : au moins 36,8 de chaque couleur d'état, dans les " +
+      'deux thèmes. Un bleu pur, loin du bleu-vert des banques, et le seul coloris où la couleur ' +
+      "d'accent ne peut jamais être lue comme un état.",
+    themes: {
+      light: {
+        colors: {
+          background: '#fbfcfe',
+          surface: '#eef1f6',
+          'surface-hover': '#e3e8f0',
+          raised: '#ffffff',
+          border: '#dde3ec',
+          'border-strong': '#7a8496',
+          text: '#1b202a',
+          'text-muted': '#4e5665',
+          accent: '#27548f',
+          'accent-hover': '#1d4172',
+          'on-accent': '#ffffff',
+          success: '#1f6b3c',
+          warning: '#8a5a00',
+          danger: '#b3261e',
+          'danger-hover': '#8f1e17',
+          'on-danger': '#ffffff',
+          focus: '#27548f',
+        },
+        shadowTint: '27 32 42',
+        tightest: ['liseré de contrôle sur surface, 3,33:1', 'liseré de contrôle sur fond, 3,67:1'],
+        gaps: { danger: 42.3, warning: 45.8, success: 39.8, terracotta: 46.8 },
+      },
+      dark: {
+        colors: {
+          background: '#11151b',
+          surface: '#1a1f27',
+          'surface-hover': '#232935',
+          raised: '#202631',
+          border: '#2e3642',
+          'border-strong': '#78839a',
+          text: '#e9edf3',
+          'text-muted': '#a9b2c1',
+          accent: '#8fb6e8',
+          'accent-hover': '#adcbf2',
+          'on-accent': '#0d1a2b',
+          success: '#6fcb92',
+          warning: '#e3ae5a',
+          danger: '#ff9287',
+          'danger-hover': '#ffafa6',
+          'on-danger': '#330d08',
+          focus: '#8fb6e8',
+        },
+        shadowTint: '0 0 0',
+        tightest: [
+          'liseré de contrôle sur surface surélevée, 3,99:1',
+          'liseré de contrôle sur surface, 4,34:1',
+        ],
+        gaps: { danger: 38.2, warning: 42.3, success: 36.8, terracotta: 40.7 },
+      },
     },
-    navIndicator: 'pill',
+  },
+  {
+    id: 'prune',
+    name: 'Prune',
+    tagline: 'un violet qui penche vers le rouge',
+    note:
+      "Chaleureux sans être orange, et très loin de l'avertissement et du succès. Sa seule " +
+      "faiblesse est en sombre, où le rose s'approche à 20,3 de l'erreur : c'est la limite basse " +
+      'de ce qui reste distinguable.',
     themes: {
       light: {
         colors: {
@@ -170,11 +205,9 @@ const DIRECTIONS: Direction[] = [
           'on-danger': '#ffffff',
           focus: '#6e2a52',
         },
-        shadows: {
-          1: '0 1px 3px rgb(43 34 41 / 7%)',
-          2: '0 6px 20px rgb(43 34 41 / 12%)',
-        },
-        elevation: 'ombre large et très douce',
+        shadowTint: '43 34 41',
+        tightest: ['liseré de contrôle sur surface, 3,45:1', 'liseré de contrôle sur fond, 3,80:1'],
+        gaps: { danger: 26.4, warning: 40.3, success: 56.9, terracotta: 39.3 },
       },
       dark: {
         colors: {
@@ -196,107 +229,162 @@ const DIRECTIONS: Direction[] = [
           'on-danger': '#2a0a08',
           focus: '#dfa0c8',
         },
-        shadows: {
-          1: '0 1px 3px rgb(0 0 0 / 28%)',
-          2: '0 6px 20px rgb(0 0 0 / 35%)',
-        },
-        elevation: 'surface plus claire, à peine ombrée',
+        shadowTint: '0 0 0',
+        tightest: [
+          'liseré de contrôle sur surface surélevée, 3,49:1',
+          'liseré de contrôle sur surface, 3,78:1',
+        ],
+        gaps: { danger: 20.3, warning: 42.4, success: 56.7, terracotta: 27.9 },
       },
-    },
-    tightest: {
-      light: [
-        'liseré de contrôle sur surface, 3,45:1 pour 3',
-        'liseré de contrôle sur fond, 3,80:1 pour 3',
-      ],
-      dark: [
-        'liseré de contrôle sur surface surélevée, 3,49:1 pour 3',
-        'liseré de contrôle sur surface, 3,78:1 pour 3',
-      ],
     },
   },
   {
-    id: 'cafe',
-    name: 'Café',
-    tagline: 'brun torréfié',
-    rationale:
-      "Un brun de café très foncé comme couleur de marque, et le jaune réservé à l'avertissement. " +
-      "L'accent y sert de chrome plutôt que de tache de couleur, ce qui laisse toute la place au " +
-      'titrage. La plus sobre des trois, et la plus contrastée.',
-    bold: 'Le titre, en graisse 800, qui porte seul la personnalité de la page.',
-    radii: { sm: '4px', md: '8px', lg: '12px', pill: '999px' },
-    typography: {
-      body: 400,
-      label: 600,
-      heading: 800,
-      tracking: '-0.02em',
-      leading: '1.55',
-      scale: 'contrastée, grand écart entre titre et texte',
-    },
-    navIndicator: 'underline',
+    id: 'cassis',
+    name: 'Cassis',
+    tagline: 'un indigo profond, côté myrtille',
+    note:
+      "Deuxième meilleur jeu d'écarts après le bleu de fonte, et plus sombre que lui : la couleur " +
+      "se fait remarquer sans éclairer la page. C'est le coloris le plus éloigné du terracotta du " +
+      'skill, à 47,8.',
     themes: {
       light: {
         colors: {
-          background: '#fbfaf8',
-          surface: '#f0eee9',
-          'surface-hover': '#e6e3dc',
+          background: '#fbfbfe',
+          surface: '#eeeef7',
+          'surface-hover': '#e4e4f0',
           raised: '#ffffff',
-          border: '#dedad2',
-          'border-strong': '#857f74',
-          text: '#231f1a',
-          'text-muted': '#58524a',
-          accent: '#5a3a28',
-          'accent-hover': '#452b1d',
+          border: '#dcdcec',
+          'border-strong': '#7c7d94',
+          text: '#1d1c28',
+          'text-muted': '#4e4d61',
+          accent: '#44367d',
+          'accent-hover': '#342864',
           'on-accent': '#ffffff',
-          success: '#2a6b33',
+          success: '#1f6b3c',
           warning: '#8a5a00',
           danger: '#b3261e',
           'danger-hover': '#8f1e17',
           'on-danger': '#ffffff',
-          focus: '#5a3a28',
+          focus: '#44367d',
         },
-        shadows: {
-          1: '0 1px 1px rgb(35 31 26 / 6%)',
-          2: '0 2px 8px rgb(35 31 26 / 10%)',
-        },
-        elevation: 'liseré net, ombre presque absente',
+        shadowTint: '29 28 40',
+        tightest: ['liseré de contrôle sur surface, 3,49:1', 'liseré de contrôle sur fond, 3,90:1'],
+        gaps: { danger: 38.3, warning: 49.8, success: 43.2, terracotta: 47.8 },
       },
       dark: {
         colors: {
-          background: '#1a1713',
-          surface: '#241f19',
-          'surface-hover': '#2d2821',
-          raised: '#2a241d',
-          border: '#38322a',
-          'border-strong': '#7c7466',
-          text: '#f0ece3',
-          'text-muted': '#b6ae9f',
-          accent: '#d9b38c',
-          'accent-hover': '#e6c7a6',
-          'on-accent': '#2a1b0e',
-          success: '#78c98a',
-          warning: '#e3b35a',
+          background: '#141320',
+          surface: '#1d1b2b',
+          'surface-hover': '#262436',
+          raised: '#232135',
+          border: '#322f45',
+          'border-strong': '#7b7896',
+          text: '#eceaf4',
+          'text-muted': '#aba9bf',
+          accent: '#aaa2ea',
+          'accent-hover': '#c0baf2',
+          'on-accent': '#15112e',
+          success: '#6fcb92',
+          warning: '#e3ae5a',
           danger: '#ff9287',
           'danger-hover': '#ffafa6',
           'on-danger': '#330d08',
-          focus: '#d9b38c',
+          focus: '#aaa2ea',
         },
-        shadows: {
-          1: '0 1px 1px rgb(0 0 0 / 25%)',
-          2: '0 2px 8px rgb(0 0 0 / 30%)',
-        },
-        elevation: 'surface plus claire, pas d ombre visible',
+        shadowTint: '0 0 0',
+        tightest: [
+          'liseré de contrôle sur surface surélevée, 3,71:1',
+          'liseré de contrôle sur surface, 3,99:1',
+        ],
+        gaps: { danger: 32.4, warning: 47.3, success: 41.3, terracotta: 37.2 },
       },
     },
-    tightest: {
-      light: [
-        'liseré de contrôle sur surface, 3,43:1 pour 3',
-        'liseré de contrôle sur fond, 3,81:1 pour 3',
-      ],
-      dark: [
-        'liseré de contrôle sur surface surélevée, 3,32:1 pour 3',
-        'liseré de contrôle sur surface, 3,54:1 pour 3',
-      ],
+  },
+  {
+    id: 'poivre',
+    name: 'Poivre',
+    tagline: 'mon choix, le graphite chaud',
+    note:
+      "Une stratégie plutôt qu'une teinte : l'accent est presque achromatique, et tout le budget " +
+      "de couleur part dans les états, qui deviennent les seules taches de l'écran. Réserve " +
+      "assumée : le prix, qui porte l'audace, y est quasi noir, donc fort par sa taille et sa " +
+      'graisse, pas par sa couleur.',
+    themes: {
+      light: {
+        colors: {
+          background: '#fcfcfb',
+          surface: '#f1f0ed',
+          'surface-hover': '#e7e5e1',
+          raised: '#ffffff',
+          border: '#e1dfda',
+          'border-strong': '#807c74',
+          text: '#211f1b',
+          'text-muted': '#55514a',
+          accent: '#3f3a34',
+          'accent-hover': '#2b2722',
+          'on-accent': '#ffffff',
+          success: '#1f6b3c',
+          warning: '#8a5a00',
+          danger: '#b3261e',
+          'danger-hover': '#8f1e17',
+          'on-danger': '#ffffff',
+          focus: '#3f3a34',
+        },
+        shadowTint: '33 31 27',
+        tightest: ['liseré de contrôle sur surface, 3,65:1', 'liseré de contrôle sur fond, 4,05:1'],
+        gaps: { danger: 28.6, warning: 25.3, success: 26.6, terracotta: 39.4 },
+      },
+      dark: {
+        colors: {
+          background: '#16140f',
+          surface: '#1f1d17',
+          'surface-hover': '#2d2a22',
+          raised: '#262319',
+          border: '#342f26',
+          'border-strong': '#7e7868',
+          text: '#efece4',
+          'text-muted': '#b3ada0',
+          accent: '#e0d9ce',
+          'accent-hover': '#efe9e0',
+          'on-accent': '#1d1a14',
+          success: '#6fcb92',
+          warning: '#e3ae5a',
+          danger: '#ff9287',
+          'danger-hover': '#ffafa6',
+          'on-danger': '#330d08',
+          focus: '#e0d9ce',
+        },
+        shadowTint: '0 0 0',
+        tightest: [
+          'liseré de contrôle sur surface surélevée, 3,57:1',
+          'liseré de contrôle sur surface, 3,83:1',
+        ],
+        gaps: { danger: 25.8, warning: 21.4, success: 25.2, terracotta: 29.7 },
+      },
     },
+  },
+];
+
+/** Coloris essayés puis écartés, avec la mesure qui les écarte. */
+const REJECTED = [
+  {
+    name: 'Vert olive',
+    reason:
+      'accent à 14,3 du vert de succès en clair et 16,7 en sombre. Un repère de succès et la ' +
+      "couleur de marque se ressembleraient, et le succès ne peut pas s'en éloigner sans virer " +
+      'au bleu-vert, précisément ce que vous ne voulez pas.',
+  },
+  {
+    name: 'Vert sauge',
+    reason:
+      "pire encore que l'olive, de 10,9 à 13,7 du vert de succès selon la nuance essayée. Le vert " +
+      'gris est moins saturé, donc plus proche du succès et non plus loin.',
+  },
+  {
+    name: 'Bordeaux',
+    reason:
+      "tenable en clair, à 22, mais pas en sombre : il s'y éclaircit en un rose à 10,9 du rouge " +
+      "d'erreur. L'éloigner le sortirait du bordeaux.",
   },
 ];
 
@@ -314,22 +402,26 @@ const GROCERIES = [
   { name: 'Thym frais', quantity: '1 botte', price: '1,10 €' },
 ];
 
-/** Les jetons d'une direction et d'un thème, en propriétés personnalisées. */
-function tokensFor(direction: Direction, theme: ThemeId): Record<string, string> {
-  const spec = direction.themes[theme];
+/** Les jetons d'un coloris et d'un thème, en propriétés personnalisées. */
+function tokensFor(colourway: Colourway, theme: ThemeId): Record<string, string> {
+  const spec = colourway.themes[theme];
+  const tint = spec.shadowTint;
+  const strong = theme === 'light' ? '14%' : '38%';
+  const soft = theme === 'light' ? '8%' : '30%';
+
   const vars: Record<string, string> = {
-    '--font-sans': FONT,
-    '--radius-sm': direction.radii.sm,
-    '--radius-md': direction.radii.md,
-    '--radius-lg': direction.radii.lg,
-    '--radius-pill': direction.radii.pill,
-    '--shadow-1': spec.shadows[1],
-    '--shadow-2': spec.shadows[2],
-    '--weight-body': String(direction.typography.body),
-    '--weight-label': String(direction.typography.label),
-    '--weight-heading': String(direction.typography.heading),
-    '--tracking-heading': direction.typography.tracking,
-    '--leading': direction.typography.leading,
+    '--font-sans': STRUCTURE.font,
+    '--radius-sm': STRUCTURE.radii.sm,
+    '--radius-md': STRUCTURE.radii.md,
+    '--radius-lg': STRUCTURE.radii.lg,
+    '--radius-pill': STRUCTURE.radii.pill,
+    '--weight-body': STRUCTURE.weights.body,
+    '--weight-label': STRUCTURE.weights.label,
+    '--weight-heading': STRUCTURE.weights.heading,
+    '--tracking-heading': STRUCTURE.tracking,
+    '--leading': STRUCTURE.leading,
+    '--shadow-1': `0 1px 2px rgb(${tint} / ${soft})`,
+    '--shadow-2': `0 4px 14px rgb(${tint} / ${strong})`,
   };
 
   for (const [name, value] of Object.entries(spec.colors)) {
@@ -338,67 +430,85 @@ function tokensFor(direction: Direction, theme: ThemeId): Record<string, string>
 
   return vars;
 }
+
+/** Le plus petit écart aux couleurs d'état : c'est lui qui juge un coloris. */
+function worstGap(gaps: Gaps): number {
+  return Math.min(gaps.danger, gaps.warning, gaps.success);
+}
 </script>
 
 <template>
-  <h1>Trois directions visuelles</h1>
+  <h1>Cinq coloris, une seule structure</h1>
 
   <p class="lead">
-    Page temporaire. Chaque direction est montrée sur le même écran réaliste, en clair et en sombre,
-    à 320 px de large avec sa barre de navigation basse. Les trois palettes passent les trente
-    couples de contraste exigés, dans les deux thèmes. Seule celle que vous retenez entrera dans
+    Page temporaire. La structure est celle de Marmite, retenue : arrondis 3, 6 et 10 px, audace sur
+    le prix, barre basse à trait épais, Atkinson Hyperlegible Next. Seules les couleurs changent, et
+    les neutres changent avec l'accent. Les cinq coloris passent les trente couples de contraste
+    dans les deux thèmes, sans aucun échec. Seul celui que vous retenez entrera dans
     <code>tokens.css</code>.
   </p>
 
-  <section v-for="direction in DIRECTIONS" :key="direction.id" class="direction">
-    <h2>{{ direction.name }}, {{ direction.tagline }}</h2>
+  <p class="lead">
+    L'écart est un <abbr title="différence de couleur CIEDE2000">dE2000</abbr> : au-dessous de 20,
+    deux couleurs restent parentes à l'oeil, surtout en petit. C'est le chiffre qui décide ici, et
+    c'est lui qui a écarté trois coloris, listés en bas de page.
+  </p>
 
-    <p>{{ direction.rationale }}</p>
+  <section v-for="colourway in COLOURWAYS" :key="colourway.id" class="colourway">
+    <h2>{{ colourway.name }}, {{ colourway.tagline }}</h2>
 
-    <dl class="spec">
-      <div>
-        <dt>Audace</dt>
-        <dd>{{ direction.bold }}</dd>
-      </div>
-      <div>
-        <dt>Arrondis</dt>
-        <dd>
-          {{ direction.radii.sm }}, {{ direction.radii.md }}, {{ direction.radii.lg }}, et une
-          pilule pour les formes pleines
-        </dd>
-      </div>
-      <div>
-        <dt>Ombres, en clair</dt>
-        <dd>{{ direction.themes.light.elevation }}</dd>
-      </div>
-      <div>
-        <dt>Ombres, en sombre</dt>
-        <dd>{{ direction.themes.dark.elevation }}</dd>
-      </div>
-      <div>
-        <dt>Typographie</dt>
-        <dd>
-          Atkinson Hyperlegible Next, graisses {{ direction.typography.body }},
-          {{ direction.typography.label }} et {{ direction.typography.heading }}, échelle
-          {{ direction.typography.scale }}
-        </dd>
-      </div>
-      <div>
-        <dt>Contrastes les plus serrés</dt>
-        <dd>
-          <ul class="tight">
-            <li v-for="line in direction.tightest.light" :key="line">Clair : {{ line }}</li>
-            <li v-for="line in direction.tightest.dark" :key="line">Sombre : {{ line }}</li>
-          </ul>
-        </dd>
-      </div>
-    </dl>
+    <p>{{ colourway.note }}</p>
+
+    <table class="gaps">
+      <caption>
+        Écarts de l'accent, en dE2000
+      </caption>
+      <thead>
+        <tr>
+          <th scope="col">Thème</th>
+          <th scope="col" class="num">Erreur</th>
+          <th scope="col" class="num">Avertissement</th>
+          <th scope="col" class="num">Succès</th>
+          <th scope="col" class="num">Terracotta</th>
+          <th scope="col">Contrastes les plus serrés</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="theme in THEMES" :key="theme.id">
+          <th scope="row">{{ theme.label }}</th>
+          <td class="num" :class="{ weak: colourway.themes[theme.id].gaps.danger < 20 }">
+            {{ colourway.themes[theme.id].gaps.danger.toFixed(1).replace('.', ',') }}
+          </td>
+          <td class="num" :class="{ weak: colourway.themes[theme.id].gaps.warning < 20 }">
+            {{ colourway.themes[theme.id].gaps.warning.toFixed(1).replace('.', ',') }}
+          </td>
+          <td class="num" :class="{ weak: colourway.themes[theme.id].gaps.success < 20 }">
+            {{ colourway.themes[theme.id].gaps.success.toFixed(1).replace('.', ',') }}
+          </td>
+          <td class="num">
+            {{ colourway.themes[theme.id].gaps.terracotta.toFixed(1).replace('.', ',') }}
+          </td>
+          <td>{{ colourway.themes[theme.id].tightest.join(' ; ') }}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p class="verdict">
+      Écart le plus faible aux couleurs d'état :
+      <strong>
+        {{
+          Math.min(worstGap(colourway.themes.light.gaps), worstGap(colourway.themes.dark.gaps))
+            .toFixed(1)
+            .replace('.', ',')
+        }}
+      </strong>
+    </p>
 
     <div class="frames">
       <figure v-for="theme in THEMES" :key="theme.id" class="figure">
         <figcaption>Mode {{ theme.label }}</figcaption>
 
-        <div class="frame" :style="tokensFor(direction, theme.id)">
+        <div class="frame" :style="tokensFor(colourway, theme.id)">
           <div class="screen">
             <!-- Carte de recette : la seule surface surélevée de l'écran. -->
             <article class="card">
@@ -454,8 +564,17 @@ function tokensFor(direction: Direction, theme: ThemeId): Record<string, string>
               </table>
             </section>
 
+            <!-- Les trois états côte à côte : c'est là que l'accent doit rester
+                 reconnaissable comme n'étant pas un état. -->
+            <div class="states">
+              <span class="chip chip--success">Succès</span>
+              <span class="chip chip--warning">Attention</span>
+              <span class="chip chip--danger">Erreur</span>
+              <span class="chip chip--accent">Accent</span>
+            </div>
+
             <!-- Alerte d'erreur. Aucune région aria-live ici : c'est une
-                 maquette, et six régions vivantes se parleraient par-dessus. -->
+                 maquette, et dix régions vivantes se parleraient par-dessus. -->
             <div class="alert">
               <span class="alert__mark" aria-hidden="true">!</span>
               <p><strong>Erreur :</strong> le prix du thym n'a pas pu être récupéré.</p>
@@ -463,36 +582,35 @@ function tokensFor(direction: Direction, theme: ThemeId): Record<string, string>
 
             <!-- Champ en erreur. -->
             <div class="field">
-              <label :for="`${direction.id}-${theme.id}-budget`">Budget par semaine</label>
+              <label :for="`${colourway.id}-${theme.id}-budget`">Budget par semaine</label>
               <input
-                :id="`${direction.id}-${theme.id}-budget`"
+                :id="`${colourway.id}-${theme.id}-budget`"
                 class="field__input"
                 type="text"
                 value="0"
-                :aria-describedby="`${direction.id}-${theme.id}-budget-error`"
+                :aria-describedby="`${colourway.id}-${theme.id}-budget-error`"
                 aria-invalid="true"
               />
-              <p :id="`${direction.id}-${theme.id}-budget-error`" class="field__error">
+              <p :id="`${colourway.id}-${theme.id}-budget-error`" class="field__error">
                 <span class="field__error-mark" aria-hidden="true">!</span>
                 <span>Erreur : indiquez un montant supérieur à zéro.</span>
               </p>
             </div>
           </div>
 
-          <!-- Barre basse mobile. -->
+          <!-- Barre basse mobile, trait épais sur la page courante. -->
           <nav
             class="bottom"
-            :aria-label="`Maquette de navigation, ${direction.name}, mode ${theme.label}`"
+            :aria-label="`Maquette de navigation, ${colourway.name}, mode ${theme.label}`"
           >
             <ul>
               <li v-for="item in NAV_ITEMS" :key="item">
                 <a
                   href="#"
-                  :class="['bottom__link', `bottom__link--${direction.navIndicator}`]"
+                  class="bottom__link"
                   :aria-current="item === CURRENT_NAV ? 'page' : undefined"
                   @click.prevent
                 >
-                  <span class="bottom__dot" aria-hidden="true" />
                   {{ item }}
                 </a>
               </li>
@@ -502,44 +620,91 @@ function tokensFor(direction: Direction, theme: ThemeId): Record<string, string>
       </figure>
     </div>
   </section>
+
+  <section class="colourway">
+    <h2>Écartés, et pourquoi</h2>
+
+    <p>
+      Trois coloris ont été construits puis mesurés, et abandonnés sur le chiffre. Aucun n'échouait
+      sur les contrastes : ils échouaient tous sur la distance à une couleur d'état.
+    </p>
+
+    <dl class="rejected">
+      <div v-for="item in REJECTED" :key="item.name">
+        <dt>{{ item.name }}</dt>
+        <dd>{{ item.reason }}</dd>
+      </div>
+    </dl>
+
+    <p>
+      Les deux verts tombent pour la même raison de fond : le vert de succès occupe déjà cette
+      partie du spectre. Un accent vert oblige à choisir entre ressembler au succès et virer au
+      bleu-vert. Poivre a pris la place laissée libre.
+    </p>
+  </section>
 </template>
 
 <style scoped>
 .lead,
-.direction > p,
-.spec {
+.colourway > p,
+.rejected {
   max-width: 70ch;
 }
 
-.direction {
+.colourway {
   margin-top: var(--space-8);
   padding-top: var(--space-6);
   border-top: 1px solid var(--color-border);
 }
 
-.spec {
+.gaps {
+  margin-top: var(--space-4);
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.gaps caption {
+  margin-bottom: var(--space-2);
+  color: var(--color-text-muted);
+  text-align: left;
+}
+
+.gaps th,
+.gaps td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+}
+
+.gaps .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Un écart trop faible se lit aussi autrement que par la couleur. */
+.gaps .weak {
+  color: var(--color-danger);
+  font-weight: var(--weight-bold);
+  text-decoration: underline;
+  text-decoration-style: wavy;
+}
+
+.verdict {
+  margin-top: var(--space-3);
+}
+
+.rejected {
   display: grid;
-  gap: var(--space-2);
+  gap: var(--space-3);
   margin-top: var(--space-4);
 }
 
-.spec div {
-  display: grid;
-  grid-template-columns: 12rem 1fr;
-  gap: var(--space-3);
+.rejected dt {
+  font-weight: var(--weight-bold);
 }
 
-.spec dt {
-  font-weight: var(--weight-medium);
-}
-
-.spec dd {
+.rejected dd {
   margin: 0;
-}
-
-.tight {
-  margin: 0;
-  padding-left: var(--space-5);
 }
 
 .frames {
@@ -560,16 +725,13 @@ function tokensFor(direction: Direction, theme: ThemeId): Record<string, string>
 }
 
 /*
-  Le cadre est la fenêtre d'un téléphone : 320 px de large, la largeur la plus
-  étroite que le projet vise. Tout ce qu'il contient lit les jetons posés en
-  ligne, et non ceux du projet.
+  Le cadre est la fenêtre d'un téléphone, à 320 px, la largeur la plus étroite
+  que le projet vise. Tout ce qu'il contient lit les jetons posés en ligne.
 */
 .frame {
   position: relative;
   width: 320px;
-  /* Plus haut qu'un téléphone réel, pour que l'écran entier soit visible sans
-     défiler : la largeur est ce qui compte ici, pas la hauteur. */
-  height: 880px;
+  height: 940px;
   overflow: hidden;
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-lg);
@@ -633,22 +795,12 @@ function tokensFor(direction: Direction, theme: ThemeId): Record<string, string>
   margin: 12px 0 0;
 }
 
+/* L'audace de la structure Marmite : le prix, seul élément grand et coloré. */
 .card__price-value {
   color: var(--color-accent);
-  font-size: 15px;
-  font-weight: var(--weight-label);
-}
-
-/* Marmite dépense son audace ici : le prix, grand et en couleur. */
-.frame:has(.bottom__link--bar) .card__price-value {
   font-size: 30px;
   font-weight: var(--weight-heading);
   letter-spacing: var(--tracking-heading);
-}
-
-/* Café la dépense sur le titre. */
-.frame:has(.bottom__link--underline) .card__title {
-  font-size: 25px;
 }
 
 .card__price-unit {
@@ -680,12 +832,6 @@ function tokensFor(direction: Direction, theme: ThemeId): Record<string, string>
 .btn--primary {
   background-color: var(--color-accent);
   color: var(--color-on-accent);
-}
-
-/* Aubergine dépense son audace ici : la seule pilule pleine de l'écran. */
-.frame:has(.bottom__link--pill) .btn--primary {
-  border-radius: var(--radius-pill);
-  padding: 0 20px;
 }
 
 .btn--secondary {
@@ -728,6 +874,40 @@ function tokensFor(direction: Direction, theme: ThemeId): Record<string, string>
 .groceries tfoot td {
   border-bottom: 0;
   font-weight: var(--weight-heading);
+}
+
+/* Les quatre pastilles mises côte à côte : la comparaison qui décide. */
+.states {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: var(--weight-label);
+}
+
+.chip--success {
+  background-color: var(--color-success);
+  color: var(--color-background);
+}
+
+.chip--warning {
+  background-color: var(--color-warning);
+  color: var(--color-background);
+}
+
+.chip--danger {
+  background-color: var(--color-danger);
+  color: var(--color-on-danger);
+}
+
+.chip--accent {
+  background-color: var(--color-accent);
+  color: var(--color-on-accent);
 }
 
 .alert {
@@ -824,12 +1004,9 @@ function tokensFor(direction: Direction, theme: ThemeId): Record<string, string>
 }
 
 .bottom__link {
-  position: relative;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
   /* Zone tactile de 44 px minimum, dans 80 px de large. */
   min-height: 56px;
   color: var(--color-text-muted);
@@ -838,37 +1015,10 @@ function tokensFor(direction: Direction, theme: ThemeId): Record<string, string>
   text-decoration: none;
 }
 
+/* La page courante se signale par un trait et une graisse, pas par la couleur. */
 .bottom__link[aria-current='page'] {
+  box-shadow: inset 0 3px 0 0 var(--color-accent);
   color: var(--color-accent);
   font-weight: var(--weight-heading);
-}
-
-.bottom__dot {
-  width: 6px;
-  height: 6px;
-  border-radius: var(--radius-pill);
-  background-color: transparent;
-}
-
-/* Trois façons de marquer la page courante sans compter sur la couleur. */
-.bottom__link--bar[aria-current='page'] {
-  box-shadow: inset 0 3px 0 0 var(--color-accent);
-}
-
-.bottom__link--pill[aria-current='page'] {
-  background-color: var(--color-surface-hover);
-  border-radius: var(--radius-pill);
-  margin: 4px;
-  min-height: 48px;
-}
-
-.bottom__link--underline[aria-current='page'] {
-  text-decoration: underline;
-  text-decoration-thickness: 2px;
-  text-underline-offset: 3px;
-}
-
-.bottom__link--underline[aria-current='page'] .bottom__dot {
-  background-color: var(--color-accent);
 }
 </style>

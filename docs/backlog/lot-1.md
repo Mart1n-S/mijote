@@ -1,5 +1,7 @@
 # Lot 1 : socle
 
+> Issues créées le 30 octobre 2026 (#7 à #15) ; la référence est désormais GitHub.
+
 Jalon : Lot 1
 Tableau : Mijote
 

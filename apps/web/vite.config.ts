@@ -17,10 +17,12 @@ export default defineConfig({
         display: 'standalone',
         start_url: '/',
         scope: '/',
-        // Couleurs provisoires : elles seront reprises aux jetons de design
-        // avec la story du design system.
+        // Un manifeste ne lit pas une propriété CSS personnalisée : ces deux
+        // valeurs sont donc recopiées des jetons du thème clair, qui est
+        // celui que le système d'exploitation affiche au lancement, avant que
+        // la page ne soit rendue. Voir apps/web/src/styles/tokens.css.
         background_color: '#ffffff',
-        theme_color: '#111111',
+        theme_color: '#0f6b58',
         icons: [
           {
             src: 'icon.svg',

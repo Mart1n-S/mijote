@@ -25,14 +25,29 @@ function luminance(color: string): number {
     channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4,
   );
 
+  // Les trois accès sont sûrs : channels vient d'un map sur trois indices
+  // littéraux, donc linear a exactement trois éléments. TypeScript ne le
+  // déduit pas d'un map, d'où les assertions.
   return 0.2126 * linear[0]! + 0.7152 * linear[1]! + 0.0722 * linear[2]!;
 }
 
 /** Ratio de contraste entre deux couleurs, de 1:1 à 21:1. */
 function contrastRatio(a: string, b: string): number {
+  // Trier deux éléments en rend deux : l'assertion dit au compilateur ce que
+  // la ligne garantit, elle ne masque pas un doute.
   const [lighter, darker] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [number, number];
 
   return (lighter + 0.05) / (darker + 0.05);
+}
+
+/**
+ * Les noms de jetons de couleur déclarés dans un fragment de CSS, quelle que
+ * soit la forme de leur valeur. Le voile est en `rgb()` : ne lire que les
+ * valeurs hexadécimales le ferait échapper au contrôle des noms.
+ */
+function colorNamesIn(fragment: string): Set<string> {
+  // Le nom est sûr : le groupe est obligatoire dans le motif.
+  return new Set([...fragment.matchAll(/--color-([\w-]+):/g)].map(([, name]) => name!));
 }
 
 /** Les déclarations `--color-*: #rrggbb` d'un fragment de CSS. */
@@ -40,6 +55,7 @@ function colorsIn(fragment: string): Map<string, string> {
   const found = new Map<string, string>();
 
   for (const [, name, value] of fragment.matchAll(/--color-([\w-]+):\s*(#[0-9a-f]{6})\s*;/g)) {
+    // Les deux groupes sont obligatoires dans le motif.
     found.set(name!, value!);
   }
 
@@ -56,6 +72,9 @@ const darkBlockStart = SOURCE.indexOf(DARK_BLOCK);
 */
 const lightTheme = colorsIn(SOURCE.slice(0, darkBlockStart));
 const darkTheme = new Map([...lightTheme, ...colorsIn(SOURCE.slice(darkBlockStart))]);
+
+const lightNames = colorNamesIn(SOURCE.slice(0, darkBlockStart));
+const darkNames = new Set([...lightNames, ...colorNamesIn(SOURCE.slice(darkBlockStart))]);
 
 interface Pair {
   foreground: string;
@@ -74,7 +93,7 @@ function ui(foreground: string, background: string, usage: string): Pair {
   return { foreground, background, threshold: 3, usage };
 }
 
-/** Les quatre fonds sur lesquels du contenu peut être posé. */
+/** Les cinq fonds sur lesquels du contenu peut être posé. */
 const SURFACES = ['background', 'surface', 'surface-hover', 'surface-active', 'raised'] as const;
 
 /*
@@ -99,15 +118,15 @@ const PAIRS: readonly Pair[] = [
 
   // Contours de contrôle et anneau de focus, sur chacun des fonds.
   ...SURFACES.map((surface) => ui('border-strong', surface, `contour d'un champ sur ${surface}`)),
+  ...SURFACES.map((surface) => ui('border-hover', surface, `contour survolé sur ${surface}`)),
   ...SURFACES.map((surface) => ui('focus', surface, `anneau de focus sur ${surface}`)),
 
   // Repères d'état : liserés et pastilles des messages.
   ...SURFACES.map((surface) => ui('success', surface, `repère de succès sur ${surface}`)),
   ...SURFACES.map((surface) => ui('warning', surface, `repère d'avertissement sur ${surface}`)),
+  // danger sert aussi de contour à un champ invalide : c'est le même jeton sur
+  // les mêmes fonds, donc les couples ci-dessus le couvrent déjà.
   ...SURFACES.map((surface) => ui('danger', surface, `repère d'erreur sur ${surface}`)),
-
-  // Le contour d'un champ invalide, qui est le repère d'erreur lui-même.
-  ui('danger', 'background', "contour d'un champ invalide"),
 ];
 
 describe('jetons de couleur', () => {
@@ -118,8 +137,10 @@ describe('jetons de couleur', () => {
 
   it('déclare les mêmes noms dans les deux thèmes', () => {
     // Un nom présent en clair mais pas en sombre laisserait un composant avec
-    // la couleur du thème clair sur un fond sombre.
-    expect([...darkTheme.keys()].sort()).toEqual([...lightTheme.keys()].sort());
+    // la couleur du thème clair sur un fond sombre. Le contrôle porte sur les
+    // noms et non sur les valeurs mesurables, pour couvrir aussi le voile,
+    // déclaré en rgb().
+    expect([...darkNames].sort()).toEqual([...lightNames].sort());
   });
 
   it('couvre chaque fond sur lequel du contenu est posé', () => {

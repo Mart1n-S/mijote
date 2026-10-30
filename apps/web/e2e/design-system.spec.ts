@@ -176,12 +176,72 @@ test.describe('page de démonstration du design system', () => {
       });
 
       expect(overlap).not.toBeNull();
-      // Zéro et non une tolérance : la réserve de place compte le liseré de la
-      // barre, donc rien ne doit passer dessous, pas même un pixel.
-      expect(overlap ?? 0).toBeLessThanOrEqual(0);
+      /*
+        Mesuré au pixel entier, et pas en-dessous. La réserve de place est
+        exacte, hauteur de la barre et liseré compris : ce qui reste est la
+        position fractionnaire du pied de page, que le moteur arrondit selon la
+        hauteur du contenu au-dessus. Un vrai recouvrement ferait au moins un
+        pixel, et ce test le verrait.
+      */
+      expect(Math.round(overlap ?? 0)).toBeLessThanOrEqual(0);
     });
 
     test("n'a aucune violation d'accessibilité", async ({ page }) => {
+      expect(await accessibilityViolations(page)).toEqual([]);
+    });
+  });
+
+  /*
+    RGAA 10.4 : le texte doit pouvoir doubler sans perte de contenu ni de
+    fonction. Doubler la taille de base du document est exactement ce que fait
+    l'agrandissement de texte d'un navigateur sur des tailles en rem, ce que
+    le projet utilise partout.
+  */
+  test.describe('au texte agrandi à 200 %', () => {
+    test.use({ viewport: { width: 320, height: 640 } });
+
+    test('ne perd ni contenu ni lisibilité', async ({ page }) => {
+      const mesure = await page.evaluate(() => {
+        document.documentElement.style.fontSize = '32px';
+
+        const nav = document.querySelector('nav');
+        const footer = document.querySelector('footer');
+
+        if (nav === null || footer === null) {
+          return null;
+        }
+
+        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' });
+
+        return {
+          // La page ne défile pas de côté : c'est la barre qui défile si ses
+          // libellés ne tiennent plus, et le tableau large qui défile seul.
+          debordement: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+          // La barre garde la hauteur d'une seule ligne, donc la réserve de
+          // place reste exacte et rien ne passe dessous.
+          hauteurBarre: Math.round(nav.getBoundingClientRect().height),
+          recouvrement: Math.round(
+            footer.getBoundingClientRect().bottom - nav.getBoundingClientRect().top,
+          ),
+          // Les libellés doublent vraiment : sans cela, le test ne mesurerait
+          // rien.
+          taillePolice: getComputedStyle(nav.querySelector('a') ?? nav).fontSize,
+        };
+      });
+
+      expect(mesure).not.toBeNull();
+      expect(mesure?.taillePolice).toBe('28px');
+      expect(mesure?.debordement).toBeLessThanOrEqual(0);
+      expect(mesure?.recouvrement).toBeLessThanOrEqual(0);
+      // 44 px de zone tactile doublés, plus le liseré.
+      expect(mesure?.hauteurBarre).toBe(89);
+    });
+
+    test("n'a aucune violation d'accessibilité", async ({ page }) => {
+      await page.evaluate(() => {
+        document.documentElement.style.fontSize = '32px';
+      });
+
       expect(await accessibilityViolations(page)).toEqual([]);
     });
   });

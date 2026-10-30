@@ -38,6 +38,12 @@
 
   --color-focus: #0f6b58;
 
+  /* Voile posé derrière un dialogue. Volontairement identique dans les deux
+     thèmes : il assombrit l'écran, et le contraste du dialogue se mesure
+     contre sa propre surface, pas contre lui. Aucun texte ne s'y pose, donc
+     aucun seuil ne s'y applique. */
+  --color-overlay: rgb(0 0 0 / 50%);
+
   /* Typographie : pile système, aucune requête vers un service tiers. */
   --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-mono: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', Menlo, Consolas, monospace;
@@ -77,8 +83,9 @@
 
   /* Largeur à partir de laquelle la navigation passe de la barre basse à
      la colonne latérale (section 7 : mobile sous 640 px). Une requête de
-     media ne lit pas une propriété personnalisée : la valeur est répétée
-     dans les @media de base.css, et ce jeton sert de référence écrite. */
+     media ne lit pas une propriété personnalisée : la valeur est donc
+     répétée dans le @media d'AppLayout.vue, seul endroit qui s'en sert, et
+     ce jeton sert de référence écrite. */
   --breakpoint-nav: 40rem;
 }
 
@@ -107,5 +114,7 @@
     --color-on-danger: #2a0a08;
 
     --color-focus: #4fcdac;
+
+    /* --color-overlay ne change pas : voir sa déclaration plus haut. */
   }
 }

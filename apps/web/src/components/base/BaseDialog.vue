@@ -74,9 +74,7 @@ const open = defineModel<boolean>('open', { default: false });
 .dialog__overlay {
   position: fixed;
   inset: 0;
-  /* Teinte neutre indépendante du thème : l'écran est assombri dans les deux
-     cas, et le contraste du dialogue se mesure contre sa propre surface. */
-  background-color: rgb(0 0 0 / 50%);
+  background-color: var(--color-overlay);
 }
 
 .dialog {

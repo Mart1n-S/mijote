@@ -3,6 +3,7 @@ import pluginVue from 'eslint-plugin-vue';
 import pluginVueA11y from 'eslint-plugin-vuejs-accessibility';
 import prettier from 'eslint-config-prettier';
 import tseslint from 'typescript-eslint';
+import vueParser from 'vue-eslint-parser';
 
 export default tseslint.config(
   {
@@ -57,7 +58,18 @@ export default tseslint.config(
   })),
   {
     files: ['**/*.vue'],
+    // Les règles non typées de typescript-eslint, dont no-explicit-any,
+    // s'appliquent aussi aux composants : elles lisent la source du <script>,
+    // pas le TypeScript que le greffon de Vue génère derrière lui, donc elles
+    // ne réveillent pas ses identifiants __VLS_*. Seules les règles typées
+    // restent dehors, pour la raison dite juste en dessous.
+    extends: [tseslint.configs.recommended],
     languageOptions: {
+      // tseslint.configs.recommended pose son propre parseur. On remet
+      // vue-eslint-parser, qui doit rester le parseur de premier niveau d'un
+      // composant monofichier, et qui délègue le <script> au parseur
+      // TypeScript.
+      parser: vueParser,
       parserOptions: {
         parser: tseslint.parser,
         // Les composants sont analysés sur leur source par vue-eslint-parser.

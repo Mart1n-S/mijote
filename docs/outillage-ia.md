@@ -166,17 +166,19 @@ exactement son frontmatter, et n'a rien relu.
 
 ### Ce que le lint attrape seul depuis les garanties du 30 octobre 2026
 
-Deux des six défauts semés, sans aucun faux positif :
+Trois des six défauts semés, sans aucun faux positif :
 
 | Défaut | Règle qui l'attrape |
 | --- | --- |
 | Fonction exportée sans type de retour | `@typescript-eslint/explicit-module-boundary-types` |
+| `any` sur un paramètre, dans un `.vue` | `@typescript-eslint/no-explicit-any` |
 | Champ de formulaire sans label | `vuejs-accessibility/form-control-has-label` |
 
-Les quatre autres restent au jugement du relecteur : le `any` et la promesse
-flottante vivent dans un `.vue`, où les règles typées ne s'appliquent pas
-(`eslint.config.js`), l'adresse e-mail journalisée et le commentaire faux
-demandent de comprendre ce que le code raconte.
+Les trois autres restent au jugement du relecteur. La promesse flottante
+échappe au lint parce que `no-floating-promises` a besoin des types, et que les
+règles typées restent hors des `.vue` : elles liraient le TypeScript généré
+derrière le composant. L'adresse e-mail journalisée et le commentaire faux
+demandent, eux, de comprendre ce que le code raconte.
 
 Mesure faite en superposant `eslint.config.js`, `package.json` et
 `pnpm-lock.yaml` de `chore/lint-garanties` sur la copie de travail du banc, sans

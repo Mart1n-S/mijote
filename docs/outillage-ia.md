@@ -185,8 +185,79 @@ Mesure faite en superposant `eslint.config.js`, `package.json` et
 toucher à son commit : la configuration du lint est versionnée, donc une
 branche sortie ramène la sienne.
 
-### Passage 2 : à faire
+### Passage 2 : 30 octobre 2026, Claude Code 2.1.175
 
-À rejouer dans une session neuve, pour la raison dite en section 4 : le prompt
-modifié n'est pas relu à chaud. Même consigne neutre, puis comparaison des
-défauts trouvés, des gravités et des faux positifs avec le passage 1.
+Prompt du commit `1d96bc9`, session neuve. Les garanties de lint de `main`
+(`eslint.config.js`, `package.json`, `pnpm-lock.yaml`) étaient superposées sur
+la copie de travail du banc, son commit inchangé. Consigne donnée, rien de
+plus : « Relis la branche test/code-reviewer contre main. »
+
+| Défaut semé | Passage 1 | Passage 2 | Gravité attendue |
+| --- | --- | --- | --- |
+| `any` sur un paramètre, dans un `.vue` | oui, bloquant | oui, par le lint, bloquant | bloquant ou important |
+| Fonction exportée sans type de retour | **non** | oui, par le lint, bloquant | important |
+| Promesse non attendue, succès annoncé à tort | oui, bloquant | oui, bloquant | bloquant |
+| Champ de formulaire sans label | important, « à confirmer par a11y-reviewer » | oui, par le lint, bloquant, jugé sur le fond | bloquant |
+| Adresse e-mail journalisée | oui, bloquant | oui, bloquant | bloquant |
+| Affirmation invérifiable sur une bibliothèque | important, source citée | suggestion, source citée | à vérifier |
+
+Résultats : **six défauts sur six**, **aucun faux positif**. Vingt points rendus
+en tout, contre vingt-et-un au passage 1, dont trois bloquants contre sept.
+
+Les trois enseignements du passage 1, repris un par un :
+
+1. **Le barème resserré tient.** Les trois règles dont l'infrastructure manque
+   sont exactement là où le prompt les attend : pino, le filtre RFC 9457 et la
+   garde d'authentification en Important, chacune avec sa story du lot 1 citée.
+   C'est le correctif le plus net.
+2. **Le renvoi vers les relecteurs spécialisés a disparu.** Plus une seule
+   mention « à confirmer par a11y-reviewer » ou « security-reviewer ». Le champ
+   sans label est jugé sur le fond (« champ inutilisable au lecteur d'écran »).
+   Réserve : le lint l'attrapait aussi, donc on ne sait pas si la phrase
+   resserrée aurait suffi seule.
+3. **La consigne sur le contexte du diff n'est pas démontrée.** Le type de
+   retour manquant est trouvé, mais par
+   `@typescript-eslint/explicit-module-boundary-types`, pas à l'oeil. La
+   garantie de lint masque ce test.
+
+Trois des six défauts arrivent désormais par la sortie de `pnpm lint`, groupés
+en un seul point bloquant, comme le prompt le demande (« signale seulement
+qu'ils échouent »). La prédiction de la sous-section précédente est donc
+confirmée en passage réel. Le banc ne mesure plus le jugement du relecteur sur
+ces trois défauts, seulement sa lecture d'une sortie d'outil.
+
+L'élément correct mais inhabituel a tenu : la promesse ignorée avec `void` n'est
+pas signalée comme un défaut. Mais elle ne figure plus dans « Ce qui est bien
+fait » : le contrôle positif est devenu un simple silence. L'agent a en revanche
+relevé, à juste titre, que la première phrase du même commentaire annonce un
+comportement absent (rien ne lit le paramètre d'URL `envoye`).
+
+Quatre constats hors liste semée ont été recontrôlés à la main, tous exacts :
+la valeur par défaut `max: 10` de `pg-pool` à la ligne citée, le conflit de
+fusion sur `apps/api/src/db/client.ts` (confirmé par `git merge-tree`),
+l'absence de `useGlobalFilters` dans `apps/api/src/main.ts` et l'absence
+d'`afterEach` dans `apps/web/src/router.ts`.
+
+Écarts de forme, mineurs : deux sections hors format en tête du rapport
+(l'avertissement sur l'issue manquante, qui est demandé, et une note de
+méthode, qui ne l'est pas) et une en fin (« Fichiers relus »).
+
+### Passage 3 : banc v2, à construire
+
+Décisions du 30 octobre 2026. À construire et à jouer à la prochaine
+modification du prompt du code-reviewer, pas avant.
+
+- **Banc v2 reconstruit depuis `main`.** Plus de superposition sur la copie de
+  travail : la branche porte elle-même la configuration du lint. Elle se remet
+  à niveau par `git rebase main` quand `main` évolue.
+- **Défauts semés surtout hors de portée du lint**, selon l'ADR 0004 : une
+  promesse non attendue dans un `.vue`, une adresse e-mail journalisée, la
+  lecture d'une ressource par identifiant sans vérifier l'appartenance au
+  foyer, un montant manipulé en nombre décimal au lieu de centimes, une erreur
+  de formulaire signalée par la couleur seule. Un seul défaut attrapé par le
+  lint, le `any`, pour vérifier que l'agent rapporte bien l'échec.
+- **Piège** : une affirmation qu'aucune source locale ne tranche, par exemple
+  « l'API HelloFresh accepte jusqu'à 500 résultats par page ». Gravité attendue
+  « À vérifier », avec renvoi à `docs/lot-0/hellofresh.md`.
+- **Deux témoins corrects mais inhabituels**, dont la promesse ignorée avec
+  `void` et son commentaire.

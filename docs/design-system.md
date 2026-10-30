@@ -14,6 +14,8 @@ Tout est dans `apps/web` :
 
 La page de démonstration est servie sur `/design-system` en développement. Elle n'est pas construite en production : la condition qui l'écarte est une constante de compilation, donc ni la route ni le code de la page ne partent dans le paquet livré.
 
+Les tests de bout en bout doivent pourtant l'atteindre. Ils servent donc la construction `pnpm --filter @mijote/web build:demo`, identique à celle de production à cette page près (voir `playwright.config.ts`). La CI construit les deux : le mode demo pour les tests, la production pour vérifier que la page en est bien absente.
+
 ## Principes
 
 1. **Les jetons d'abord.** Aucune couleur, taille, espacement ni rayon en dur dans un composant. Une valeur qui manque devient un jeton.
@@ -45,6 +47,7 @@ Le mode sombre redéfinit **les mêmes noms** sous `prefers-color-scheme: dark`.
 | `--color-danger-hover`  | Le danger au survol                                               |
 | `--color-on-danger`     | Texte posé sur le danger                                          |
 | `--color-focus`         | Anneau de focus                                                   |
+| `--color-overlay`       | Voile derrière un dialogue. Identique dans les deux thèmes        |
 
 Le rouge est réservé au danger. L'accent ne doit jamais s'en approcher : une action ordinaire et une action destructrice ne se ressemblent pas.
 
@@ -62,11 +65,13 @@ Toutes les tailles sont en `rem`, pour suivre le réglage de taille de texte du 
 - Rayons : `--radius-sm`, `--radius-md`, `--radius-full`.
 - `--tap-min` : 44 px, le minimum RGAA pour une zone tactile. En `rem`, donc la cible grandit avec le texte au zoom.
 - `--duration-fast` : durée des transitions d'état.
-- `--breakpoint-nav` : 40rem, largeur à laquelle la navigation change de place. Une requête de media ne peut pas lire une propriété personnalisée : la valeur est répétée dans les `@media` de `base.css` et d'`AppLayout.vue`, et ce jeton en est la référence écrite.
+- `--breakpoint-nav` : 40rem, largeur à laquelle la navigation change de place. Une requête de media ne peut pas lire une propriété personnalisée : la valeur est donc répétée dans le `@media` d'`AppLayout.vue`, seul endroit qui s'en sert, et ce jeton en est la référence écrite.
 
 ## Contrastes mesurés
 
-Ces ratios ne sont pas recopiés à la main : `src/styles/tokens.spec.ts` lit `tokens.css`, mesure chaque couple ci-dessous dans les deux thèmes et échoue si un seuil tombe. Changer une couleur sans refaire le tour des seuils n'est donc pas possible.
+`src/styles/tokens.spec.ts` lit `tokens.css`, mesure chaque couple ci-dessous dans les deux thèmes et échoue si un **seuil** tombe. Changer une couleur sans refaire le tour des seuils n'est donc pas possible.
+
+Ce test ne compare en revanche pas les ratios à ce tableau, qui est saisi à la main : une couleur modifiée qui reste au-dessus de son seuil laisse les valeurs ci-dessous dériver sans rien faire échouer. Elles sont à reporter avec la couleur.
 
 Seuils : 4,5:1 pour le texte courant, 3:1 pour les éléments d'interface.
 
@@ -80,6 +85,8 @@ Seuils : 4,5:1 pour le texte courant, 3:1 pour les éléments d'interface.
 | texte secondaire sur une surface survolée | `--color-text-muted` sur `--color-surface-hover`      | 4,5:1 | 5,83:1   | 6,48:1   |
 | lien sur la page                          | `--color-accent` sur `--color-background`             | 4,5:1 | 6,43:1   | 9,04:1   |
 | lien sur une surface                      | `--color-accent` sur `--color-surface`                | 4,5:1 | 5,90:1   | 7,93:1   |
+| lien survolé                              | `--color-accent-hover` sur `--color-background`       | 4,5:1 | 9,11:1   | 10,81:1  |
+| lien de navigation courant survolé        | `--color-accent` sur `--color-surface-hover`          | 4,5:1 | 5,39:1   | 6,96:1   |
 | libellé du bouton principal               | `--color-on-accent` sur `--color-accent`              | 4,5:1 | 6,43:1   | 9,44:1   |
 | libellé du bouton principal survolé       | `--color-on-accent` sur `--color-accent-hover`        | 4,5:1 | 9,11:1   | 11,29:1  |
 | libellé du bouton de danger               | `--color-on-danger` sur `--color-danger`              | 4,5:1 | 6,54:1   | 8,09:1   |
@@ -137,7 +144,7 @@ Le composant est donc fait pour cela : la région est rendue inconditionnellemen
 
 - monter le `BaseAlert` dès l'affichage de l'écran, avec un `message` vide, et non le faire apparaître quand le message arrive ;
 - ne pas l'envelopper dans un `v-if`, qui annulerait exactement la garantie ;
-- ne pas changer de variante en même temps que le message, parce que le `role` change avec elle et que la région serait recréée.
+- ne pas changer de variante en même temps que le message : le `role` de la région changerait alors sous le lecteur d'écran, au moment même où il doit la lire. Le noeud n'est pas recréé pour autant, Vue se contentant de mettre l'attribut à jour, mais la restitution en souffre.
 
 La région vide est un `div` sans style, donc de hauteur nulle. Dans un conteneur `flex` avec `gap`, elle compte en revanche comme un élément : `display: contents` corrigerait cela, mais plusieurs moteurs l'ont déjà, à un moment, sortie de l'arbre d'accessibilité, ce qui est exclu sur une région `aria-live`.
 
@@ -174,6 +181,11 @@ Elles sont dans `base.css` et s'appliquent sans que personne ait à y penser :
 - **Animations** : sous `prefers-reduced-motion: reduce`, elles sont supprimées, pas raccourcies. La durée résiduelle de 0,01 ms garde l'événement de fin de transition, dont Reka UI dépend pour savoir quand démonter un contenu.
 - **Liens** : soulignés, y compris au milieu d'un paragraphe. Un lien ne se reconnaît pas à sa seule couleur.
 - **Texte masqué** : `.visually-hidden` retire du visuel sans retirer de l'arbre d'accessibilité, ce que ni `display: none` ni `visibility: hidden` ne permettent.
+
+## Limites connues
+
+- **La réserve de place sous le contenu suppose une barre basse sur une seule ligne.** `AppLayout` réserve une hauteur fixe sous la grille, calculée pour une barre d'une rangée. Avec plus d'entrées de navigation, ou un libellé long, la barre peut passer sur deux lignes et masquer à nouveau la fin du contenu. À mesurer réellement, plutôt qu'à supposer, dès qu'une entrée s'ajoute.
+- La région vide d'un `BaseAlert` compte comme un élément dans un conteneur `flex` avec `gap` (voir sa section plus haut).
 
 ## Vérification
 

@@ -95,6 +95,17 @@ describe('BaseField', () => {
     expect(wrapper.get('input').attributes('aria-invalid')).toBeUndefined();
   });
 
+  it('ne tient pas une chaîne vide pour une erreur', () => {
+    // Une validation qui rend « rien à signaler » sous forme de chaîne vide ne
+    // doit pas faire s'annoncer le champ comme invalide sans dire pourquoi.
+    const wrapper = mountField({ error: '', help: '' });
+
+    expect(wrapper.get('input').attributes('aria-invalid')).toBeUndefined();
+    expect(wrapper.get('input').attributes('aria-describedby')).toBeUndefined();
+    expect(wrapper.get('input').classes()).not.toContain('field__input--invalid');
+    expect(wrapper.text()).not.toContain('Erreur');
+  });
+
   it("relie l'aide au champ", () => {
     mountField({ help: 'En grammes.' });
 
@@ -149,12 +160,14 @@ describe('BaseField', () => {
     expect(wrapper.emitted('update:modelValue')).toEqual([['250']]);
   });
 
-  it('reçoit le focus', () => {
-    mountField();
+  it('reste atteignable au clavier, même en erreur', () => {
+    // Un champ en erreur est précisément celui qu'il faut pouvoir corriger :
+    // ni disabled, ni readonly, ni sorti de l'ordre de tabulation.
+    const wrapper = mountField({ error: 'Indiquez un nombre.' });
+    const input = wrapper.get('input');
 
-    const input = inputElement();
-    input.focus();
-
-    expect(document.activeElement).toBe(input);
+    expect(input.attributes('disabled')).toBeUndefined();
+    expect(input.attributes('readonly')).toBeUndefined();
+    expect(input.attributes('tabindex')).toBeUndefined();
   });
 });

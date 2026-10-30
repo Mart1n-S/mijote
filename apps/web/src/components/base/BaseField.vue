@@ -7,7 +7,7 @@ const props = withDefaults(
     type?: 'text' | 'email' | 'password' | 'search' | 'tel' | 'number';
     /** Consigne de saisie, lue avant que l'utilisateur ne tape. */
     help?: string;
-    /** Message d'erreur. Sa présence rend le champ invalide. */
+    /** Message d'erreur. Un message non vide rend le champ invalide. */
     error?: string;
     required?: boolean;
     autocomplete?: string;
@@ -31,12 +31,24 @@ const helpId = `${uid}-help`;
 const errorId = `${uid}-error`;
 
 /*
+  Une chaîne vide n'est pas une erreur : une validation qui rend « rien à
+  signaler » sous cette forme ne doit pas rendre le champ invalide. Sans ce
+  calcul unique, l'attribut aria-invalid et l'affichage du message pouvaient
+  se contredire, et le champ s'annonçait invalide sans dire pourquoi.
+
+  Tout ce qui dépend de l'état du champ passe donc par ces deux valeurs, et
+  jamais par une relecture directe des propriétés.
+*/
+const hasHelp = computed(() => (props.help ?? '') !== '');
+const hasError = computed(() => (props.error ?? '') !== '');
+
+/*
   L'aide et l'erreur sont reliées au champ dans cet ordre : le lecteur d'écran
   restitue d'abord la consigne, puis ce qui cloche. Un identifiant n'est listé
-  que si l'élément correspondant existe, sinon la référence est cassée.
+  que si l'élément correspondant est rendu, sinon la référence est cassée.
 */
 const describedBy = computed<string | undefined>(() => {
-  const ids = [props.help ? helpId : undefined, props.error ? errorId : undefined].filter(
+  const ids = [hasHelp.value ? helpId : undefined, hasError.value ? errorId : undefined].filter(
     (id): id is string => id !== undefined,
   );
 
@@ -51,24 +63,24 @@ const describedBy = computed<string | undefined>(() => {
       <span v-if="required" class="field__required">(obligatoire)</span>
     </label>
 
-    <p v-if="help" :id="helpId" class="field__help">{{ help }}</p>
+    <p v-if="hasHelp" :id="helpId" class="field__help">{{ help }}</p>
 
     <input
       :id="inputId"
       v-model="value"
       class="field__input"
-      :class="{ 'field__input--invalid': error !== undefined }"
+      :class="{ 'field__input--invalid': hasError }"
       :type="type"
       :required="required"
       :autocomplete="autocomplete"
       :aria-describedby="describedBy"
-      :aria-invalid="error !== undefined ? 'true' : undefined"
+      :aria-invalid="hasError ? 'true' : undefined"
     />
 
     <!-- L'erreur ne se signale jamais par la seule couleur : elle porte un
          préfixe textuel et un repère visuel. Son annonce à l'envoi du
          formulaire est le rôle du résumé en tête, un BaseAlert. -->
-    <p v-if="error" :id="errorId" class="field__error">
+    <p v-if="hasError" :id="errorId" class="field__error">
       <span class="field__error-mark" aria-hidden="true">!</span>
       <span>Erreur : {{ error }}</span>
     </p>

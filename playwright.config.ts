@@ -22,10 +22,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  // Les tests visent la construction de production, servie par vite preview :
-  // c'est la seule façon de voir la PWA telle qu'elle sera livrée.
+  // Les tests visent la construction livrée, servie par vite preview : c'est
+  // la seule façon de voir la PWA telle qu'elle sera déployée. Le mode demo
+  // n'en change qu'une chose, la page de démonstration du design system, que
+  // la production exclut et que les tests doivent pourtant atteindre.
   webServer: {
-    command: `pnpm --filter @mijote/web build && pnpm --filter @mijote/web preview --port ${PORT} --strictPort`,
+    command: `pnpm --filter @mijote/web build:demo && pnpm --filter @mijote/web preview --port ${PORT} --strictPort`,
     url: BASE_URL,
     reuseExistingServer: !EN_CI,
     timeout: 120_000,

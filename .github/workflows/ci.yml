@@ -47,6 +47,23 @@ jobs:
       - name: Tests unitaires
         run: pnpm test
 
+      # Les tests de bout en bout servent une construction build:demo, qui
+      # contient la page de démonstration du design system. Sans l'étape
+      # ci-dessous, aucun travail de CI ne construirait plus la production, et
+      # le mécanisme qui écarte cette page ne serait exercé nulle part.
+      - name: Construction de production
+        run: pnpm --filter @mijote/web build
+
+      # La page de démonstration est écartée par une constante de compilation,
+      # donc par du code mort éliminé au paquetage. C'est le genre de garantie
+      # qui se défait sans bruit : on la vérifie sur le paquet livré lui-même.
+      - name: Vérifie que la page de démonstration est hors du paquet livré
+        run: |
+          if grep -rlE 'DesignSystemPage|design-system' apps/web/dist; then
+            echo "::error::La page de démonstration ne doit pas partir en production."
+            exit 1
+          fi
+
   e2e:
     name: playwright et axe-core
     runs-on: ubuntu-24.04

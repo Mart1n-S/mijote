@@ -1,0 +1,186 @@
+/*
+  Jetons de design de Mijote. Fichier unique : aucune couleur, taille,
+  espacement, rayon ni ombre n'est écrit en dur ailleurs dans apps/web.
+
+  Coloris Cassis, un indigo profond, retenu le 30 octobre 2026. Les neutres
+  sont teintés vers l'indigo, et non gris : un fond parfaitement neutre sous
+  un accent coloré donne une impression de gabarit.
+
+  Le mode sombre redéfinit les mêmes noms, jamais d'autres : un composant n'a
+  donc pas à savoir dans quel thème il est rendu.
+
+  Les ratios de contraste de chaque couple réellement utilisé sont mesurés par
+  tokens.spec.ts et consignés dans docs/design-system.md. Changer une couleur
+  ici fait échouer ce test si un seuil tombe.
+*/
+
+:root {
+  /* Couleurs, thème clair */
+  --color-background: #fbfbfe;
+  --color-surface: #eeeef7;
+  --color-surface-hover: #e4e4f0;
+  --color-surface-active: #d9d9e9;
+
+  /*
+    Surface posée au-dessus de la page : carte, dialogue, barre de navigation.
+    En clair, elle est plus claire que le fond et c'est l'ombre qui dit
+    l'élévation. En sombre, c'est l'inverse, voir le bloc plus bas.
+  */
+  --color-raised: #ffffff;
+
+  /* border sépare, border-strong cerne un contrôle : seul le second doit
+     tenir 3:1, parce que lui porte une information d'interface. */
+  --color-border: #dcdcec;
+  /* Assombri d'un cran par rapport à la maquette : il doit encore tenir 3:1
+     sur la surface enfoncée, qui est le plus foncé des cinq fonds clairs. */
+  --color-border-strong: #74758b;
+  /* Le même contour, renforcé au survol. « Renforcé » et non « assombri » :
+     en thème sombre il est plus clair, pas plus foncé. */
+  --color-border-hover: #4e4d61;
+
+  --color-text: #1d1c28;
+  --color-text-muted: #4e4d61;
+
+  /* Une seule couleur d'accent, section 7 du cahier des charges. L'indigo
+     est à bonne distance de chaque couleur d'état, dans les deux thèmes :
+     aucune chance de lire un accent comme une erreur ou un avertissement.
+     Les écarts mesurés sont dans docs/design-system.md, qui est le seul
+     endroit où ces chiffres vivent. */
+  --color-accent: #44367d;
+  --color-accent-hover: #342864;
+  --color-accent-active: #281d4f;
+  --color-on-accent: #ffffff;
+
+  --color-success: #1f6b3c;
+  --color-warning: #8a5a00;
+  --color-danger: #b3261e;
+  --color-danger-hover: #8f1e17;
+  --color-danger-active: #731710;
+  --color-on-danger: #ffffff;
+
+  --color-focus: #44367d;
+
+  /* Voile posé derrière un dialogue. Identique dans les deux thèmes : il
+     assombrit l'écran, et le contraste du dialogue se mesure contre sa propre
+     surface, pas contre lui. Aucun texte ne s'y pose. */
+  --color-overlay: rgb(0 0 0 / 55%);
+
+  /*
+    Élévation. Trois niveaux, et pas un de plus : 1 pour une carte posée sur
+    la page, 2 pour ce qui reste au-dessus du contenu qui défile (la barre de
+    navigation), 3 pour ce qui sort du plan de la page (le dialogue).
+
+    Une ombre ne sert qu'à dire qu'une surface est au-dessus d'une autre. Elle
+    n'est jamais une décoration, et un élément à plat n'en porte pas.
+
+    La teinte reprend la couleur de texte du thème, pas du noir pur : une
+    ombre grise sur un fond teinté se voit comme une salissure.
+  */
+  --shadow-1: 0 1px 2px rgb(29 28 40 / 8%);
+  --shadow-2: 0 4px 14px rgb(29 28 40 / 14%);
+  --shadow-3: 0 12px 32px rgb(29 28 40 / 22%);
+
+  /*
+    Typographie : Atkinson Hyperlegible Next, hébergée dans le projet (voir
+    fonts.css). Aucune requête vers un service tiers. La pile système prend le
+    relais le temps du chargement.
+  */
+  --font-sans:
+    'Atkinson Hyperlegible Next', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
+    Arial, sans-serif;
+  /* Pour le code et les identifiants, posée sur code, samp et kbd par
+     base.css. Pile système : aucune police à charger de plus. */
+  --font-mono: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', Menlo, Consolas, monospace;
+
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 2rem;
+  /* Pour le seul chiffre mis en avant par écran, voir docs/design-system.md. */
+  --text-display: 1.875rem;
+
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+
+  /* Les titres sont légèrement resserrés : aux grandes tailles, l'approche
+     par défaut d'une police pensée pour le texte courant paraît lâche. */
+  --tracking-tight: -0.01em;
+
+  /* Les noms disent le rôle, pas la graisse de la police. */
+  --weight-normal: 400;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --weight-display: 800;
+
+  /* Espacements : échelle de 4 px, en rem pour suivre le zoom texte. */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-7: 2rem;
+  --space-8: 3rem;
+
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-full: 9999px;
+
+  /* 44 px, le minimum RGAA pour une zone tactile. En rem : au zoom, la cible
+     grandit avec le texte au lieu de rester en arrière. */
+  --tap-min: 2.75rem;
+
+  --duration-fast: 150ms;
+
+  /* Largeur à partir de laquelle la navigation passe de la barre basse à la
+     colonne latérale (section 7 : mobile sous 640 px). Une requête de media ne
+     lit pas une propriété personnalisée : la valeur est donc répétée dans le
+     @media d'AppLayout.vue, seul endroit qui s'en sert, et ce jeton sert de
+     référence écrite. */
+  --breakpoint-nav: 40rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-background: #141320;
+    --color-surface: #1d1b2b;
+    --color-surface-hover: #262436;
+    --color-surface-active: #2e2b40;
+
+    /* En sombre, c'est la surface qui porte l'élévation : elle est plus claire
+       que le fond. L'ombre ne fait plus qu'asseoir le bord, parce qu'une ombre
+       noire sur un fond sombre ne se voit pas. */
+    --color-raised: #232135;
+
+    --color-border: #322f45;
+    --color-border-strong: #7b7896;
+    --color-border-hover: #a7a3bd;
+
+    --color-text: #eceaf4;
+    --color-text-muted: #aba9bf;
+
+    /* En sombre, l'accent s'éclaircit et c'est le texte posé dessus qui
+       devient foncé : le couple reste au-dessus de 4,5:1 dans les deux sens. */
+    --color-accent: #aaa2ea;
+    --color-accent-hover: #c0baf2;
+    --color-accent-active: #d3cef7;
+    --color-on-accent: #15112e;
+
+    --color-success: #6fcb92;
+    --color-warning: #e3ae5a;
+    --color-danger: #ff9287;
+    --color-danger-hover: #ffafa6;
+    --color-danger-active: #ffc6bf;
+    --color-on-danger: #330d08;
+
+    --color-focus: #aaa2ea;
+
+    /* --color-overlay ne change pas : voir sa déclaration plus haut. */
+
+    --shadow-1: 0 1px 2px rgb(0 0 0 / 30%);
+    --shadow-2: 0 4px 14px rgb(0 0 0 / 38%);
+    --shadow-3: 0 12px 32px rgb(0 0 0 / 50%);
+  }
+}

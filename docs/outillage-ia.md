@@ -13,6 +13,7 @@ Règle : un skill, un agent ou un outil externe est **lu**, **scanné avec Skill
 | `code-reviewer` | agent, lecture seule | écrit pour le projet | dépôt | sans objet | 30 octobre 2026 |
 | `backlog-manager` | agent, écrit dans GitHub, jamais dans le dépôt | écrit pour le projet | dépôt | sans objet | 30 octobre 2026 |
 | `skillspector` | outil externe, scanner local | [NVIDIA/SkillSpector](https://github.com/NVIDIA/SkillSpector), Apache-2.0 | commit `abd82935b67f765a9541013c0866c6349251dcdf`, qui porte l'étiquette v2.13.2 | sans objet : c'est le scanner lui-même, son README a été lu à la place | 30 octobre 2026 |
+| `frontend-design` | skill externe, conseils de design | [anthropics/skills](https://github.com/anthropics/skills), `skills/frontend-design`, Apache-2.0 | commit `41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f`, dernier commit qui touche ce skill (3 septembre 2026) | 13/100, LOW, SAFE. Un signalement HIGH à 55 % analysé et écarté, voir section 6 | 30 octobre 2026 |
 
 Le commit est figé, et non l'étiquette, pour la raison donnée dans l'ADR 0003.
 L'emplacement sur le poste et la commande de retrait sont dans
@@ -23,7 +24,8 @@ L'emplacement sur le poste et la commande de retrait sont dans
 | Quand | Outil | Usage prévu |
 | --- | --- | --- |
 | Fait le 30 octobre 2026 | [SkillSpector](https://github.com/NVIDIA/SkillSpector) | Scanner tout skill ou agent externe avant installation, en `--no-llm` pour rester en local. Voir la section 1. |
-| Lot 1, après SkillSpector | [anthropics/skills](https://github.com/anthropics/skills) (`skill-creator`) | Écrire et tester les skills du projet. |
+| Fait le 30 octobre 2026 | [anthropics/skills](https://github.com/anthropics/skills) (`frontend-design`) | Direction visuelle du design system, story #7. Voir les sections 1 et 6. |
+| Lot 1, après SkillSpector | [anthropics/skills](https://github.com/anthropics/skills) (`skill-creator`) | Écrire et tester les skills du projet. Même dépôt que `frontend-design`, mais un skill s'installe un par un, chacun lu et scanné. |
 | Lot 1, après SkillSpector | [context7-skill](https://github.com/netresearch/context7-skill) | Documentation à jour des bibliothèques. Appelle le service Context7 : seuls des noms de bibliothèques et des questions partent, jamais le code. |
 | Lot 1, en écrivant les agents | [agent-skills](https://github.com/addyosmani/agent-skills), [ECC](https://github.com/affaan-m/ecc) | À piocher, jamais à installer en bloc : leurs déroulés et leurs hooks concurrenceraient le pipeline du projet. |
 | Jamais en installation | [superpowers](https://github.com/obra/superpowers) | Source d'inspiration seulement : méthode complète et concurrente. |
@@ -264,3 +266,43 @@ modification du prompt du code-reviewer, pas avant.
   « À vérifier », avec renvoi à `docs/lot-0/hellofresh.md`.
 - **Deux témoins corrects mais inhabituels**, dont la promesse ignorée avec
   `void` et son commentaire.
+
+## 6. Scans de skills externes
+
+Un rapport par skill installé, avec ce que le scan a trouvé et ce qu'en a
+conclu la lecture humaine, que l'ADR 0003 rend obligatoire.
+
+### `frontend-design`, 30 octobre 2026
+
+- Origine : `anthropics/skills`, chemin `skills/frontend-design`.
+- Commit figé : `41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f`, dernier commit qui
+  touche ce skill, du 3 septembre 2026. Le dépôt n'a pas de licence à sa
+  racine, mais le dossier du skill porte son propre `LICENSE.txt`, en
+  Apache-2.0, repris dans le dépôt comme cette licence l'exige.
+- Contenu : deux fichiers, `SKILL.md` et `LICENSE.txt`. Aucun script, aucune
+  commande, aucune adresse réseau. SkillSpector le confirme :
+  « Executable scripts: No », couverture 100 %.
+- Empreintes SHA-256 de ce qui est installé, identiques à ce qui a été scanné :
+  `d919706...` pour `SKILL.md`, `0d542e0...` pour `LICENSE.txt`.
+- Scan SkillSpector v2.13.2, en `--no-llm` : **13/100, LOW, SAFE**.
+
+**Le seul signalement, AR2 « Anti-Refusal Statement » sur `SKILL.md:69`, est un
+faux positif.** Confiance annoncée : 55 %. Le contrôle cherche une consigne qui
+empêcherait l'agent de remonter un avertissement à l'utilisateur. La ligne
+visée parle de la rédaction des messages d'erreur **de l'interface** :
+
+> Errors don't apologize, and they are never vague about what happened.
+
+C'est une consigne de rédaction produit, du même ordre que « pas de filler » ou
+« voix active » dans les lignes voisines, et non une consigne adressée à
+l'agent sur sa propre parole. Rien dans le reste du fichier ne demande de taire
+quoi que ce soit. Le motif déclenche sur la forme de la phrase, pas sur son
+sens, ce qui est exactement la limite que l'ADR 0003 prête au mode `--no-llm`,
+dans l'autre sens que prévu : ici l'analyse statique crie, et c'est la lecture
+qui rassure.
+
+Rien n'est modifié dans le fichier installé : il est gardé tel que le commit
+épinglé le livre, pour que son empreinte reste vérifiable.
+
+**Non installés, sur décision de Martin le 30 octobre 2026** : `impeccable` et
+`taste-skill`. Ils ne sont pas non plus au calendrier de la section 2.

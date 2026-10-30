@@ -21,4 +21,6 @@ type(portée): description
 
 ## Décisions
 
-Une décision d'architecture (choix d'outil, de structure, de format, abandon d'une option) s'écrit dans un ADR numéroté sous `docs/adr/`. Un ADR accepté n'est jamais modifié : une décision qui change donne un nouvel ADR qui remplace l'ancien.
+Un ADR numéroté sous `docs/adr/` pour une décision coûteuse à défaire, ou qui écarte une alternative qu'on ne veut pas voir reproposer : choix d'outil, de structure, de format, abandon d'une option. Un ADR accepté n'est jamais modifié : une décision qui change donne un nouvel ADR qui remplace l'ancien.
+
+Un réglage qui se défait en une ligne n'a pas d'ADR : une règle de lint, une option d'outil, un seuil chiffré se documentent en commentaire dans leur fichier de configuration (ADR 0004).

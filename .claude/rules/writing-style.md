@@ -15,7 +15,7 @@ type(portée): description
 ```
 
 - Types : `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `perf`, `build`, `ci`.
-- Portées : `api`, `web`, `shared`, `db`, `ci`, `docs`.
+- Portées : `api`, `web`, `shared`, `db`, `ci`, `docs`, `ia` (tout ce qui touche `.claude/` : agents, rules, réglages).
 - Un commit = un changement cohérent. Pas de commit fourre-tout.
 - Exemples : `feat(api): ajoute la création d'invitation`, `fix(web): corrige le focus du dialogue de confirmation`.
 

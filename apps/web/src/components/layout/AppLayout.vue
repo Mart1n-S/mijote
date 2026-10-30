@@ -80,6 +80,10 @@ const links = computed(() =>
 }
 
 .layout {
+  /* Épaisseur du liseré de la barre de navigation. Déclarée ici parce que la
+     réserve de place ci-dessous et la barre elle-même doivent s'accorder. */
+  --nav-border-width: 1px;
+
   display: grid;
   grid-template-areas:
     'header'
@@ -90,8 +94,11 @@ const links = computed(() =>
      de page sous le bord de l'écran. */
   min-height: 100dvh;
   /* La barre de navigation est fixe, donc hors du flux : sans cette réserve,
-     elle recouvrirait la fin du contenu et le pied de page. */
-  padding-bottom: calc(var(--tap-min) + env(safe-area-inset-bottom, 0px));
+     elle recouvrirait la fin du contenu et le pied de page. Sa hauteur est
+     celle d'une zone tactile plus son liseré du haut, qui compte aussi.
+     Attention : ce calcul suppose une barre sur une seule ligne, voir les
+     limites connues de docs/design-system.md. */
+  padding-bottom: calc(var(--tap-min) + var(--nav-border-width) + env(safe-area-inset-bottom, 0px));
 }
 
 .layout__header {
@@ -126,7 +133,7 @@ const links = computed(() =>
   left: 0;
   z-index: 1;
   background-color: var(--color-surface);
-  border-top: 1px solid var(--color-border);
+  border-top: var(--nav-border-width) solid var(--color-border);
   /* Encoche et barre de gestes des téléphones. */
   padding-bottom: env(safe-area-inset-bottom, 0);
 }

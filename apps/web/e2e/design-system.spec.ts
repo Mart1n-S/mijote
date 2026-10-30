@@ -50,8 +50,11 @@ test.describe('page de démonstration du design system', () => {
   });
 
   test('active un bouton par Entrée et par Espace', async ({ page }) => {
-    const toggle = page.getByRole('button', { name: 'Mettre Enregistrer en cours' });
-    const save = page.getByRole('button', { name: /^Enregistrer/ });
+    // Le tableau des états montre lui aussi des boutons « Enregistrer » :
+    // on vise celui de la section « Action en cours », et lui seul.
+    const section = page.getByRole('region', { name: 'Action en cours' });
+    const toggle = section.getByRole('button', { name: 'Mettre Enregistrer en cours' });
+    const save = section.getByRole('button', { name: /^Enregistrer/ });
 
     await expect(save).not.toHaveAttribute('aria-disabled', 'true');
 
@@ -64,7 +67,7 @@ test.describe('page de démonstration du design system', () => {
     await expect(save).toHaveAttribute('aria-busy', 'true');
     await expect(save).not.toHaveAttribute('disabled', '');
 
-    await page.getByRole('button', { name: "Arrêter l'action en cours" }).focus();
+    await section.getByRole('button', { name: "Arrêter l'action en cours" }).focus();
     await page.keyboard.press(' ');
 
     await expect(save).not.toHaveAttribute('aria-disabled', 'true');

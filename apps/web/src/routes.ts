@@ -22,14 +22,6 @@ declare module 'vue-router' {
 const designSystemPage =
   import.meta.env.MODE === 'production' ? undefined : () => import('./pages/DesignSystemPage.vue');
 
-/*
-  TEMPORAIRE, PR #17 : page de comparaison des trois directions visuelles.
-  Elle part avec son fichier dès qu'une direction est retenue. Même mécanisme
-  d'exclusion que ci-dessus.
-*/
-const directionsPage =
-  import.meta.env.MODE === 'production' ? undefined : () => import('./pages/DirectionsPage.vue');
-
 /**
  * La table des routes. La page de démonstration du design system n'est pas une
  * page de l'application : elle n'est ajoutée que là où elle a un sens, et elle
@@ -51,18 +43,6 @@ export function createRoutes(withDesignSystem: boolean): RouteRecordRaw[] {
       name: 'design-system',
       component: designSystemPage,
       meta: { title: 'Design system', navLabel: 'Design system' },
-    });
-  }
-
-  if (withDesignSystem && directionsPage !== undefined) {
-    routes.push({
-      path: '/directions',
-      name: 'directions',
-      component: directionsPage,
-      // Volontairement sans navLabel : une troisième entrée ferait passer la
-      // barre basse sur deux lignes à 320 px, ce que le test de bout en bout
-      // interdit. Page temporaire, atteinte par son adresse.
-      meta: { title: 'Directions visuelles' },
     });
   }
 

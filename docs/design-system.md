@@ -19,7 +19,7 @@ Les tests de bout en bout doivent pourtant l'atteindre. Ils servent donc la cons
 
 ## Principes
 
-1. **Les jetons d'abord.** Aucune couleur, taille, espacement, rayon ni ombre en dur dans un composant. Une valeur qui manque devient un jeton.
+1. **Les jetons d'abord.** Aucune couleur, taille, espacement, rayon ni ombre en dur dans un composant. Une valeur qui manque devient un jeton. **Une seule exception, hors de `src` :** le manifeste PWA recopie `theme_color` et `background_color` à la main dans `vite.config.ts`, parce qu'un manifeste ne lit pas une propriété CSS personnalisée. Toute refonte du coloris doit y repasser.
 2. **Le HTML avant ARIA.** Un bouton est un `button`, un lien est un `a href`. ARIA seulement là où le natif ne suffit pas.
 3. **Reka UI pour les comportements difficiles.** Dialogue, liste déroulante, combobox, menu : le clavier et ARIA viennent de la bibliothèque (ADR 0001), le style reste maison.
 4. **Jamais la couleur seule.** Un état se lit aussi par un mot, une forme ou une épaisseur.
@@ -61,6 +61,7 @@ Le mode sombre redéfinit **les mêmes noms** sous `prefers-color-scheme: dark`.
 | `--color-raised`         | Surface au-dessus de la page : dialogue, barre de navigation          |
 | `--color-border`         | Séparateur décoratif. Aucun seuil : il ne porte pas d'information     |
 | `--color-border-strong`  | Contour d'un contrôle : champ, bouton secondaire. Tient 3:1           |
+| `--color-border-hover`   | Le même contour, renforcé au survol. Plus foncé en clair, plus clair en sombre |
 | `--color-text`           | Texte courant                                                        |
 | `--color-text-muted`     | Texte secondaire : aide d'un champ, pied de page                     |
 | `--color-accent`         | La seule couleur d'accent : lien, bouton principal, page courante     |
@@ -88,11 +89,11 @@ Trois niveaux, et pas un de plus. **Une ombre ne sert qu'à dire qu'une surface 
 
 **En mode sombre, l'élévation passe surtout par la surface.** `--color-raised` y est plus claire que le fond, et l'ombre se contente d'asseoir le bord : une ombre noire sur un fond sombre ne se voit pas. En clair, c'est l'inverse, la surface surélevée est plus claire que le fond et c'est l'ombre qui porte l'information.
 
-La teinte des ombres reprend la couleur de texte du thème, jamais du noir pur : une ombre grise sur un fond teinté se voit comme une salissure.
+En clair, la teinte des ombres reprend `--color-text` plutôt que du noir pur : une ombre grise sur un fond teinté se voit comme une salissure. En sombre, les ombres sont du noir pur, parce qu'une ombre teintée ne se voit pas sur un fond sombre et que c'est la surface, pas elle, qui porte l'information.
 
 ### Typographie
 
-**Atkinson Hyperlegible Next**, hébergée dans le dépôt (`src/assets/fonts/`), figée au commit `7925f50f649b3813257faf2f4c0b381011f434f1` de `googlefonts/atkinson-hyperlegible-next`, licence OFL-1.1 reprise à côté du fichier. **Aucune requête vers Google Fonts ni vers un autre service tiers**, ce qu'un contrôle en navigateur vérifie.
+**Atkinson Hyperlegible Next**, hébergée dans le dépôt (`src/assets/fonts/`), figée au commit `7925f50f649b3813257faf2f4c0b381011f434f1` de `googlefonts/atkinson-hyperlegible-next`, licence OFL-1.1 reprise à côté du fichier. Empreinte SHA-256 du `.woff2` : `abde1ad5cf78b9ac575ef90d991f2e9101eb0b3b6668bde9a00e2e1e27d99afd`. **Aucune requête vers Google Fonts ni vers un autre service tiers**, ce que `e2e/third-party.spec.ts` vérifie sur chaque page : il échoue sur toute requête sortant de l'origine de l'application.
 
 Elle a été choisie pour une raison, pas pour son allure : dessinée par la Braille Institute pour la basse vision, elle différencie les formes que les sans-serif confondent, `I l 1`, `O 0`, `a e`. C'est un choix motivé par la cible RGAA du projet.
 
@@ -108,6 +109,8 @@ Les noms de graisse disent le rôle, pas la graisse de la police :
 | `--weight-display`   | 800    | titre de page, page courante, chiffre mis en avant |
 
 Tailles : `--text-sm` à `--text-2xl`, plus `--text-display` pour **le seul chiffre mis en avant par écran**, qui est l'endroit où cette direction dépense son audace. Un prix, un total, un reste à dépenser : un par écran, pas deux.
+
+`--font-mono` est une pile système, posée par `base.css` sur `code`, `samp` et `kbd` : aucune police de plus à charger.
 
 Les titres sont resserrés par `--tracking-tight` : aux grandes tailles, l'approche d'une police pensée pour le texte courant paraît lâche.
 
@@ -128,7 +131,7 @@ Chaque contrôle doit dire dans quel état il est, **et jamais par la seule coul
 | **Bouton principal**     | `accent`                  | `accent-hover`    | anneau global, 2 px      | `accent-active`, descend de 1 px     | `disabled`, atténué, curseur interdit  | `aria-disabled`, `aria-busy`, témoin, texte | sans objet                                |
 | **Bouton secondaire**    | `surface` et contour      | `surface-hover`   | anneau global            | `surface-active`, descend de 1 px    | idem                                   | idem                                       | sans objet                                |
 | **Bouton de danger**     | `danger`                  | `danger-hover`    | anneau global            | `danger-active`, descend de 1 px     | idem                                   | idem                                       | sans objet                                |
-| **Champ de saisie**      | fond de page et contour   | contour assombri  | anneau global            | fond `surface-hover`                 | fond `surface`, texte atténué, interdit | sans objet, c'est le bouton qui le porte   | contour 2 px `danger`, marque et préfixe  |
+| **Champ de saisie**      | fond de page et contour   | contour renforcé  | anneau global            | fond `surface-hover`                 | fond `surface`, texte atténué, interdit | sans objet, c'est le bouton qui le porte   | contour 2 px `danger`, marque et préfixe  |
 | **Lien de navigation**   | texte courant             | `surface-hover`   | anneau global            | `surface-active`                     | sans objet                             | sans objet                                 | sans objet                                |
 | **Déclencheur du dialogue** | c'est un `BaseButton`  | idem              | idem                     | idem                                 | idem                                   | idem                                       | sans objet                                |
 
@@ -159,6 +162,7 @@ Le couple le plus serré de toute la palette est le contour d'un contrôle sur l
 | Texte secondaire (`--color-text-muted`)         | 4,5:1 | 7,95:1   | 7,12:1   | 6,51:1   | 5,88:1   | 8,21:1    |
 | Lien, accent (`--color-accent`)                 | 4,5:1 | 9,82:1   | 8,80:1   | 8,05:1   | 7,27:1   | 10,15:1   |
 | Contour d'un contrôle (`--color-border-strong`) | 3:1   | 4,36:1   | 3,91:1   | 3,57:1   | 3,23:1   | 4,51:1    |
+| Contour renforcé au survol (`--color-border-hover`) | 3:1 | 7,95:1 | 7,12:1 | 6,51:1 | 5,88:1 | 8,21:1 |
 | Anneau de focus (`--color-focus`)               | 3:1   | 9,82:1   | 8,80:1   | 8,05:1   | 7,27:1   | 10,15:1   |
 | Repère de succès (`--color-success`)            | 3:1   | 6,30:1   | 5,64:1   | 5,16:1   | 4,67:1   | 6,51:1    |
 | Repère d'avertissement (`--color-warning`)      | 3:1   | 5,74:1   | 5,14:1   | 4,70:1   | 4,25:1   | 5,93:1    |
@@ -181,6 +185,7 @@ Le couple le plus serré de toute la palette est le contour d'un contrôle sur l
 | Texte secondaire (`--color-text-muted`)         | 4,5:1 | 8,01:1   | 7,36:1   | 6,60:1   | 5,96:1   | 6,83:1    |
 | Lien, accent (`--color-accent`)                 | 4,5:1 | 7,93:1   | 7,29:1   | 6,53:1   | 5,90:1   | 6,76:1    |
 | Contour d'un contrôle (`--color-border-strong`) | 3:1   | 4,34:1   | 3,99:1   | 3,58:1   | 3,24:1   | 3,71:1    |
+| Contour renforcé au survol (`--color-border-hover`) | 3:1 | 7,53:1 | 6,93:1 | 6,21:1 | 5,61:1 | 6,43:1 |
 | Anneau de focus (`--color-focus`)               | 3:1   | 7,93:1   | 7,29:1   | 6,53:1   | 5,90:1   | 6,76:1    |
 | Repère de succès (`--color-success`)            | 3:1   | 9,30:1   | 8,55:1   | 7,66:1   | 6,92:1   | 7,93:1    |
 | Repère d'avertissement (`--color-warning`)      | 3:1   | 9,15:1   | 8,42:1   | 7,54:1   | 6,82:1   | 7,81:1    |
@@ -242,6 +247,8 @@ Le composant est donc fait pour cela : la région est rendue inconditionnellemen
 
 La région vide est un `div` sans style, donc de hauteur nulle. Dans un conteneur `flex` avec `gap`, elle compte en revanche comme un élément : `display: contents` corrigerait cela, mais plusieurs moteurs l'ont déjà, à un moment, sortie de l'arbre d'accessibilité, ce qui est exclu sur une région `aria-live`.
 
+**L'information n'a pas de couleur à elle : elle emprunte l'accent.** C'est voulu. Un message d'information n'est pas une alarme, et lui donner une teinte propre reviendrait à inventer un quatrième état dans un spectre déjà occupé par le succès, l'avertissement et l'erreur. L'écart entre l'accent et le repère d'information est donc nul par construction, et ce qui distingue les deux est le préfixe textuel, jamais la couleur. Les trois autres états, eux, sont à plus de 32 de l'accent (voir l'ADR 0006).
+
 Chaque message porte un préfixe qui nomme son état (« Information : », « Succès : », « Attention : », « Erreur : ») et un repère visuel `aria-hidden`. La couleur ne porte jamais l'information seule.
 
 ### BaseDialog
@@ -283,7 +290,7 @@ Elles sont dans `base.css` et s'appliquent sans que personne ait à y penser :
 
 ## Limites connues
 
-- **La réserve de place sous le contenu suppose une barre basse sur une seule ligne.** `AppLayout` réserve une hauteur fixe sous la grille, calculée pour une barre d'une rangée. Avec plus d'entrées de navigation, ou un libellé long, la barre peut passer sur deux lignes et masquer à nouveau la fin du contenu. À mesurer réellement, plutôt qu'à supposer, dès qu'une entrée s'ajoute.
+- La barre basse **ne passe jamais sur deux lignes** : ses libellés sont insécables et c'est elle qui défile horizontalement quand ils ne tiennent plus. Sa hauteur vaut donc toujours une zone tactile plus son liseré, et la réserve de place sous le contenu reste exacte à toute taille de texte. C'était une limite connue, mesurée puis corrigée : au texte agrandi à 200 %, la barre passait sur deux lignes et recouvrait 14 px du pied de page. Le prix de la correction est qu'avec beaucoup d'entrées, la barre défilera de côté sur un écran étroit.
 - La région vide d'un `BaseAlert` compte comme un élément dans un conteneur `flex` avec `gap` (voir sa section plus haut).
 - Le tableau des états de la page de démonstration recopie quelques règles de survol et d'enfoncement pour les figer côte à côte. C'est la seule duplication acceptée, et elle est sous contrôle : l'exemplaire vivant est juste à côté du figé.
 
@@ -298,6 +305,8 @@ Elles sont dans `base.css` et s'appliquent sans que personne ait à y penser :
 | Lien d'évitement, activation au clavier, va-et-vient du focus du dialogue      | `e2e/design-system.spec.ts`              |
 | Place de la navigation selon la largeur, absence de défilement horizontal     | `e2e/design-system.spec.ts`              |
 | Absence de la page de démonstration dans le paquet livré                      | `.github/workflows/ci.yml`               |
+| Aucune requête vers un service tiers, et la police bien chargée localement    | `e2e/third-party.spec.ts`                |
+| Texte agrandi à 200 % : ni défilement de côté, ni contenu masqué (RGAA 10.4)  | `e2e/design-system.spec.ts`              |
 
 Deux choses ne se testent pas en jsdom, et sont donc couvertes par Playwright :
 

@@ -382,7 +382,9 @@ h3 {
 
 .swatches {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  /* min() borne la piste à la largeur disponible : sans lui, 14rem vaut
+     448 px au texte agrandi à 200 % et la grille déborde de l'écran. */
+  grid-template-columns: repeat(auto-fill, minmax(min(14rem, 100%), 1fr));
   gap: var(--space-3);
   margin-top: var(--space-3);
 }
@@ -437,6 +439,7 @@ h3 {
 
 .elevations li {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-4);
 }
@@ -446,7 +449,8 @@ h3 {
   align-items: center;
   justify-content: center;
   flex: none;
-  width: 12rem;
+  /* Même raison que la grille des couleurs, au texte agrandi. */
+  width: min(12rem, 100%);
   padding: var(--space-4);
   background-color: var(--color-raised);
   border-radius: var(--radius-md);

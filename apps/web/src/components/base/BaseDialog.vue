@@ -7,6 +7,7 @@ import {
   DialogPortal,
   DialogRoot,
   DialogTitle,
+  DialogTrigger,
 } from 'reka-ui';
 
 import BaseButton from './BaseButton.vue';
@@ -33,9 +34,15 @@ const open = defineModel<boolean>('open', { default: false });
 
 <template>
   <DialogRoot v-model:open="open">
-    <!-- Le déclencheur est fourni par l'appelant : c'est lui qui sait quel
-         bouton ouvre le dialogue, et Reka UI lui rendra le focus. -->
-    <slot name="trigger" />
+    <!--
+      Le déclencheur est fourni par l'appelant, qui seul sait quel bouton ouvre
+      le dialogue, mais c'est ici qu'il est relié à Reka UI : l'appelant passe
+      un bouton du projet et n'a pas à connaître Reka UI. C'est aussi ce lien
+      qui fait revenir le focus sur ce bouton à la fermeture.
+    -->
+    <DialogTrigger v-if="$slots.trigger" as-child>
+      <slot name="trigger" />
+    </DialogTrigger>
 
     <DialogPortal>
       <DialogOverlay class="dialog__overlay" />

@@ -68,7 +68,8 @@ Refais d'abord les étapes 1 et 2 du mode plan : l'état a pu changer depuis. Pu
 
 1. **Labels manquants** : `gh label create <nom> --color <couleur neutre> --description <description courte>`.
 2. **Jalon** s'il manque : `gh api repos/{owner}/{repo}/milestones -f title="<jalon>"`.
-3. **Tableau** s'il manque : `gh project create --owner @me --title "<tableau>"`, puis `gh project link <numéro> --owner @me`, qui relie le dépôt du dossier courant.
+3. **Tableau** s'il manque : reprends le `nameWithOwner` lu à l'étape 2, de la forme `<propriétaire>/<dépôt>`, puis `gh project create --owner <propriétaire> --title "<tableau>"` et `gh project link <numéro> --owner <propriétaire> --repo <dépôt>`.
+   Pas de `@me` ici et pas de `--repo` omis : `gh project link` cherche alors un dépôt nommé `@me/<dépôt>` et échoue. `--repo` prend le nom court du dépôt, sans le propriétaire.
 4. **Issues**, dans l'ordre du fichier, pour que chaque dépendance ait déjà son numéro : corps écrit dans un fichier temporaire hors du dépôt, puis `gh issue create --title … --body-file … --label … --milestone …`. Supprime le fichier temporaire ensuite.
 5. **Cartes** : `gh project item-add <numéro> --owner @me --url <url de l'issue>`, puis le statut « Todo » par
    `gh project item-edit <numéro> --owner @me --url <url de l'issue> --field "Status" --value "Todo"`.

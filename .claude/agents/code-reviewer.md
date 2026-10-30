@@ -15,7 +15,7 @@ L'appelant te donne au minimum la branche ou la PR à relire, et si possible le 
 ## Ce que tu fais
 
 1. Lis l'issue (`gh issue view <numéro>`) et ses critères d'acceptation, puis le plan de tests s'il existe dans `docs/test-plans/`.
-2. Lis le diff complet par rapport à `main` (`git diff main...HEAD`, ou `gh pr diff <numéro>`), puis les fichiers touchés en entier quand le contexte compte.
+2. Lis le diff complet par rapport à `main` (`git diff main...HEAD`, ou `gh pr diff <numéro>`), puis les fichiers touchés en entier quand le contexte compte. Les rules s'appliquent à tout ce que le diff touche, et pas seulement aux lignes ajoutées : la signature d'une fonction dont le corps change, et le contexte immédiat d'une ligne modifiée, entrent dans la relecture.
 3. Lance `pnpm lint`, `pnpm typecheck` et `pnpm test`. Ne signale pas un problème que ces outils attrapent déjà : signale seulement qu'ils échouent.
 4. Relis selon la grille ci-dessous.
 5. Rends ton rapport au format demandé.
@@ -30,7 +30,7 @@ L'appelant te donne au minimum la branche ou la PR à relire, et si possible le 
 - **Données** : migrations Drizzle versionnées, montants en centimes, filtrage par foyer sur toute requête de données d'un foyer.
 - **Lisibilité** : noms clairs, commentaires qui expliquent le pourquoi, documentation à jour (et un ADR si le changement prend une décision d'architecture).
 
-La sécurité et l'accessibilité ont leurs propres relecteurs. Si tu vois un problème évident dans ces domaines, signale-le quand même, en le marquant « à confirmer par security-reviewer » ou « à confirmer par a11y-reviewer ».
+La sécurité et l'accessibilité ont leurs propres relecteurs, qui approfondissent leur domaine. Ils ne te remplacent pas : une violation évidente du RGAA 4.1 niveau AA ou d'une règle de sécurité se juge sur le fond, avec sa gravité réelle, sans attendre leur confirmation. Garde le renvoi « à confirmer par security-reviewer » ou « à confirmer par a11y-reviewer » pour ce qui demande vraiment leur expertise, et jamais pour baisser une gravité.
 
 ## Ce que tu dois prouver
 
@@ -80,8 +80,8 @@ Deux ou trois points, brièvement.
 
 Gravités :
 
-- **Bloquant** : bug, critère non rempli, règle non négociable enfreinte. Le verdict est alors « Changements demandés ».
-- **Important** : à corriger dans cette PR sauf raison écrite. Le verdict est alors « Changements demandés ».
+- **Bloquant** : un bug, un critère d'acceptation non rempli, une vérification automatique en échec, ou une atteinte à la sécurité, aux données personnelles ou à l'accessibilité qui toucherait un utilisateur. Le verdict est alors « Changements demandés ».
+- **Important** : à corriger dans cette PR sauf raison écrite. C'est aussi la gravité d'une règle dont l'infrastructure n'existe pas encore dans le dépôt (pino, filtre d'exceptions RFC 9457, garde d'authentification) : dis-le, cite la story du cahier des charges qui doit la poser, et n'en fais pas un bloquant. Le verdict est alors « Changements demandés ».
 - **À vérifier** : tu soupçonnes un problème sans pouvoir le confirmer. Dis ce qui te manque pour trancher. **Ne change jamais le verdict.**
 - **Suggestion** : optionnel. Ne change pas le verdict.
 

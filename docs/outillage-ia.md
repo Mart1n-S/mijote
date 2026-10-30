@@ -90,8 +90,103 @@ l'empêche d'écrire : d'après la documentation, une entrée
 les commandes visées. La garantie repose donc sur ses instructions et sur les
 règles `deny` des réglages.
 
+### Le prompt d'un agent est mis en cache au démarrage de la session
+
+Mesuré le 30 octobre 2026 sur Claude Code 2.1.175 : modifier
+`.claude/agents/code-reviewer.md` pendant une session ne change pas le
+comportement de l'agent lancé ensuite. Interrogé sur son barème de gravité
+juste après l'édition, il a recopié mot pour mot l'ancienne version. Les
+définitions sont donc lues au démarrage, pas à chaque lancement.
+
+Conséquence pratique : toute modification du prompt d'un agent demande un
+redémarrage du CLI avant d'être testée. C'est le piège à éviter quand on règle
+un agent et qu'on mesure l'effet dans la même session : on mesure l'ancien
+prompt.
+
 ### Ce qui est prévu
 
 Un hook `PreToolUse` à la story 3 (comptes sur invitation), en même temps que
 celui qui limitera le test-writer aux fichiers de test. Le sandbox n'est pas
 retenu pour l'instant.
+
+## 5. Banc d'essai du code-reviewer
+
+La branche `test/code-reviewer`, locale et jamais poussée, sert de banc d'essai.
+Elle porte un changement réaliste (création d'invitation : point d'API, écran,
+tests) qui passe `pnpm lint`, `pnpm typecheck` et `pnpm test`, dans lequel six
+défauts d'une nature chacun sont semés, plus un élément correct mais inhabituel
+(une promesse ignorée avec `void` et un commentaire qui dit pourquoi) pour
+mesurer les faux positifs. La liste des défauts reste hors du dépôt et n'est
+jamais donnée à l'agent.
+
+Le banc est rejoué à chaque modification du prompt du relecteur.
+
+### Passage 1 : 30 octobre 2026, Claude Code 2.1.175
+
+Prompt du commit `976735a`. Consigne donnée, rien de plus : « Relis la branche
+test/code-reviewer contre main. »
+
+| Défaut semé | Trouvé | Gravité rendue | Gravité attendue |
+| --- | --- | --- | --- |
+| `any` sur un paramètre, dans un `.vue` | oui | bloquant | bloquant ou important |
+| Fonction exportée sans type de retour | **non** | sans objet | important |
+| Promesse non attendue, succès annoncé à tort | oui | bloquant | bloquant |
+| Champ de formulaire sans label | oui | important, « à confirmer par a11y-reviewer » | bloquant |
+| Adresse e-mail journalisée | oui | bloquant | bloquant |
+| Affirmation invérifiable sur une bibliothèque | oui | important, source citée | à vérifier |
+
+Résultats : **cinq défauts sur six**, **aucun faux positif**. L'élément correct
+mais inhabituel n'a pas été signalé : il figure dans « Ce qui est bien fait »,
+avec la règle qui l'autorise. Vingt-et-un points rendus en tout, dont quinze
+hors de la liste semée, tous vérifiés exacts, et quatre qui correspondaient à
+des défauts introduits sans le vouloir en fabriquant le banc.
+
+Trois enseignements, qui ont donné le commit `1d96bc9` :
+
+1. Sept points sur vingt-et-un en bloquant, dont des règles dont
+   l'infrastructure n'existe pas encore dans le dépôt (pino, filtre RFC 9457).
+   Le barème parlait de « règle non négociable enfreinte » : il parle
+   maintenant de l'effet sur un utilisateur.
+2. Le champ sans label est parti en « important à confirmer par a11y-reviewer »,
+   alors que le RGAA 4.1 niveau AA est non négociable. La phrase qui invitait à
+   renvoyer vers les relecteurs spécialisés a été resserrée.
+3. Le type de retour manquant a été manqué alors que le fichier était lu et la
+   ligne citée pour un autre motif : la signature n'était pas une ligne ajoutée
+   du diff. Le prompt dit maintenant que les rules portent sur tout ce que le
+   diff touche, contexte compris.
+
+Le piège invérifiable n'a pas tenu, et c'est un bon résultat : l'agent est allé
+citer `crypto.d.ts` dans `node_modules`, qui recopie la documentation Node, et a
+tranché au lieu de supposer. Un piège de ce genre doit viser un comportement
+absent des typages installés.
+
+Contrôle annexe, même date et même version : interrogé sur ses outils, l'agent
+a listé `Read`, `Grep`, `Glob`, `Bash` et l'outil de remise de rapport, soit
+exactement son frontmatter, et n'a rien relu.
+
+### Ce que le lint attrape seul depuis les garanties du 30 octobre 2026
+
+Trois des six défauts semés, sans aucun faux positif :
+
+| Défaut | Règle qui l'attrape |
+| --- | --- |
+| Fonction exportée sans type de retour | `@typescript-eslint/explicit-module-boundary-types` |
+| `any` sur un paramètre, dans un `.vue` | `@typescript-eslint/no-explicit-any` |
+| Champ de formulaire sans label | `vuejs-accessibility/form-control-has-label` |
+
+Les trois autres restent au jugement du relecteur. La promesse flottante
+échappe au lint parce que `no-floating-promises` a besoin des types, et que les
+règles typées restent hors des `.vue` : elles liraient le TypeScript généré
+derrière le composant. L'adresse e-mail journalisée et le commentaire faux
+demandent, eux, de comprendre ce que le code raconte.
+
+Mesure faite en superposant `eslint.config.js`, `package.json` et
+`pnpm-lock.yaml` de `chore/lint-garanties` sur la copie de travail du banc, sans
+toucher à son commit : la configuration du lint est versionnée, donc une
+branche sortie ramène la sienne.
+
+### Passage 2 : à faire
+
+À rejouer dans une session neuve, pour la raison dite en section 4 : le prompt
+modifié n'est pas relu à chaud. Même consigne neutre, puis comparaison des
+défauts trouvés, des gravités et des faux positifs avec le passage 1.

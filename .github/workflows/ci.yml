@@ -17,10 +17,10 @@ concurrency:
 jobs:
   verification:
     name: lint, types et tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      # Les actions sont figées par l'empreinte complète de leur commit : une
-      # étiquette peut être déplacée sur un autre commit, une empreinte non.
+      # Les actions sont figées par l'empreinte complète de leur commit, et
+      # l'exécuteur par une version d'image. Voir docs/adr/0003-outillage-ia.md.
       - name: Récupère le dépôt
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -49,7 +49,7 @@ jobs:
 
   e2e:
     name: playwright et axe-core
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Récupère le dépôt
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

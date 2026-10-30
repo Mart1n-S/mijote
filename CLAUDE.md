@@ -7,6 +7,7 @@ PWA de planification de repas sur 7 ou 14 jours : recettes HelloFresh, liste de 
 - `docs/cahier-des-charges.md` : la référence fonctionnelle. Ne le lis pas en entier : va chercher la section utile.
 - `docs/lot-0/` : rapports de faisabilité. À lire avant de toucher à une source de données (HelloFresh, Picard, Intermarché, Open Food Facts, Ciqual, tickets).
 - `docs/adr/` : décisions d'architecture. Ne repropose jamais une option déjà écartée par un ADR ; une décision qui change donne un nouvel ADR.
+- `docs/outillage-ia.md` : agents, rules et outils externes. Tout skill, agent ou outil externe est lu, scanné avec SkillSpector et figé à une version précise avant installation (ADR 0003).
 
 ## Phase actuelle : lot 1, socle
 
@@ -38,6 +39,8 @@ docs/
   cahier-des-charges.md
   adr/            # décisions d'architecture, numérotées
   lot-0/          # rapports de faisabilité
+  outillage-ia.md # agents, rules et outils externes, avec leur version figée
+  poste-de-dev.md # outils installés sur la machine, avec leur retrait
 ```
 
 `apps/web` et `apps/api` n'importent jamais l'un de l'autre : tout ce qui est partagé passe par `packages/shared`.
@@ -69,13 +72,15 @@ Pour toute tâche de plus de quelques lignes : présenter le plan et attendre ma
 
 ## Règles non négociables
 
-- **Secrets** : ne jamais lire, afficher ni commiter un fichier `.env`. Les variables attendues sont listées dans `.env.example`.
-- **Données personnelles** : ne jamais afficher, recopier ni journaliser un nom, une adresse, un e-mail, un téléphone, un numéro de carte de fidélité ou de paiement. Dans le code, les filtrer dès l'extraction (liste blanche de sortie).
-- **Sites tiers** : `robots.txt` respecté sans exception, aucun navigateur piloté pour passer une protection, arrêt au premier blocage (captcha, 403, 429). Aucune collecte Intermarché.
-- **Accessibilité** : RGAA 4.1 niveau AA. HTML natif avant ARIA, chaque champ a un label visible, tout se fait au clavier, contrastes 4,5:1.
-- **Erreurs** : format unique RFC 9457 (Problem Details) pour toute l'API ; jamais de trace technique renvoyée au navigateur.
-- **Journaux** : JSON, avec identifiant de requête ; rien de sensible (voir données personnelles, jetons, mots de passe).
-- **Dépendances** : version figée, `pnpm audit` propre ; demander avant d'ajouter une dépendance qui n'est pas dans la stack ci-dessus.
+Le détail est dans `.claude/rules/` : `security.md` et `writing-style.md` sont chargées à chaque session, `typescript.md`, `api.md` et `vue-accessibility.md` seulement sur les fichiers qu'elles visent. D'où ce rappel en une ligne, qui reste valable partout.
+
+- **Secrets** : ne jamais lire, afficher ni commiter un `.env` (`security.md`).
+- **Données personnelles** : jamais affichées, recopiées ni journalisées ; filtrage par liste blanche dès l'extraction (`security.md`).
+- **Sites tiers** : `robots.txt` respecté, arrêt au premier blocage, aucune collecte Intermarché (`security.md`).
+- **Accessibilité** : RGAA 4.1 niveau AA, HTML natif avant ARIA (`vue-accessibility.md`).
+- **Erreurs** : format unique RFC 9457, jamais de trace technique renvoyée au navigateur (`api.md`).
+- **Journaux** : JSON, avec identifiant de requête, rien de sensible (`api.md`).
+- **Dépendances** : version figée, `pnpm audit` propre, accord avant toute dépendance hors stack (`security.md`).
 
 ## Conventions
 

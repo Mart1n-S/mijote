@@ -3,6 +3,7 @@
   jetons de tokens.css : ce fichier ne décide d'aucune valeur.
 */
 
+@import './fonts.css';
 @import './tokens.css';
 
 *,

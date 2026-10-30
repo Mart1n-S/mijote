@@ -1,0 +1,26 @@
+/*
+  Police du projet, hébergée dans le dépôt. Aucune requête vers Google Fonts
+  ni vers un autre service tiers : le fichier est servi par l'application
+  elle-même, et son empreinte est consignée dans docs/design-system.md.
+
+  Atkinson Hyperlegible Next, dessinée par la Braille Institute pour la basse
+  vision : ses lettres sont différenciées là où les sans-serif se ressemblent
+  (I, l, 1 ; O, 0 ; a, e). C'est un choix motivé par la cible RGAA du projet,
+  pas par son allure.
+
+  Un seul fichier variable plutôt que sept fichiers de graisse fixe : 48 ko
+  pour toute la plage 200 à 800, contre environ 26 ko par graisse.
+
+  L'italique n'est pas repris : le design system n'en utilise pas. Le jour où
+  il en faudra, le fichier italique est dans le même dépôt figé.
+*/
+
+@font-face {
+  font-family: 'Atkinson Hyperlegible Next';
+  src: url('../assets/fonts/atkinson-hyperlegible-next-variable.woff2') format('woff2');
+  font-weight: 200 800;
+  font-style: normal;
+  /* La pile système s'affiche le temps du chargement, puis la police prend sa
+     place : jamais de texte invisible, ce que font-display: block produirait. */
+  font-display: swap;
+}

@@ -465,6 +465,40 @@ test.describe('page de démonstration du design system', () => {
       expect((navBox?.x ?? 0) + (navBox?.width ?? 0)).toBeLessThanOrEqual((mainBox?.x ?? 0) + 1);
     });
 
+    test('réserve la hauteur de la barre pour le défilement', async ({ page }) => {
+      await page.setViewportSize({ width: 320, height: 640 });
+
+      const sous640 = await page.evaluate(() => {
+        const nav = document.querySelector('nav');
+
+        if (nav === null) {
+          return null;
+        }
+
+        return {
+          reserve: getComputedStyle(document.documentElement).scrollPaddingBottom,
+          hauteurBarre: `${nav.getBoundingClientRect().height}px`,
+        };
+      });
+
+      expect(sous640).not.toBeNull();
+      /*
+        Les deux quantités sont comparées l'une à l'autre, et non à un nombre
+        écrit ici : c'est tout l'intérêt de --nav-bar-height, qui les tient
+        ensemble. Le navigateur arrête son défilement exactement une hauteur de
+        barre plus haut, donc un contrôle amené au bord bas par la tabulation
+        ne passe pas dessous.
+      */
+      expect(sous640?.reserve).toBe(sous640?.hauteurBarre);
+
+      await page.setViewportSize({ width: 1024, height: 700 });
+
+      // La barre est revenue dans le flux : plus rien à réserver.
+      expect(
+        await page.evaluate(() => getComputedStyle(document.documentElement).scrollPaddingBottom),
+      ).toBe('0px');
+    });
+
     /*
       La barre basse est un conteneur de défilement sur les deux axes, parce
       qu'elle porte overflow-x: auto. Elle rogne donc ce qui dépasse d'elle,

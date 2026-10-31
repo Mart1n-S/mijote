@@ -140,9 +140,10 @@ est absente a été ajoutée par `fa24697` le 30 octobre à 13:31, dans la PR #1
 Elle a bien tourné : au commit `c5495a7`, le même jour à 17:14, les deux étapes
 figurent en succès dans le journal du travail de CI.
 
-Quatre heures plus tard, à 17:35, `a2a5f9a` l'a supprimée. L'étape du contrôle des tirets a été
-écrite **par-dessus** les deux étapes de construction au lieu d'être ajoutée à
-leur suite, et le message de commit n'en disait rien : il décrivait longuement
+Quatre heures plus tard, à 17:35, `a2a5f9a` l'a supprimée. L'étape du contrôle
+des tirets a été écrite **par-dessus** les deux étapes de construction au lieu
+d'être ajoutée à leur suite, et le message de commit n'en disait rien : il
+décrivait longuement
 le nouveau contrôle, ses octets UTF-8 et ses exclusions. La PR #19, qui le
 portait, n'a pas été soumise au code-reviewer.
 

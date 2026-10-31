@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator } from '@playwright/test';
 
 import { accessibilityMatrix, accessibilityViolations } from './accessibility';
 
@@ -99,6 +99,138 @@ test.describe('page de démonstration du design system', () => {
     });
   });
 
+  /*
+    La copie figée des états recopie à la main les règles des composants, et
+    rien ne la gardait : trois divergences y ont vécu sans être vues jusqu'au
+    31 octobre 2026.
+
+    Ces tests comparent chaque état figé à ce que le composant vivant de la
+    ligne « Repos » produit réellement, en thème sombre. Le thème sombre et
+    non le clair, parce que l'une des trois divergences portait sur deux
+    jetons qui ont la même valeur en clair : en thème clair, ce test l'aurait
+    manquée.
+  */
+  test.describe('copie figée des états', () => {
+    test.use({ colorScheme: 'dark' });
+
+    const FIELD_PROPERTIES = ['border-color', 'background-color'];
+    const FOCUS_PROPERTIES = [
+      'outline-color',
+      'outline-style',
+      'outline-width',
+      'outline-offset',
+      // Le rayon aussi : une des divergences était un border-radius posé sur
+      // l'anneau figé, que base.css refuse justement de poser.
+      'border-radius',
+    ];
+    const VARIANTS = ['primary', 'secondary', 'danger'] as const;
+
+    /** Les propriétés calculées d'un élément, dans son état courant. */
+    async function computedStyle(
+      locator: Locator,
+      properties: readonly string[],
+    ): Promise<Record<string, string>> {
+      return locator.evaluate((element, names: readonly string[]) => {
+        const style = getComputedStyle(element);
+        const found: Record<string, string> = {};
+
+        for (const name of names) {
+          found[name] = style.getPropertyValue(name);
+        }
+
+        return found;
+      }, properties);
+    }
+
+    /*
+      La valeur est relevée par expect.poll et non une seule fois : le survol
+      et l'enfoncement passent par une transition de --duration-fast, donc la
+      première lecture après le geste attrape une couleur intermédiaire, qui
+      n'est celle d'aucun état. On attend que la valeur se stabilise sur celle
+      de la copie figée, et un vrai écart fait expirer l'attente.
+    */
+    test('fige le survol du champ comme le composant le produit', async ({ page }) => {
+      const frozen = await computedStyle(
+        page.getByLabel('Survol', { exact: true }),
+        FIELD_PROPERTIES,
+      );
+
+      const live = page.getByLabel('Repos', { exact: true });
+      await live.hover();
+
+      await expect.poll(() => computedStyle(live, FIELD_PROPERTIES)).toEqual(frozen);
+    });
+
+    test("fige l'enfoncement du champ comme le composant le produit", async ({ page }) => {
+      const frozen = await computedStyle(
+        page.getByLabel('Actif', { exact: true }),
+        FIELD_PROPERTIES,
+      );
+
+      // Un champ enfoncé est forcément survolé au même instant : les deux
+      // règles de BaseField s'appliquent ensemble, et la copie figée doit donc
+      // porter le contour autant que le fond.
+      const live = page.getByLabel('Repos', { exact: true });
+      await live.hover();
+      await page.mouse.down();
+
+      try {
+        await expect.poll(() => computedStyle(live, FIELD_PROPERTIES)).toEqual(frozen);
+      } finally {
+        await page.mouse.up();
+      }
+    });
+
+    test('fige le focus du champ comme le composant le produit', async ({ page }) => {
+      const frozen = await computedStyle(
+        page.getByLabel('Focus visible', { exact: true }),
+        FOCUS_PROPERTIES,
+      );
+
+      const live = page.getByLabel('Repos', { exact: true });
+      await live.focus();
+
+      expect(frozen).toEqual(await computedStyle(live, FOCUS_PROPERTIES));
+    });
+
+    test('fige les états du bouton comme le composant les produit', async ({ page }) => {
+      const restRow = page.locator('.states tbody tr').first();
+
+      for (const variant of VARIANTS) {
+        const live = restRow.locator(`.button--${variant}`);
+
+        const frozenHover = await computedStyle(page.locator(`.row-hover .button--${variant}`), [
+          'background-color',
+        ]);
+        // translate : l'enfoncement se voit aussi sans la couleur, le bouton
+        // descend d'un pixel.
+        const frozenActive = await computedStyle(page.locator(`.row-active .button--${variant}`), [
+          'background-color',
+          'translate',
+        ]);
+
+        await live.hover();
+        await expect
+          .poll(() => computedStyle(live, ['background-color']), {
+            message: `survol du bouton ${variant}`,
+          })
+          .toEqual(frozenHover);
+
+        await page.mouse.down();
+
+        try {
+          await expect
+            .poll(() => computedStyle(live, ['background-color', 'translate']), {
+              message: `enfoncement du bouton ${variant}`,
+            })
+            .toEqual(frozenActive);
+        } finally {
+          await page.mouse.up();
+        }
+      }
+    });
+  });
+
   test.describe('navigation', () => {
     test('est une barre fixe en bas sous 640 px', async ({ page }) => {
       await page.setViewportSize({ width: 375, height: 700 });
@@ -127,52 +259,6 @@ test.describe('page de démonstration du design system', () => {
     });
   });
 
-  test.describe('à 320 px de large, équivalent du zoom à 200 %', () => {
-    test.use({ viewport: { width: 320, height: 640 } });
-
-    test('ne provoque aucun défilement horizontal', async ({ page }) => {
-      const overflow = await page.evaluate(() => {
-        const root = document.documentElement;
-
-        return root.scrollWidth - root.clientWidth;
-      });
-
-      expect(overflow).toBeLessThanOrEqual(0);
-    });
-
-    test('ne laisse pas la barre de navigation masquer le contenu', async ({ page }) => {
-      const overlap = await page.evaluate(() => {
-        // Jusqu'en bas de page : c'est là que la barre fixe recouvrirait le
-        // contenu si sa hauteur n'était pas réservée. Le défilement est
-        // instantané, parce que la feuille de base le rend animé par défaut
-        // et que la mesure tomberait alors avant l'arrivée en bas.
-        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' });
-
-        const nav = document.querySelector('nav');
-        const footer = document.querySelector('footer');
-
-        if (nav === null || footer === null) {
-          return null;
-        }
-
-        // getBoundingClientRect est relatif à la fenêtre : c'est exactement la
-        // question posée, le dernier élément de la page passe-t-il sous la
-        // barre.
-        return footer.getBoundingClientRect().bottom - nav.getBoundingClientRect().top;
-      });
-
-      expect(overlap).not.toBeNull();
-      /*
-        Mesuré au pixel entier, et pas en-dessous. La réserve de place est
-        exacte, hauteur de la barre et liseré compris : ce qui reste est la
-        position fractionnaire du pied de page, que le moteur arrondit selon la
-        hauteur du contenu au-dessus. Un vrai recouvrement ferait au moins un
-        pixel, et ce test le verrait.
-      */
-      expect(Math.round(overlap ?? 0)).toBeLessThanOrEqual(0);
-    });
-  });
-
   /*
     RGAA 10.4 : le texte doit pouvoir doubler sans perte de contenu ni de
     fonction. Doubler la taille de base du document est exactement ce que fait
@@ -182,29 +268,26 @@ test.describe('page de démonstration du design system', () => {
   test.describe('au texte agrandi à 200 %', () => {
     test.use({ viewport: { width: 320, height: 640 } });
 
-    test('ne perd ni contenu ni lisibilité', async ({ page }) => {
+    /*
+      Le débordement horizontal et le recouvrement par la barre sont mesurés
+      pour tous les écrans par la matrice partagée (e2e/accessibility.ts). Ce
+      qui reste ici est propre à la barre elle-même : sa hauteur, dont dépend
+      la réserve de place, et le fait que ses libellés ont vraiment doublé.
+    */
+    test('garde la barre de navigation sur une seule ligne', async ({ page }) => {
       const mesure = await page.evaluate(() => {
         document.documentElement.style.fontSize = '32px';
 
         const nav = document.querySelector('nav');
-        const footer = document.querySelector('footer');
 
-        if (nav === null || footer === null) {
+        if (nav === null) {
           return null;
         }
 
-        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' });
-
         return {
-          // La page ne défile pas de côté : c'est la barre qui défile si ses
-          // libellés ne tiennent plus, et le tableau large qui défile seul.
-          debordement: document.documentElement.scrollWidth - document.documentElement.clientWidth,
           // La barre garde la hauteur d'une seule ligne, donc la réserve de
           // place reste exacte et rien ne passe dessous.
           hauteurBarre: Math.round(nav.getBoundingClientRect().height),
-          recouvrement: Math.round(
-            footer.getBoundingClientRect().bottom - nav.getBoundingClientRect().top,
-          ),
           // Les libellés doublent vraiment : sans cela, le test ne mesurerait
           // rien.
           taillePolice: getComputedStyle(nav.querySelector('a') ?? nav).fontSize,
@@ -213,8 +296,6 @@ test.describe('page de démonstration du design system', () => {
 
       expect(mesure).not.toBeNull();
       expect(mesure?.taillePolice).toBe('28px');
-      expect(mesure?.debordement).toBeLessThanOrEqual(0);
-      expect(mesure?.recouvrement).toBeLessThanOrEqual(0);
       // 44 px de zone tactile doublés, plus le liseré.
       expect(mesure?.hauteurBarre).toBe(89);
     });

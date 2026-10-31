@@ -569,15 +569,18 @@ p {
   translate: 0 1px;
 }
 
+/* Aucun border-radius ici, pas plus que dans base.css : un contour suit déjà
+   la forme de l'élément, rayon compris, et en imposer un changerait la forme
+   du contrôle. La copie figée en posait un, donc elle montrait un anneau que
+   l'application ne produit jamais. */
 .is-frozen .row-focus :deep(.button),
 .is-frozen .row-focus :deep(.field__input) {
   outline: 2px solid var(--color-focus);
   outline-offset: 2px;
-  border-radius: var(--radius-sm);
 }
 
 .is-frozen .row-hover :deep(.field__input) {
-  border-color: var(--color-text-muted);
+  border-color: var(--color-border-hover);
 }
 
 .is-frozen .row-active :deep(.field__input) {

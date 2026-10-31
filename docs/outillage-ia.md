@@ -12,6 +12,8 @@ Règle : un skill, un agent ou un outil externe est **lu**, **scanné avec Skill
 | `typescript`, `vue-accessibility`, `api` | rules (selon les chemins) | écrites pour le projet | dépôt | sans objet | 30 octobre 2026 |
 | `code-reviewer` | agent, lecture seule | écrit pour le projet | dépôt | sans objet | 30 octobre 2026 |
 | `backlog-manager` | agent, écrit dans GitHub, jamais dans le dépôt | écrit pour le projet | dépôt | sans objet | 30 octobre 2026 |
+| `security-reviewer` | agent, lecture seule | écrit pour le projet | dépôt | sans objet | 31 octobre 2026 |
+| `a11y-reviewer` | agent, lecture seule. S'appuie sur le skill `rgaa-checklist` | écrit pour le projet | dépôt | sans objet | 31 octobre 2026 |
 | `skillspector` | outil externe, scanner local | [NVIDIA/SkillSpector](https://github.com/NVIDIA/SkillSpector), Apache-2.0 | commit `abd82935b67f765a9541013c0866c6349251dcdf`, qui porte l'étiquette v2.13.2 | sans objet : c'est le scanner lui-même, son README a été lu à la place | 30 octobre 2026 |
 | `frontend-design` | skill externe, conseils de design | [anthropics/skills](https://github.com/anthropics/skills), `skills/frontend-design`, Apache-2.0 | commit `41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f`, dernier commit qui touche ce skill (3 septembre 2026) | 13/100, LOW, SAFE. Un signalement HIGH à 55 % analysé et écarté, voir section 6 | 30 octobre 2026 |
 | `context7` | skill externe, documentation de bibliothèques | [netresearch/context7-skill](https://github.com/netresearch/context7-skill), `skills/context7`, (MIT AND CC-BY-SA-4.0) | commit `3ff120aa168ac75fc7a110c589ff53dff0b6f284`, dernier commit qui touche `skills/` (7 octobre 2026) | 24/100, MEDIUM, CAUTION. Un signalement HIGH à 75 % analysé et écarté, voir section 6 | 31 octobre 2026 |
@@ -44,10 +46,15 @@ Les numéros renvoient à l'ordre des neuf stories de `docs/backlog/lot-1.md`.
 | Story du lot 1 | Agent ajouté |
 | --- | --- |
 | 1, poser le design system et les jetons de design | `code-reviewer` (en place) |
-| 2, uniformiser les erreurs et la journalisation | `security-reviewer`, `a11y-reviewer` |
+| 2, uniformiser les erreurs et la journalisation | `security-reviewer` (en place), `a11y-reviewer` (en place) |
 | 4, créer les comptes, la connexion et la session | `test-planner`, `test-writer` (limité aux fichiers de test par un hook) |
 | 6, inviter et inscrire un utilisateur | `code-writer`, `doc-writer`, `pr-manager` |
 | À partir de 7 | skill `/feature <issue>`, qui enchaîne le pipeline |
+
+Les deux relecteurs de la story 2 sont posés avant elle, le 31 octobre 2026 :
+le format d'erreur et la journalisation sont justement ce qu'ils doivent
+relire, donc ils doivent exister et avoir passé leur banc d'essai avant que la
+story commence. Leur banc est en section 5.
 
 ## 4. Limites connues
 

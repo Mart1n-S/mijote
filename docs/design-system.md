@@ -340,6 +340,7 @@ Elles sont dans `base.css` et s'appliquent sans que personne ait à y penser :
 | Voile et dialogue au-dessus de la barre basse, à 320 px                       | `e2e/design-system.spec.ts`              |
 | Dialogue entier et atteignable à 320 x 640 et à 320 x 256                     | `e2e/design-system.spec.ts`              |
 | Anneau de focus entier dans la barre, à 375 x 667 et à 320 px                 | `e2e/design-system.spec.ts`              |
+| Réserve de défilement égale à la hauteur de la barre, et nulle au-delà de 640 px | `e2e/design-system.spec.ts`            |
 | Lien d'évitement, activation au clavier, va-et-vient du focus du dialogue      | `e2e/design-system.spec.ts`              |
 | Place de la navigation selon la largeur                                       | `e2e/design-system.spec.ts`              |
 | Ni défilement horizontal ni contenu masqué par la barre, à 320 px et au texte à 200 %, sur les deux écrans | `e2e/accessibility.ts` |

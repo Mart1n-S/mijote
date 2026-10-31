@@ -73,8 +73,23 @@ const darkBlockStart = SOURCE.indexOf(DARK_BLOCK);
 const lightTheme = colorsIn(SOURCE.slice(0, darkBlockStart));
 const darkTheme = new Map([...lightTheme, ...colorsIn(SOURCE.slice(darkBlockStart))]);
 
+/*
+  Les noms déclarés de chaque côté, sans union cette fois : le test plus bas
+  compare le bloc sombre au clair, et une union aurait toujours contenu le
+  clair.
+*/
 const lightNames = colorNamesIn(SOURCE.slice(0, darkBlockStart));
-const darkNames = new Set([...lightNames, ...colorNamesIn(SOURCE.slice(darkBlockStart))]);
+const darkNames = colorNamesIn(SOURCE.slice(darkBlockStart));
+
+/*
+  Jetons volontairement déclarés en clair seulement. Le voile est identique
+  dans les deux thèmes : il assombrit l'écran, et le contraste du dialogue se
+  mesure contre sa propre surface, pas contre lui.
+
+  Ajouter un nom ici est une décision, pas un ajustement : ce nom cesse d'être
+  surveillé.
+*/
+const WITHOUT_DARK_OVERRIDE = ['overlay'];
 
 interface Pair {
   foreground: string;
@@ -135,12 +150,21 @@ describe('jetons de couleur', () => {
     expect(lightTheme.size).toBeGreaterThan(0);
   });
 
-  it('déclare les mêmes noms dans les deux thèmes', () => {
+  it('surcharge en sombre chaque jeton de couleur, sauf exception déclarée', () => {
     // Un nom présent en clair mais pas en sombre laisserait un composant avec
     // la couleur du thème clair sur un fond sombre. Le contrôle porte sur les
     // noms et non sur les valeurs mesurables, pour couvrir aussi le voile,
     // déclaré en rgb().
-    expect([...darkNames].sort()).toEqual([...lightNames].sort());
+    //
+    // Les noms du bloc sombre sont comparés à ceux du clair, et non à leur
+    // union : jusqu'au 31 octobre 2026, ce test comparait l'union au clair,
+    // qu'elle contient toujours. Il ne pouvait donc pas échouer dans le sens
+    // qu'il annonçait, et `overlay` était déjà dans ce cas sans que rien ne le
+    // dise. L'égalité couvre aussi le sens inverse : un nom qui n'existerait
+    // qu'en sombre n'aurait aucune valeur en clair.
+    const expected = [...lightNames].filter((name) => !WITHOUT_DARK_OVERRIDE.includes(name));
+
+    expect([...darkNames].sort()).toEqual(expected.sort());
   });
 
   it('couvre chaque fond sur lequel du contenu est posé', () => {

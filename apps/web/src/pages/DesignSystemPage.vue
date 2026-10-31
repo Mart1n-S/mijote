@@ -85,8 +85,8 @@ function toggleLoading(): void {
   Survol, enfoncement et focus ne se voient qu'en interagissant, un état à la
   fois. Ce réglage les fige côte à côte pour qu'on puisse les comparer et les
   contrôler. Les règles correspondantes sont en bas de ce fichier : elles
-  recopient celles des composants, et c'est la seule duplication acceptée ici,
-  parce que l'exemplaire vivant est juste à côté du figé.
+  recopient celles des composants, et c'est la seule duplication acceptée ici.
+  Ce qui la garde, et ce qui lui échappe, est dit juste avant ces règles.
 */
 const frozen = ref(true);
 </script>
@@ -535,8 +535,21 @@ p {
 /*
   Les règles ci-dessous recopient celles des composants pour figer un état
   qu'on ne peut sinon observer qu'en interagissant. C'est la seule duplication
-  acceptée dans ce fichier, et elle est sous contrôle : l'exemplaire vivant de
-  la ligne « Repos » est juste au-dessus, donc un écart se voit.
+  acceptée dans ce fichier.
+
+  Elle n'a longtemps été gardée par rien : l'exemplaire vivant de la ligne
+  « Repos » ne montre que le repos, donc il ne compare rien des états figés
+  ici. Trois divergences y ont vécu jusqu'au 31 octobre 2026, dont une
+  invisible en thème clair, où les deux jetons concernés ont la même valeur.
+
+  Depuis, le bloc « copie figée des états » de e2e/design-system.spec.ts
+  compare chaque état figé à ce que le composant vivant produit réellement, en
+  thème sombre. Un écart sur l'une de ces règles fait donc tomber un test.
+
+  Restent hors du verrou, à comparer à la lecture contre BaseButton.vue,
+  BaseField.vue et base.css : le focus du bouton, qu'un test ne peut pas
+  déclencher aussi simplement que celui d'un champ, et les règles sous
+  prefers-reduced-motion.
 
   :deep() est nécessaire parce que la cible est à l'intérieur d'un composant
   enfant, hors de portée du style scopé.
@@ -569,19 +582,27 @@ p {
   translate: 0 1px;
 }
 
+/* Aucun border-radius ici, pas plus que dans base.css : un contour suit déjà
+   la forme de l'élément, rayon compris, et en imposer un changerait la forme
+   du contrôle. La copie figée en posait un, donc elle montrait un anneau que
+   l'application ne produit jamais. */
 .is-frozen .row-focus :deep(.button),
 .is-frozen .row-focus :deep(.field__input) {
   outline: 2px solid var(--color-focus);
   outline-offset: 2px;
-  border-radius: var(--radius-sm);
 }
 
 .is-frozen .row-hover :deep(.field__input) {
-  border-color: var(--color-text-muted);
+  border-color: var(--color-border-hover);
 }
 
+/* Le contour autant que le fond : dans l'application, un champ enfoncé est
+   forcément survolé au même instant, donc les deux règles de BaseField
+   s'appliquent ensemble. Figer le seul fond montrait un champ enfoncé au
+   contour de repos. */
 .is-frozen .row-active :deep(.field__input) {
   background-color: var(--color-surface-hover);
+  border-color: var(--color-border-hover);
 }
 
 @media (prefers-reduced-motion: reduce) {

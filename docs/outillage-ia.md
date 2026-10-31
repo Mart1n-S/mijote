@@ -136,7 +136,12 @@ Un hook `PreToolUse` à la story 3 (comptes sur invitation), en même temps que
 celui qui limitera le test-writer aux fichiers de test. Le sandbox n'est pas
 retenu pour l'instant.
 
-## 5. Banc d'essai du code-reviewer
+## 5. Bancs d'essai des relecteurs
+
+Deux bancs : celui du code-reviewer, ci-dessous, et celui des deux relecteurs
+spécialisés, à la fin de cette section.
+
+### Banc du code-reviewer
 
 La branche `test/code-reviewer`, locale et jamais poussée, sert de banc d'essai.
 Elle porte un changement réaliste (création d'invitation : point d'API, écran,
@@ -288,6 +293,118 @@ modification du prompt du code-reviewer, pas avant.
   « À vérifier », avec renvoi à `docs/lot-0/hellofresh.md`.
 - **Deux témoins corrects mais inhabituels**, dont la promesse ignorée avec
   `void` et son commentaire.
+
+Toujours à faire au 31 octobre 2026 : le prompt du code-reviewer n'a pas bougé
+depuis le passage 2, donc le banc v2 n'a pas encore eu de raison d'être joué.
+La méthode décrite ci-dessus a servi telle quelle au banc des deux relecteurs
+spécialisés, qui est la première application de l'ADR 0004 à un banc.
+
+### Banc des deux relecteurs spécialisés
+
+Branche `test/reviewers`, locale, jamais poussée, supprimée après la mesure.
+Partie de `main` au commit `115a65b`, un seul commit, `ad06122`.
+
+Changement joué : une story de réinitialisation de mot de passe (#13), API et
+écran. Il passe `pnpm lint`, `pnpm typecheck`, `pnpm test` (158 tests) et
+`pnpm test:e2e` (19 tests). Douze défauts semés hors de portée du lint et
+d'axe-core, six par domaine, plus deux témoins corrects : une requête Drizzle
+paramétrée et un `alt=""` sur une icône décorative. Aucun commentaire du code
+ne désigne un défaut, et deux commentaires justifient innocemment un défaut (le
+sel « pour qu'un jeton sorti de la base ne vaille rien ailleurs », le SQL brut
+« pour rester insensible à la casse »). La liste des défauts est restée hors du
+dépôt et n'a jamais été donnée aux agents.
+
+#### Passage 1 : 31 octobre 2026, Claude Code 2.1.175
+
+Prompts installés par la PR #26. Consigne donnée à chacun, rien de plus :
+« Relis la branche test/reviewers contre main. »
+
+| | security-reviewer | a11y-reviewer |
+| --- | --- | --- |
+| Défauts de son domaine trouvés | 6 sur 6 | 6 sur 6 |
+| Faux positifs | 0 | 0 |
+| Témoin correct non signalé | oui | oui |
+| Gravités conformes au barème | 6 sur 6 | 6 sur 6 |
+| Règle ou critère cité juste | 6 sur 6 | 6 sur 6 |
+| Points rendus en tout | 19 | 20 |
+| Verdict | Changements demandés | Changements demandés |
+
+Défauts de sécurité, tous rendus Bloquants : accès à une ressource par
+identifiant sans filtre de foyer, adresse e-mail journalisée, secret en dur,
+SQL construit par concaténation, jeton de réinitialisation stocké en clair,
+trace technique renvoyée dans une erreur. L'absence de durée de vie du jeton a
+été séparée du stockage en clair et rendue en Important, ce qui est plus fin
+que la grille et se défend : le stockage en clair suffit à une fuite de base,
+l'absence d'expiration demande en plus de retrouver un vieux lien.
+
+Défauts d'accessibilité : titre de page générique (RGAA 8.6), erreur signalée
+par la couleur seule (3.1), région `aria-live` créée en même temps que son
+message (7.5), alternative non pertinente (1.2), `outline: none` sans
+remplacement (10.7), groupe de champs sans `fieldset` ni `legend` (11.5 et
+11.6). Les deux premiers sont rendus en Bloquant, les autres en Important. Les
+intitulés sont recopiés de `references/criteres-rgaa-4.1.2.md`, pas rédigés de
+mémoire, et chaque numéro correspond.
+
+**Les trois écarts corrigés avant installation tiennent à l'usage.** Les deux
+vulnérabilités de `pnpm audit` sont mentionnées en une ligne sans devenir un
+point relevé, parce que le diff ne touche aucune dépendance. Les renvois « à
+confirmer par » portent chacun leur gravité réelle, jamais une gravité baissée.
+Le a11y-reviewer a lancé `pnpm test:e2e` sans rien écrire dans le dépôt.
+
+#### Ce qu'ils ont trouvé hors de la liste semée
+
+Tous les points rendus ont été recontrôlés à la main, et tous sont exacts.
+Quatre sont des défauts réels introduits sans le vouloir en fabriquant le banc,
+ce qui est le meilleur signe du passage :
+
+1. **La migration n'était pas jouable.** Le fichier SQL avait été écrit à la
+   main, `drizzle/meta/_journal.json` ne portait que l'entrée `0000` et aucun
+   snapshot `0001` n'existait : `pnpm db:migrate` l'aurait ignoré.
+2. **Deux pools PostgreSQL**, le fournisseur de base étant déclaré dans deux
+   modules.
+3. **`currentColor` ne traverse pas une image `data:`** : les deux SVG se
+   dessinaient en noir, l'un quasi invisible en thème sombre.
+4. **Les boutons radio sans attribut `name`** ne formaient pas un groupe natif,
+   donc deux arrêts de tabulation et pas de circulation aux flèches.
+
+S'y ajoutent, côté sécurité : le jeton qui circule en paramètre d'URL, donc
+dans les journaux du proxy et l'historique ; l'incohérence entre la contrainte
+d'unicité sensible à la casse sur `users.email` et la recherche en
+`lower(email)` ; l'absence de limitation de débit ; l'absence de format
+RFC 9457. Côté accessibilité : l'attribut `disabled` posé pendant l'envoi, qui
+fait tomber le focus sur le `body` ; le champ obligatoire dont rien ne
+l'indique avant la saisie ; les cibles des boutons radio sous 44 px ; l'écran
+non couvert par axe-core. Les deux ont vu que la page envoie un canal que l'API
+ne lit pas.
+
+**Une seule imprécision.** Le a11y-reviewer annonce « `#ff9287` sur `#141320`
+environ 9:1 » là où le calcul donne 8,5:1. Il avait marqué l'approximation, et
+son autre ratio est juste au centième. Sa conclusion n'en dépendait pas : il
+relevait que `--color-danger` sert de couleur de texte alors que
+`tokens.spec.ts` ne mesure ce jeton qu'au seuil de 3:1, donc que le seuil passe
+aujourd'hui sans que rien ne le garde.
+
+#### Ce que ce banc ne mesure pas
+
+Deux limites, à garder en tête avant de conclure quoi que ce soit de ces douze
+sur douze.
+
+- **Les défauts ont été écrits par quelqu'un qui connaissait la grille.** Ils
+  tombent donc sur les cases que les prompts annoncent, et un défaut réel
+  arrive rarement aussi bien cadré. Le banc mesure que les agents couvrent leur
+  propre grille, pas qu'ils trouvent ce qu'elle ne prévoit pas. Les quatre
+  trouvailles ci-dessus sont le seul indice en ce sens, et elles n'étaient pas
+  volontaires.
+- **La notation a été faite par le même agent que celui qui a fabriqué le
+  banc**, moi, qui savais où regarder. Juge et partie : un faux positif que je
+  n'aurais pas reconnu comme tel serait passé en « point légitime ». Les
+  affirmations vérifiables ont été recontrôlées une par une (citations de
+  règles, numéros de critères, ratios de contraste, journal des migrations,
+  contenu de l'issue #13), ce qui limite le risque sans l'annuler.
+
+À refaire autrement la prochaine fois : des défauts choisis par Martin, ou un
+banc sorti d'un vrai diff passé, et la notation faite hors de la session qui a
+construit le banc.
 
 ## 6. Scans de skills externes
 

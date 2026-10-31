@@ -346,10 +346,10 @@ Le scanner ne résout pas `${CLAUDE_SKILL_DIR}` et ne rapproche donc pas ce
 `Bash(...)` paramétré d'une capacité générique. Le skill déclare en réalité une
 portée **plus étroite** qu'un `Bash` nu.
 
-**Prérequis non satisfait sur le poste.** Le skill exige `curl` 7.55 ou plus,
-présent en 8.4.0, et `jq`, **absent au 31 octobre 2026**. Tant que `jq` n'est pas
-installé, le script échoue dès sa première commande. À traiter dans
-`docs/poste-de-dev.md` le jour où `jq` sera installé.
+**Prérequis, satisfaits.** Le skill exige `curl` 7.55 ou plus, présent en 8.4.0,
+et `jq`, qui manquait au moment du scan et a été installé le 31 octobre 2026 en
+1.8.2. Les deux figurent dans `docs/poste-de-dev.md` avec leur commande de
+retrait. Sans `jq`, le script échouerait dès sa première commande.
 
 ### `skill-creator`, 31 octobre 2026 : écarté
 

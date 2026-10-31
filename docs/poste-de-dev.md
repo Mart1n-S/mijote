@@ -7,8 +7,8 @@ des prototypes du lot 0 et qui sera vidé une fois ces prototypes terminés.
 Tenu à jour au fil des lots : toute nouvelle installation est ajoutée au
 tableau **avant** d'être lancée, avec sa commande de retrait.
 
-Dernière mise à jour : 29 octobre 2026, lot 1, création du squelette et ajout de
-la CLI GitHub.
+Dernière mise à jour : 31 octobre 2026, lot 1, ajout de jq pour le skill
+`context7`.
 
 ## 1. Ce qu'il faut pour développer
 
@@ -22,10 +22,18 @@ la CLI GitHub.
 | FFmpeg de Playwright | build 1013 | enregistrement vidéo des tests en échec | `...\ms-playwright\ffmpeg-1013` | voir section 3 |
 | CLI GitHub (`gh`) | 2.103.3 | ouverture et suivi des pull requests en ligne de commande | `C:\Program Files\GitHub CLI` | `winget uninstall --id GitHub.cli` |
 | SkillSpector | commit `abd82935b67f765a9541013c0866c6349251dcdf` (étiquette v2.13.2) | scanner tout skill ou agent externe avant installation | `C:\Users\marti\AppData\Local\skillspector-venv` | `Remove-Item -Recurse -Force "$env:LOCALAPPDATA\skillspector-venv"` |
+| jq | 1.8.2 | filtre JSON dont dépend le skill `context7` (`.claude/skills/context7/scripts/context7.sh`) | `C:\Users\marti\AppData\Local\Microsoft\WinGet\Packages\jqlang.jq_Microsoft.Winget.Source_8wekyb3d8bbwe` | `winget uninstall --id jqlang.jq` |
 
 Node.js et Docker Desktop étaient déjà installés avant le lot 1 et n'ont pas
 été modifiés. pnpm aussi, par `npm install -g`. Les trois lignes Playwright et
-la CLI GitHub ont été installées le 29 octobre 2026 pour ce lot.
+la CLI GitHub ont été installées le 29 octobre 2026 pour ce lot, SkillSpector le
+30 octobre et jq le 31.
+
+**jq n'est pas nécessaire à l'application** : il ne sert qu'au skill `context7`,
+qui s'en remet à lui pour encoder ses paramètres d'URL et mettre en forme les
+réponses. Installé par `winget install jqlang.jq`, qui ajoute son dossier au
+PATH de l'utilisateur. Les terminaux déjà ouverts au moment de l'installation ne
+le voient pas : il faut en ouvrir un nouveau.
 
 **La CLI GitHub n'est pas nécessaire à l'application** : elle ne sert qu'au
 travail sur le dépôt, et tout ce qu'elle fait reste possible depuis le

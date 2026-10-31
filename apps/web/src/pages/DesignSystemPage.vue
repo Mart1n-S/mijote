@@ -86,7 +86,7 @@ function toggleLoading(): void {
   fois. Ce réglage les fige côte à côte pour qu'on puisse les comparer et les
   contrôler. Les règles correspondantes sont en bas de ce fichier : elles
   recopient celles des composants, et c'est la seule duplication acceptée ici.
-  Rien ne la garde automatiquement, voir le commentaire qui les précède.
+  Ce qui la garde, et ce qui lui échappe, est dit juste avant ces règles.
 */
 const frozen = ref(true);
 </script>
@@ -537,12 +537,19 @@ p {
   qu'on ne peut sinon observer qu'en interagissant. C'est la seule duplication
   acceptée dans ce fichier.
 
-  Rien ne la garde, et mieux vaut le dire que de s'y fier. L'exemplaire vivant
-  de la ligne « Repos » ne montre que le repos : il ne compare rien des états
-  figés ici. Aucun test ne touche à cette copie. Deux divergences y ont donc
-  vécu jusqu'au 31 octobre 2026, dont une invisible en thème clair, où les deux
-  jetons concernés ont la même valeur. Un écart ne se voit qu'à la lecture,
-  ligne à ligne, contre BaseButton.vue, BaseField.vue et base.css.
+  Elle n'a longtemps été gardée par rien : l'exemplaire vivant de la ligne
+  « Repos » ne montre que le repos, donc il ne compare rien des états figés
+  ici. Trois divergences y ont vécu jusqu'au 31 octobre 2026, dont une
+  invisible en thème clair, où les deux jetons concernés ont la même valeur.
+
+  Depuis, le bloc « copie figée des états » de e2e/design-system.spec.ts
+  compare chaque état figé à ce que le composant vivant produit réellement, en
+  thème sombre. Un écart sur l'une de ces règles fait donc tomber un test.
+
+  Restent hors du verrou, à comparer à la lecture contre BaseButton.vue,
+  BaseField.vue et base.css : le focus du bouton, qu'un test ne peut pas
+  déclencher aussi simplement que celui d'un champ, et les règles sous
+  prefers-reduced-motion.
 
   :deep() est nécessaire parce que la cible est à l'intérieur d'un composant
   enfant, hors de portée du style scopé.

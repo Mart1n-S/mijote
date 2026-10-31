@@ -81,6 +81,26 @@
   --shadow-3: 0 12px 32px rgb(29 28 40 / 22%);
 
   /*
+    Empilement. Quatre couches, dans cet ordre, et rien en dehors : un nouvel
+    élément flottant prend sa place ici, en renumérotant, plutôt qu'un z-index
+    inventé sur place. C'est ce qui a manqué au dialogue, dont le voile passait
+    sous la barre de navigation jusqu'au 31 octobre 2026.
+
+    Les valeurs se suivent sans trou. Réserver des paliers pour des couches
+    hypothétiques laisserait croire qu'on peut en glisser une sans toucher à
+    cette échelle : renuméroter trois lignes ici coûte moins que ça.
+
+    Le lien d'évitement est au-dessus de la barre, parce qu'il doit se voir dès
+    qu'il a le focus, et sous le voile : peint par-dessus, il resterait visible
+    alors que le dialogue l'a retiré de l'arbre d'accessibilité, soit exactement
+    le défaut corrigé pour la barre.
+  */
+  --layer-nav: 1;
+  --layer-skip-link: 2;
+  --layer-overlay: 3;
+  --layer-dialog: 4;
+
+  /*
     Typographie : Atkinson Hyperlegible Next, hébergée dans le projet (voir
     fonts.css). Aucune requête vers un service tiers. La pile système prend le
     relais le temps du chargement.
@@ -134,10 +154,32 @@
 
   --duration-fast: 150ms;
 
+  /* Liseré du haut de la barre de navigation basse. Il compte dans sa hauteur,
+     donc dans la place réservée sous le contenu. */
+  --nav-border-width: 1px;
+  /*
+    Hauteur de la barre de navigation basse, hors encoche : la zone tactile
+    d'une entrée, la marge que l'anneau de focus demande de chaque côté, et le
+    liseré du haut.
+
+    L'anneau fait 4 px au-delà de la boîte (2 px d'épaisseur posés à 2 px
+    d'écart, voir base.css), et la barre rogne ce qui dépasse parce que son
+    overflow-x: auto en fait un conteneur de défilement. D'où le --space-1 de
+    remplissage sur ses quatre côtés, qui est aussi le 2 * --space-1 compté
+    ici : changer l'un sans l'autre fait tomber le test de hauteur de la barre.
+
+    Trois endroits en dépendent : la réserve de place sous le contenu dans
+    AppLayout, le scroll-padding-bottom de html dans base.css, et la barre
+    elle-même. La formule vit donc ici une seule fois. Elle ne veut rien dire
+    au-delà de --breakpoint-nav, où la barre devient une colonne dans le flux.
+  */
+  --nav-bar-height: calc(var(--tap-min) + 2 * var(--space-1) + var(--nav-border-width));
+
   /* Largeur à partir de laquelle la navigation passe de la barre basse à la
      colonne latérale (section 7 : mobile sous 640 px). Une requête de media ne
-     lit pas une propriété personnalisée : la valeur est donc répétée dans le
-     @media d'AppLayout.vue, seul endroit qui s'en sert, et ce jeton sert de
+     lit pas une propriété personnalisée : la valeur est donc répétée dans les
+     deux seuls endroits qui s'en servent, le @media d'AppLayout.vue et celui
+     qui remet le scroll-padding de html à zéro dans base.css. Ce jeton sert de
      référence écrite. */
   --breakpoint-nav: 40rem;
 }

@@ -1,4 +1,4 @@
-import { expect, test, type Locator } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import { accessibilityMatrix, accessibilityViolations } from './accessibility';
 
@@ -96,6 +96,169 @@ test.describe('page de démonstration du design system', () => {
       await expect(page.getByRole('dialog')).toBeVisible();
 
       expect(await accessibilityViolations(page)).toEqual([]);
+    });
+
+    /*
+      Sous 640 px, le dialogue est le seul composant qui partage l'écran avec la
+      barre de navigation fixe. Jusqu'au 31 octobre 2026, la barre se peignait
+      par-dessus le voile et le dialogue, et le seul test qui ouvrait le
+      dialogue tournait à 1280 px, largeur à laquelle la barre repasse dans le
+      flux et perd son z-index : rien ne pouvait le voir.
+
+      Les deux hauteurs ne mesurent pas la même chose. À 640 px le dialogue
+      tient en entier ; à 256 px il atteint sa hauteur maximale et c'est lui
+      qui défile, le cas où son titre ou ses boutons pourraient devenir
+      inatteignables.
+    */
+    test.describe('sous 640 px', () => {
+      const PETITES_FENETRES = [
+        { width: 320, height: 640 },
+        { width: 320, height: 256 },
+      ] as const;
+
+      interface PlaceDansLaFenetre {
+        haut: number;
+        bas: number;
+        gauche: number;
+        droite: number;
+        fenetre: { largeur: number; hauteur: number };
+        recouvert: boolean;
+      }
+
+      /** Amène un élément dans la vue, puis mesure sa place dans la fenêtre. */
+      async function amenerDansLaVue(cible: Locator): Promise<PlaceDansLaFenetre> {
+        // Le contenu du dialogue défile dans le dialogue : une partie hors de
+        // la vue n'est pas un défaut tant qu'on peut l'y amener.
+        await cible.scrollIntoViewIfNeeded();
+
+        return cible.evaluate((element) => {
+          const rect = element.getBoundingClientRect();
+          /*
+            elementFromPoint répond à la seconde question, celle qu'un
+            rectangle ne dit pas : l'élément est-il recouvert. Une boîte bien
+            placée dans la fenêtre mais peinte sous la barre de navigation
+            n'est pas atteignable, et c'est exactement le défaut corrigé ici.
+          */
+          const sommet = document.elementFromPoint(
+            rect.left + rect.width / 2,
+            rect.top + rect.height / 2,
+          );
+
+          return {
+            haut: rect.top,
+            bas: rect.bottom,
+            gauche: rect.left,
+            droite: rect.right,
+            fenetre: { largeur: window.innerWidth, hauteur: window.innerHeight },
+            recouvert: sommet === null || !(element === sommet || element.contains(sommet)),
+          };
+        });
+      }
+
+      /** Exige qu'un élément soit entier dans la fenêtre et non recouvert. */
+      function attendVisible(place: PlaceDansLaFenetre, quoi: string): void {
+        expect(place.haut, `${quoi} sort par le haut`).toBeGreaterThanOrEqual(0);
+        expect(place.bas, `${quoi} sort par le bas`).toBeLessThanOrEqual(place.fenetre.hauteur);
+        expect(place.gauche, `${quoi} sort à gauche`).toBeGreaterThanOrEqual(0);
+        expect(place.droite, `${quoi} sort à droite`).toBeLessThanOrEqual(place.fenetre.largeur);
+        expect(place.recouvert, `${quoi} est recouvert par un autre élément`).toBe(false);
+      }
+
+      /** Dit si un contrôle est atteint par tabulations, dans le piège de focus. */
+      async function atteintParTabulation(page: Page, cible: Locator): Promise<boolean> {
+        // Le piège de focus de Reka UI boucle sur les contrôles du dialogue,
+        // qui sont trois : huit tabulations en font plus que le tour.
+        for (let essai = 0; essai < 8; essai += 1) {
+          if (await cible.evaluate((element) => element === document.activeElement)) {
+            return true;
+          }
+
+          await page.keyboard.press('Tab');
+        }
+
+        return false;
+      }
+
+      test('fait passer le voile au-dessus de la barre de navigation', async ({ page }) => {
+        await page.setViewportSize({ width: 320, height: 640 });
+        await page.getByRole('button', { name: 'Supprimer la semaine' }).click();
+        await expect(page.getByRole('dialog')).toBeVisible();
+
+        const sommet = await page.evaluate(() => {
+          const nav = document.querySelector('nav');
+
+          if (nav === null) {
+            return null;
+          }
+
+          const rect = nav.getBoundingClientRect();
+          const element = document.elementFromPoint(
+            rect.left + rect.width / 2,
+            rect.top + rect.height / 2,
+          );
+
+          if (element === null) {
+            return null;
+          }
+
+          return {
+            dansLaBarre: nav.contains(element),
+            dansLaModalite: element.closest('.dialog__overlay, .dialog') !== null,
+          };
+        });
+
+        expect(sommet).not.toBeNull();
+        // Ce que voit l'oeil doit dire la même chose que ce qu'annonce le
+        // lecteur d'écran, auquel Reka UI a déjà retiré la barre.
+        expect(sommet?.dansLaBarre, 'la barre est encore au-dessus du voile').toBe(false);
+        expect(sommet?.dansLaModalite).toBe(true);
+      });
+
+      for (const fenetre of PETITES_FENETRES) {
+        test(`garde tout le dialogue atteignable à ${fenetre.width} x ${fenetre.height}`, async ({
+          page,
+        }) => {
+          await page.setViewportSize(fenetre);
+          await page.getByRole('button', { name: 'Supprimer la semaine' }).click();
+
+          const dialog = page.getByRole('dialog');
+          await expect(dialog).toBeVisible();
+
+          attendVisible(await amenerDansLaVue(dialog), 'le dialogue');
+
+          const parties: ReadonlyArray<readonly [string, Locator]> = [
+            ['le titre', dialog.getByRole('heading', { level: 2 })],
+            ['la description', dialog.locator('.dialog__description')],
+            ['le contenu', dialog.getByText('Cette démonstration ne supprime rien.')],
+            ['le bouton Supprimer', dialog.getByRole('button', { name: 'Supprimer', exact: true })],
+            ['le bouton Annuler', dialog.getByRole('button', { name: 'Annuler' })],
+          ];
+
+          for (const [quoi, cible] of parties) {
+            attendVisible(await amenerDansLaVue(cible), quoi);
+          }
+
+          for (const [quoi, cible] of parties.slice(-2)) {
+            expect(
+              await atteintParTabulation(page, cible),
+              `${quoi} n'est pas atteint par tabulation`,
+            ).toBe(true);
+          }
+
+          // Le dialogue reste dans la largeur de la fenêtre, dialogue ouvert
+          // compris. Attention : ce contrôle ne départage pas les unités de
+          // fenêtre du pourcentage, parce que Chromium sans tête n'a pas de
+          // barre de défilement classique, qui est toute la différence entre
+          // les deux (voir le commentaire de largeur dans BaseDialog).
+          const debordement = await page.evaluate(() => {
+            const root = document.documentElement;
+
+            return root.scrollWidth - root.clientWidth;
+          });
+
+          expect(debordement).toBeLessThanOrEqual(0);
+        });
+      }
     });
   });
 
@@ -273,6 +436,90 @@ test.describe('page de démonstration du design system', () => {
       // La navigation est à gauche du contenu, et non au-dessus de lui.
       expect((navBox?.x ?? 0) + (navBox?.width ?? 0)).toBeLessThanOrEqual((mainBox?.x ?? 0) + 1);
     });
+
+    /*
+      La barre basse est un conteneur de défilement sur les deux axes, parce
+      qu'elle porte overflow-x: auto. Elle rogne donc ce qui dépasse d'elle,
+      anneau de focus compris : mesuré le 31 octobre 2026 à 375 x 667, il
+      restait 1 px au-dessus de la première entrée et 0 en dessous comme à
+      gauche, pour un anneau qui demande 4 px.
+
+      Le test ne compare pas à 4 px écrits en dur : il lit ce que l'anneau
+      demande vraiment à l'entrée focalisée, épaisseur plus écart, et exige
+      cette place de chaque côté. Changer l'anneau dans base.css change donc
+      les deux côtés de la comparaison, et la barre devra suivre.
+    */
+    for (const fenetre of [
+      { width: 375, height: 667 },
+      { width: 320, height: 640 },
+    ]) {
+      test(`laisse l'anneau de focus entier à ${fenetre.width} x ${fenetre.height}`, async ({
+        page,
+      }) => {
+        await page.setViewportSize(fenetre);
+
+        const liens = page
+          .getByRole('navigation', { name: 'Navigation principale' })
+          .getByRole('link');
+        const nombre = await liens.count();
+
+        expect(nombre).toBeGreaterThan(1);
+
+        // La première et la dernière entrée : ce sont les deux qui touchent un
+        // bord de la zone rognée, donc les seules à pouvoir être coupées.
+        for (const [quoi, index] of [
+          ['la première entrée', 0],
+          ['la dernière entrée', nombre - 1],
+        ] as const) {
+          const lien = liens.nth(index);
+
+          await lien.scrollIntoViewIfNeeded();
+          await lien.focus();
+
+          const mesure = await lien.evaluate((element) => {
+            const nav = element.closest('nav');
+
+            if (nav === null) {
+              return null;
+            }
+
+            const style = getComputedStyle(nav);
+            const anneau = getComputedStyle(element);
+            const rect = element.getBoundingClientRect();
+            const navRect = nav.getBoundingClientRect();
+
+            /*
+              La zone de rognage d'un conteneur de défilement est son bloc de
+              remplissage : le remplissage en fait partie, les liserés non.
+            */
+            const bord = (cote: string): number =>
+              Number.parseFloat(style.getPropertyValue(`border-${cote}-width`));
+
+            return {
+              demande:
+                Number.parseFloat(anneau.outlineWidth) + Number.parseFloat(anneau.outlineOffset),
+              marges: {
+                haut: rect.top - (navRect.top + bord('top')),
+                bas: navRect.bottom - bord('bottom') - rect.bottom,
+                gauche: rect.left - (navRect.left + bord('left')),
+                droite: navRect.right - bord('right') - rect.right,
+              },
+            };
+          });
+
+          expect(mesure).not.toBeNull();
+          // 2 px d'épaisseur posés à 2 px d'écart : si ce chiffre bouge, c'est
+          // base.css qui a changé, et la place réservée dans la barre aussi.
+          expect(mesure?.demande, "l'anneau de base.css fait 4 px au-delà de la boîte").toBe(4);
+
+          for (const [cote, marge] of Object.entries(mesure?.marges ?? {})) {
+            expect(marge, `${quoi} est rognée du côté ${cote}`).toBeGreaterThanOrEqual(
+              mesure?.demande ?? 4,
+            );
+          }
+        }
+      });
+    }
   });
 
   /*
@@ -312,8 +559,9 @@ test.describe('page de démonstration du design system', () => {
 
       expect(mesure).not.toBeNull();
       expect(mesure?.taillePolice).toBe('28px');
-      // 44 px de zone tactile doublés, plus le liseré.
-      expect(mesure?.hauteurBarre).toBe(89);
+      // 44 px de zone tactile doublés, la marge de l'anneau de focus doublée
+      // de chaque côté, plus le liseré, qui ne suit pas le texte : 88 + 16 + 1.
+      expect(mesure?.hauteurBarre).toBe(105);
     });
   });
 });

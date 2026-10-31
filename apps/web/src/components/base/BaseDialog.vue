@@ -71,9 +71,18 @@ const open = defineModel<boolean>('open', { default: false });
 </template>
 
 <style scoped>
+/*
+  Le voile et le dialogue passent au-dessus de la barre de navigation : sans
+  z-index, ils sont à `auto`, et un z-index positif comme celui de la barre
+  passe après eux dans le même contexte d'empilement. La barre restait donc en
+  pleine lumière devant un écran assombri, alors que Reka UI l'avait bien
+  retirée de l'arbre d'accessibilité. Les deux couches viennent de l'échelle de
+  tokens.css, jamais d'un nombre écrit ici.
+*/
 .dialog__overlay {
   position: fixed;
   inset: 0;
+  z-index: var(--layer-overlay);
   background-color: var(--color-overlay);
 }
 
@@ -81,14 +90,26 @@ const open = defineModel<boolean>('open', { default: false });
   position: fixed;
   top: 50%;
   left: 50%;
+  z-index: var(--layer-dialog);
   transform: translate(-50%, -50%);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  width: min(32rem, calc(100vw - 2 * var(--space-4)));
+  /*
+    Pourcentage et non unité de fenêtre : pour un élément en position fixed, le
+    bloc conteneur est le bloc conteneur initial, dont la largeur exclut la
+    barre de défilement. Une unité de fenêtre, elle, la compte toujours, et
+    aucune variante n'y change rien : les variantes dynamiques ne concernent
+    que la hauteur, la seule qui varie avec l'interface du navigateur. Passer
+    cette ligne en dvw pour l'« harmoniser » avec celle du dessous ramènerait
+    donc le dialogue sous la barre de défilement.
+  */
+  width: min(32rem, calc(100% - 2 * var(--space-4)));
   /* Au zoom à 200 %, le contenu du dialogue défile dans le dialogue plutôt
-     que de sortir de l'écran. */
-  max-height: calc(100vh - 2 * var(--space-4));
+     que de sortir de l'écran. dvh et non vh, même arbitrage que la hauteur de
+     AppLayout : sur mobile, vh compte la barre d'adresse et laisse le bas du
+     dialogue sous le bord de l'écran. */
+  max-height: calc(100dvh - 2 * var(--space-4));
   overflow-y: auto;
   padding: var(--space-5);
   /* Le dialogue sort du plan de la page : surface surélevée et troisième

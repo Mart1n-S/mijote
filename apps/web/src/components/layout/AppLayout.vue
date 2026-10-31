@@ -66,7 +66,7 @@ const links = computed(() =>
   position: absolute;
   top: var(--space-2);
   left: var(--space-2);
-  z-index: 2;
+  z-index: var(--layer-skip-link);
   padding: var(--space-2) var(--space-3);
   background-color: var(--color-background);
   border: 2px solid var(--color-focus);
@@ -80,10 +80,6 @@ const links = computed(() =>
 }
 
 .layout {
-  /* Épaisseur du liseré de la barre de navigation. Déclarée ici parce que la
-     réserve de place ci-dessous et la barre elle-même doivent s'accorder. */
-  --nav-border-width: 1px;
-
   display: grid;
   grid-template-areas:
     'header'
@@ -99,11 +95,11 @@ const links = computed(() =>
      de page sous le bord de l'écran. */
   min-height: 100dvh;
   /* La barre de navigation est fixe, donc hors du flux : sans cette réserve,
-     elle recouvrirait la fin du contenu et le pied de page. Sa hauteur est
-     celle d'une zone tactile plus son liseré du haut, qui compte aussi.
-     Attention : ce calcul suppose une barre sur une seule ligne, voir les
-     limites connues de docs/design-system.md. */
-  padding-bottom: calc(var(--tap-min) + var(--nav-border-width) + env(safe-area-inset-bottom, 0px));
+     elle recouvrirait la fin du contenu et le pied de page. Sa hauteur vient
+     de --nav-bar-height, qui dit ce qu'elle compte. Attention : ce calcul
+     suppose une barre sur une seule ligne, voir les limites connues de
+     docs/design-system.md. */
+  padding-bottom: calc(var(--nav-bar-height) + env(safe-area-inset-bottom, 0px));
 }
 
 .layout__header {
@@ -141,7 +137,7 @@ const links = computed(() =>
   right: 0;
   bottom: 0;
   left: 0;
-  z-index: 1;
+  z-index: var(--layer-nav);
   background-color: var(--color-raised);
   border-top: var(--nav-border-width) solid var(--color-border);
   box-shadow: var(--shadow-2);
@@ -152,9 +148,14 @@ const links = computed(() =>
     texte, et aucun libellé n'est tronqué.
   */
   overflow-x: auto;
+  /* Ce conteneur de défilement rogne ce qui dépasse de lui, anneau de focus
+     compris : il lui faut donc la marge que l'anneau demande, sur les quatre
+     côtés. Sans elle, l'anneau des entrées est coupé, ce qu'il était jusqu'au
+     31 octobre 2026. Cette marge compte dans --nav-bar-height. */
+  padding: var(--space-1);
   /* Encoche et barre de gestes des téléphones : la barre garde sa hauteur
      utile et pousse son fond jusqu'au bord bas de l'écran. */
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-bottom: calc(var(--space-1) + env(safe-area-inset-bottom, 0px));
 }
 
 .layout__nav-list {
@@ -233,7 +234,9 @@ const links = computed(() =>
     border-top: 0;
     border-right: 1px solid var(--color-border);
     box-shadow: none;
-    padding-bottom: 0;
+    /* Plus rien à rogner ici : la colonne n'est plus un conteneur de
+       défilement, l'anneau de focus peut déborder sur la page. */
+    padding: 0;
   }
 
   .layout__nav-list {

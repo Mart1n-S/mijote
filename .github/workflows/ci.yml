@@ -135,6 +135,16 @@ jobs:
       # la garantie se vérifie vraiment.
       - name: Vérifie que la page de démonstration est hors du paquet livré
         run: |
+          # Le grep seul n'affirme qu'une absence, et ne dit jamais qu'il a
+          # regardé quelque chose. Si le dossier de sortie changeait de place,
+          # grep sortirait en erreur (code 2), que le `if` lit comme « aucune
+          # correspondance », donc comme un succès : le contrôle passerait au
+          # vert en n'ayant rien lu. C'est le mode de défaillance raconté juste
+          # au-dessus, et il n'avait pas à être réintroduit ici.
+          if [ ! -f apps/web/dist/index.html ]; then
+            echo "::error::apps/web/dist/index.html est introuvable : la construction n'a rien produit là où ce contrôle regarde."
+            exit 1
+          fi
           if grep -rlE 'DesignSystemPage|design-system' apps/web/dist; then
             echo "::error::La page de démonstration ne doit pas partir en production."
             exit 1

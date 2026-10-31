@@ -109,6 +109,37 @@ jobs:
             exit 1
           fi
 
+      # Les tests de bout en bout servent une construction build:demo, qui
+      # contient la page de démonstration du design system. Sans l'étape
+      # ci-dessous, aucun travail de CI ne construit la production, et le
+      # mécanisme qui écarte cette page n'est exercé nulle part.
+      #
+      # Cette étape a déjà existé, et elle a disparu sans bruit : ajoutée par
+      # fa24697 le 30 octobre 2026, verte sur main au commit c5495a7, puis
+      # écrasée le soir même par a2a5f9a, dont l'étape de contrôle des tirets a
+      # été écrite par-dessus celle-ci au lieu d'être ajoutée à sa suite. La CI
+      # est restée verte, et la documentation a continué d'affirmer le
+      # contraire jusqu'à l'audit du 31 octobre 2026.
+      #
+      # D'où la règle, qui vaut pour ce fichier entier : on ajoute une étape,
+      # on n'en remplace jamais une.
+      #
+      # Placée en dernier parce que c'est la plus lente : les contrôles bon
+      # marché échouent avant elle.
+      - name: Construction de production
+        run: pnpm --filter @mijote/web build
+
+      # La page est écartée par une constante de compilation, donc par du code
+      # mort éliminé au paquetage. Le contrôle porte sur le paquet livré
+      # lui-même, et non sur le code qui le produit : c'est le seul endroit où
+      # la garantie se vérifie vraiment.
+      - name: Vérifie que la page de démonstration est hors du paquet livré
+        run: |
+          if grep -rlE 'DesignSystemPage|design-system' apps/web/dist; then
+            echo "::error::La page de démonstration ne doit pas partir en production."
+            exit 1
+          fi
+
   e2e:
     name: playwright et axe-core
     runs-on: ubuntu-24.04

@@ -15,6 +15,7 @@ Règle : un skill, un agent ou un outil externe est **lu**, **scanné avec Skill
 | `skillspector` | outil externe, scanner local | [NVIDIA/SkillSpector](https://github.com/NVIDIA/SkillSpector), Apache-2.0 | commit `abd82935b67f765a9541013c0866c6349251dcdf`, qui porte l'étiquette v2.13.2 | sans objet : c'est le scanner lui-même, son README a été lu à la place | 30 octobre 2026 |
 | `frontend-design` | skill externe, conseils de design | [anthropics/skills](https://github.com/anthropics/skills), `skills/frontend-design`, Apache-2.0 | commit `41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f`, dernier commit qui touche ce skill (3 septembre 2026) | 13/100, LOW, SAFE. Un signalement HIGH à 55 % analysé et écarté, voir section 6 | 30 octobre 2026 |
 | `context7` | skill externe, documentation de bibliothèques | [netresearch/context7-skill](https://github.com/netresearch/context7-skill), `skills/context7`, (MIT AND CC-BY-SA-4.0) | commit `3ff120aa168ac75fc7a110c589ff53dff0b6f284`, dernier commit qui touche `skills/` (7 octobre 2026) | 24/100, MEDIUM, CAUTION. Un signalement HIGH à 75 % analysé et écarté, voir section 6 | 31 octobre 2026 |
+| `rgaa-checklist` | skill, grille d'accessibilité | écrit pour le projet. Sa liste de critères est recopiée du dépôt [DISIC/accessibilite.numerique.gouv.fr](https://github.com/DISIC/accessibilite.numerique.gouv.fr), `RGAA/criteres.json`, Licence Ouverte Etalab 2.0 | dépôt. La liste de critères est figée au commit amont `ca4019f95073b6cbd2482a16e9f12b52d8de678d` (18 août 2026) | sans objet : écrit pour le projet. Voir la section 6 pour le contrôle de la source | 31 octobre 2026 |
 
 Le commit est figé, et non l'étiquette, pour la raison donnée dans l'ADR 0003.
 L'emplacement sur le poste et la commande de retrait sont dans
@@ -27,6 +28,7 @@ L'emplacement sur le poste et la commande de retrait sont dans
 | Fait le 30 octobre 2026 | [SkillSpector](https://github.com/NVIDIA/SkillSpector) | Scanner tout skill ou agent externe avant installation, en `--no-llm` pour rester en local. Voir la section 1. |
 | Fait le 30 octobre 2026 | [anthropics/skills](https://github.com/anthropics/skills) (`frontend-design`) | Direction visuelle du design system, story #7. Voir les sections 1 et 6. |
 | Fait le 31 octobre 2026 | [context7-skill](https://github.com/netresearch/context7-skill) | Documentation à jour des bibliothèques. Appelle le service Context7 : seuls des noms de bibliothèques et des questions partent, jamais le code, ce que la lecture du script a vérifié. Voir les sections 1 et 6. |
+| Fait le 31 octobre 2026 | [DISIC/accessibilite.numerique.gouv.fr](https://github.com/DISIC/accessibilite.numerique.gouv.fr) | Source des 106 critères du RGAA 4.1.2, recopiés dans le skill `rgaa-checklist`. Rien n'est installé ni exécuté : un fichier de données est repris, sous Licence Ouverte Etalab 2.0. À réexaminer à la parution de RGAA 5, annoncée pour fin 2026. Voir les sections 1 et 6. |
 | Lot 1, en écrivant les agents | [agent-skills](https://github.com/addyosmani/agent-skills), [ECC](https://github.com/affaan-m/ecc) | À piocher, jamais à installer en bloc : leurs déroulés et leurs hooks concurrenceraient le pipeline du projet. |
 | Jamais en installation | [superpowers](https://github.com/obra/superpowers) | Source d'inspiration seulement : méthode complète et concurrente. |
 | Jamais en installation | [anthropics/skills](https://github.com/anthropics/skills) (`skill-creator`) | Source d'inspiration seulement. Écarté le 31 octobre 2026 sur mesure, pas sur principe : SkillSpector le classe 100/100, CRITICAL, DO NOT INSTALL. Voir la section 6. |
@@ -271,7 +273,9 @@ modification du prompt du code-reviewer, pas avant.
 ## 6. Scans de skills externes
 
 Un rapport par skill installé, avec ce que le scan a trouvé et ce qu'en a
-conclu la lecture humaine, que l'ADR 0003 rend obligatoire.
+conclu la lecture humaine, que l'ADR 0003 rend obligatoire. Un skill écrit pour
+le projet n'a pas de scan à passer, mais s'il recopie une source extérieure,
+cette source est contrôlée et son rapport figure ici aussi.
 
 ### `frontend-design`, 30 octobre 2026
 
@@ -444,3 +448,46 @@ pas décorative.
 **Limite pratique, accessoire** : `run_eval.py` utilise `select.select()` sur un
 tube, ce que Windows n'accepte que pour des sockets. Ce script ne fonctionnerait
 pas sur le poste de toute façon.
+
+### `rgaa-checklist`, 31 octobre 2026 : écrit pour le projet
+
+Pas de scan : le skill est écrit pour le projet, comme les rules et les deux
+agents. Ce qui est contrôlé ici, c'est la source extérieure qu'il recopie.
+
+- Contenu : deux fichiers, `SKILL.md` et `references/criteres-rgaa-4.1.2.md`.
+  Aucun script, aucune commande, aucune adresse réseau appelée.
+- Empreintes SHA-256 de ce qui est installé :
+  `f7c1c6b1...` pour `SKILL.md`,
+  `967731ca...` pour `references/criteres-rgaa-4.1.2.md`.
+
+**La source des critères, vérifiée le 31 octobre 2026.** Les 106 critères
+viennent du dépôt `DISIC/accessibilite.numerique.gouv.fr`, fichier
+`RGAA/criteres.json`, au commit `ca4019f95073b6cbd2482a16e9f12b52d8de678d`.
+Contrôlé par lecture de l'API GitHub, sans rien télécharger :
+
+- le commit existe et date du 18 août 2026, conforme à ce que le fichier
+  annonce ;
+- `RGAA/criteres.json` est bien présent à ce commit, 243 156 octets,
+  empreinte de blob `24e2149541e6fae6b0ac0c8eb92c36e43f991773` ;
+- le commit lui-même ne touche pas `criteres.json` mais
+  `src/infos/mentions-legales.md`. C'est donc un **état du dépôt épinglé**, et
+  non le dernier commit qui modifie le référentiel. L'empreinte du blob
+  ci-dessus est ce qui fixe réellement le contenu repris ;
+- la licence n'est pas déclarée par un fichier à la racine du dépôt. Elle est
+  énoncée dans ces mêmes mentions légales : « les contenus de ce site sont
+  proposés sous licence ouverte 2.0 ». La page y recommande de citer la source
+  explicitement, ce que le fichier fait.
+
+**Le contenu recopié, recompté.** 106 entrées, réparties en 9, 2, 3, 13, 8, 2,
+5, 10, 4, 14, 13, 11 et 12 par thème, ce qui est la structure du RGAA 4.1.2.
+
+**Deux écarts relevés à l'installation, laissés tels quels.** Le fichier n'est
+pas retouché, pour que son empreinte reste celle qui a été lue.
+
+1. Le `SKILL.md` renvoie à l'agent `a11y-reviewer` au présent, alors qu'il
+   n'existe pas encore : il est prévu à la story #8, voir la section 3. La
+   phrase est gardée, l'agent arrive à l'étape suivante.
+2. Le contrôle des tirets de la CI excluait tout `.claude/skills/`. Ce skill
+   étant écrit pour le projet, l'exclusion a été resserrée aux deux dossiers
+   tiers au lieu de laisser passer le nouveau. Les deux fichiers installés ne
+   contiennent de toute façon aucun tiret long ni moyen.

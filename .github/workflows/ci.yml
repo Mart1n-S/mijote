@@ -64,10 +64,15 @@ jobs:
       # caractère partageant un octet avec eux. C'est la seule façon fiable de
       # viser exactement ces deux points de code.
       #
-      # Deux exclusions de chemin, pour deux raisons différentes :
-      #   - .claude/skills/ contient des fichiers tiers recopiés tels quels,
-      #     dont l'empreinte SHA-256 est consignée dans docs/outillage-ia.md.
-      #     Les corriger invaliderait cette empreinte.
+      # Les exclusions de chemin, pour deux raisons différentes :
+      #   - les dossiers des skills tiers contiennent des fichiers recopiés
+      #     tels quels, dont l'empreinte SHA-256 est consignée dans
+      #     docs/outillage-ia.md. Les corriger invaliderait cette empreinte.
+      #     Chaque skill tiers est nommé un par un, et non tout
+      #     .claude/skills/ : les skills écrits pour le projet y vivent aussi,
+      #     et la règle de ponctuation leur vaut comme au reste de la prose.
+      #     Un skill tiers installé s'ajoute donc ici en même temps qu'à
+      #     l'inventaire.
       #   - pnpm-lock.yaml est engendré : son contenu n'est pas de la prose.
       #
       # Et une exclusion de ligne, pas de fichier : les deux lignes qui
@@ -79,7 +84,9 @@ jobs:
           long=$(printf '\xe2\x80\x94')
           moyen=$(printf '\xe2\x80\x93')
           trouves=$(git grep -n -F -e "$long" -e "$moyen" \
-            -- ':(exclude).claude/skills/' ':(exclude)pnpm-lock.yaml' \
+            -- ':(exclude).claude/skills/frontend-design/' \
+               ':(exclude).claude/skills/context7/' \
+               ':(exclude)pnpm-lock.yaml' \
             | grep -vF "tiret long ($long) ni de tiret moyen ($moyen)" || true)
           if [ -n "$trouves" ]; then
             echo "$trouves"

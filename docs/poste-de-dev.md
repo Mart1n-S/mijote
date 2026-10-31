@@ -76,6 +76,13 @@ Get-NetTCPConnection -LocalPort 5432, 5433 -State Listen |
 Le conteneur se reconnaît à `com.docker.backend` ou `wslrelay`, le service natif
 à `postgres`.
 
+**La publication est limitée aux deux boucles locales**, `127.0.0.1` et `::1` :
+la forme courte de `docker-compose.yml` publiait sur toutes les interfaces, donc
+la base était joignable par n'importe quel voisin de réseau. La boucle IPv6 est
+publiée elle aussi parce que `localhost` se résout en `::1` avant `127.0.0.1` sur
+ce poste, et que `DATABASE_URL` vise `localhost`. La commande ci-dessus renvoie
+donc deux lignes pour 5433, une par boucle.
+
 ## 3. Navigateurs de Playwright, à ne pas désinstaller en bloc
 
 Le dossier `ms-playwright` contient aussi des navigateurs **antérieurs au

@@ -20,7 +20,7 @@ export async function accessibilityViolations(page: Page): Promise<Result[]> {
 }
 
 /*
-  Les quatre contextes sous lesquels tout écran est contrôlé. Ils étaient
+  Les cinq contextes sous lesquels tout écran est contrôlé. Ils étaient
   recopiés dans le fichier de la page de démonstration, et l'accueil, seul
   écran réellement livré, n'en recevait qu'un : le thème clair, à la taille de
   fenêtre par défaut.
@@ -134,7 +134,7 @@ async function asIs(): Promise<void> {
 }
 
 /**
- * Enregistre les contrôles d'accessibilité d'un écran, dans les quatre
+ * Enregistre les contrôles d'accessibilité d'un écran, dans les cinq
  * contextes. À appeler au premier niveau d'un fichier de test, hors de tout
  * `describe` : chaque contexte pose son propre `test.use`, qui ne vaut que pour
  * le bloc où il est déclaré.
@@ -170,6 +170,27 @@ export function accessibilityMatrix(path: string): void {
     });
 
     narrowLayoutChecks(path, asIs);
+  });
+
+  /*
+    Les deux axes du thème et du gabarit étaient alignés et non croisés : le
+    contexte sombre tournait au gabarit par défaut, 1280 px. Or la barre de
+    navigation basse n'existe que sous 640 px, et elle change de fond à ce
+    seuil. Elle n'était donc jamais passée à axe-core en thème sombre.
+
+    Ce cinquième contexte ne porte que le contrôle axe-core : les deux mesures
+    de mise en page ne dépendent pas du thème, et le contexte clair à 320 px
+    les fait déjà. Croiser les deux axes en entier aurait donné huit contextes
+    par écran, dont six n'auraient jamais rien dit.
+  */
+  test.describe(`${path}, à 320 px de large en mode sombre`, () => {
+    test.use({ viewport: NARROW_VIEWPORT, colorScheme: 'dark' });
+
+    test("n'a aucune violation d'accessibilité", async ({ page }) => {
+      await gotoRenderedScreen(page, path);
+
+      expect(await accessibilityViolations(page)).toEqual([]);
+    });
   });
 
   test.describe(`${path}, au texte agrandi à 200 %`, () => {

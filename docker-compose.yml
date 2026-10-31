@@ -13,8 +13,18 @@ services:
     # poste (service Windows postgresql-x64-16) et occupe 5432. Sans ce
     # décalage, c'est lui qui répond, au risque qu'une migration écrive dans la
     # mauvaise base. Le port interne du conteneur reste 5432, celui de l'image.
+    #
+    # L'adresse d'écoute est nommée, et ce n'est pas un détail de forme : la
+    # forme courte '5433:5432' publie sur 0.0.0.0 et sur [::], donc sur toutes
+    # les interfaces de la machine. La base de développement était ainsi
+    # joignable par n'importe quel voisin de réseau.
+    #
+    # Les deux boucles locales, et pas seulement l'IPv4 : DATABASE_URL vise
+    # localhost, que Node résout ici en ::1 avant 127.0.0.1. Publier la seule
+    # boucle IPv4 couperait l'API et drizzle-kit.
     ports:
-      - '${POSTGRES_PORT:-5433}:5432'
+      - '127.0.0.1:${POSTGRES_PORT:-5433}:5432'
+      - '[::1]:${POSTGRES_PORT:-5433}:5432'
     # Depuis la 18, l'image officielle déclare son volume sur
     # /var/lib/postgresql et non plus sur /var/lib/postgresql/data : le
     # répertoire de données vit dans un sous-dossier portant la version

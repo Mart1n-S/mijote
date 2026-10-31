@@ -54,6 +54,9 @@
       "Bash(winget uninstall *)",
       "Bash(npm install -g *)",
       "Bash(pip install *)",
+      "Bash(.claude/skills/context7/scripts/context7.sh:*)",
+      "Bash(bash .claude/skills/context7/scripts/context7.sh:*)",
+      "Bash(curl:*context7.com*)",
       "PowerShell(git push *)",
       "PowerShell(git clean *)",
       "PowerShell(gh pr create *)",
@@ -73,7 +76,10 @@
       "PowerShell(winget install *)",
       "PowerShell(winget uninstall *)",
       "PowerShell(npm install -g *)",
-      "PowerShell(pip install *)"
+      "PowerShell(pip install *)",
+      "PowerShell(.claude/skills/context7/scripts/context7.sh:*)",
+      "PowerShell(bash .claude/skills/context7/scripts/context7.sh:*)",
+      "PowerShell(curl:*context7.com*)"
     ],
     "deny": [
       "Read(.env)",

@@ -351,6 +351,47 @@ et `jq`, qui manquait au moment du scan et a été installé le 31 octobre 2026 
 1.8.2. Les deux figurent dans `docs/poste-de-dev.md` avec leur commande de
 retrait. Sans `jq`, le script échouerait dès sa première commande.
 
+**Règles de permission, ajoutées le 31 octobre 2026.** Six entrées en `ask`
+dans `.claude/settings.json`, trois pour Bash et leurs trois miroirs PowerShell :
+
+```text
+Bash(.claude/skills/context7/scripts/context7.sh:*)
+Bash(bash .claude/skills/context7/scripts/context7.sh:*)
+Bash(curl:*context7.com*)
+```
+
+Elles sont écrites ici et non dans le fichier parce que `settings.json` est du
+JSON strict, qui n'accepte pas de commentaire : c'est la même limite que celle
+déjà notée à la section 4.
+
+Deux formes d'invocation pour le script, avec et sans `bash` devant, parce que
+le `SKILL.md` du skill déclare les deux. Elles utilisent le suffixe `:*` et non
+` *` comme le reste du fichier : c'est la forme que le skill emploie lui-même
+dans son `allowed-tools`, et elle couvre aussi l'appel sans argument.
+
+**Pas de règle `deny` sur `curl`**, décidé le 31 octobre 2026. Elle serait
+massivement contournable et gênerait le travail courant, pour un gain nul sur le
+risque réel.
+
+**La règle sur `curl` est un filet, pas une barrière.** Un `curl` lancé depuis
+l'intérieur du script shell ne passe pas par l'outil Bash et n'est donc pas
+intercepté. La règle qui compte est la première, sur l'exécution du script :
+c'est le point de passage réel. Voir la section 4, qui dit déjà qu'une règle de
+permission couvre l'invocation habituelle et n'est pas une frontière de sécurité.
+
+**Deux points à vérifier au premier usage réel, en story #8.** Ils ne sont pas
+vérifiables sans exécuter le skill, ce qui a été exclu à l'installation.
+
+1. **Le chemin correspond-il aux motifs ?** Le `SKILL.md` invoque le script par
+   `${CLAUDE_SKILL_DIR}/scripts/context7.sh`. Si la variable est développée avant
+   que la règle soit évaluée, les motifs ci-dessus correspondent. Sinon il faudra
+   les réécrire sur `${CLAUDE_SKILL_DIR}`.
+2. **L'accord est-il réellement demandé ?** Le skill déclare lui-même
+   `allowed-tools` sur son script. Si cette déclaration pré-autorise l'exécution,
+   elle passerait devant la règle `ask` et Martin ne verrait jamais la demande.
+   C'est l'hypothèse à infirmer ou confirmer en premier, parce qu'elle viderait
+   les six règles de leur effet.
+
 ### `skill-creator`, 31 octobre 2026 : écarté
 
 Lu, scanné, **non installé**. Classé « source d'inspiration, jamais en

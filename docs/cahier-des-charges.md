@@ -223,10 +223,10 @@ Une interface sobre et élégante, lisible avant d'être décorative, utilisable
 
 **Direction visuelle**
 
-- Fond clair et neutre, une seule couleur d'accent, une famille de police très lisible ; mode sombre selon le réglage du système.
+- Fond clair à peine teinté vers l'accent (il lit blanc), une seule couleur d'accent, l'indigo « Cassis », nettement distincte des couleurs d'état ; une seule famille de police, Atkinson Hyperlegible Next, servie par l'application et jamais par un service tiers ; mode sombre selon le réglage du système. Choix et alternatives écartées : ADR 0006.
 - Les photos des plats sont le seul élément riche ; pas d'effets de verre, de néon ni de dégradés appuyés.
 - Animations courtes et utiles, coupées si l'utilisateur a demandé à réduire les animations.
-- Un design system documenté (couleurs, typographie, espacements, composants) avant le premier écran. Un pied de page « Sources et licences », visible partout, cite Open Food Facts (ODbL), Ciqual (Etalab 2.0) et HelloFresh.
+- Un design system documenté (couleurs, typographie, espacements, composants) avant le premier écran (fait à la story #7, dans docs/design-system.md). Un pied de page « Sources et licences », visible partout, cite Open Food Facts (ODbL), Ciqual (Etalab 2.0) et HelloFresh ; il est posé avec la première source de données.
 
 **Responsive** (conception mobile d'abord)
 
@@ -236,7 +236,7 @@ Une interface sobre et élégante, lisible avant d'être décorative, utilisable
 | Tablette   | 640 à 1024 px | Recette en cuisine sur écran posé, planning                  |
 | Ordinateur | > 1024 px     | Planification, statistiques, admin                           |
 
-Navigation en barre basse sur mobile, latérale sur tablette et ordinateur.
+Navigation en barre basse sur mobile, latérale sur tablette et ordinateur. La barre basse tient quatre entrées à 320 px ; au-delà elle défile de côté, à remplacer par un menu « Plus » quand la navigation grandira (à décider).
 
 **Accessibilité : exigences vérifiables**
 
@@ -248,7 +248,7 @@ Navigation en barre basse sur mobile, latérale sur tablette et ordinateur.
 - Glisser-déposer du planning toujours doublé de boutons.
 - Changements dynamiques (prix recalculé, article coché, erreur) annoncés au lecteur d'écran.
 - Photos de plats avec un texte alternatif utile ; images décoratives ignorées.
-- Contrôle : axe-core dans les tests et la CI, audit manuel au lecteur d'écran (NVDA, VoiceOver) à chaque lot, relecture par l'agent accessibilité (section 12).
+- Contrôle : axe-core dans les tests et la CI, test des contrastes de chaque couple de jetons dans les deux thèmes, audit manuel au lecteur d'écran (NVDA, VoiceOver) à chaque lot, relecture par l'agent accessibilité (section 12).
 
 ## 8. Gestion des erreurs et journalisation
 

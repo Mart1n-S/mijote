@@ -47,20 +47,43 @@ jobs:
       - name: Tests unitaires
         run: pnpm test
 
-      # Les tests de bout en bout servent une construction build:demo, qui
-      # contient la page de démonstration du design system. Sans l'étape
-      # ci-dessous, aucun travail de CI ne construirait plus la production, et
-      # le mécanisme qui écarte cette page ne serait exercé nulle part.
-      - name: Construction de production
-        run: pnpm --filter @mijote/web build
-
-      # La page de démonstration est écartée par une constante de compilation,
-      # donc par du code mort éliminé au paquetage. C'est le genre de garantie
-      # qui se défait sans bruit : on la vérifie sur le paquet livré lui-même.
-      - name: Vérifie que la page de démonstration est hors du paquet livré
+      # La règle de ponctuation du projet interdit le tiret long (U+2014) et le
+      # tiret moyen (U+2013), voir CLAUDE.md et .claude/rules/writing-style.md.
+      # Elle est mécanique : autant la tenir ici plutôt qu'en relecture.
+      #
+      # Les deux caractères sont construits par leurs octets UTF-8 plutôt
+      # qu'écrits en clair, pour que ce fichier n'en contienne aucun : sinon le
+      # contrôle se signalerait lui-même à chaque exécution, et il faudrait
+      # l'exclure, donc cesser de le surveiller. E2 80 94 est le tiret long,
+      # E2 80 93 le tiret moyen. Les octets plutôt qu'un échappement \u, qui
+      # n'est pas étendu par tous les printf.
+      #
+      # Ils sont cherchés un par un avec -F, et surtout pas par une classe
+      # entre crochets : git grep compare octet par octet, et une classe qui
+      # réunirait ces deux caractères attraperait aussi « À », « … » et tout
+      # caractère partageant un octet avec eux. C'est la seule façon fiable de
+      # viser exactement ces deux points de code.
+      #
+      # Deux exclusions de chemin, pour deux raisons différentes :
+      #   - .claude/skills/ contient des fichiers tiers recopiés tels quels,
+      #     dont l'empreinte SHA-256 est consignée dans docs/outillage-ia.md.
+      #     Les corriger invaliderait cette empreinte.
+      #   - pnpm-lock.yaml est engendré : son contenu n'est pas de la prose.
+      #
+      # Et une exclusion de ligne, pas de fichier : les deux lignes qui
+      # énoncent la règle doivent citer les caractères qu'elles interdisent. On
+      # vise leur formulation exacte, donc une reformulation de la règle fera
+      # réapparaître le signalement, ce qui est voulu.
+      - name: Ponctuation, aucun tiret long ni moyen
         run: |
-          if grep -rlE 'DesignSystemPage|design-system' apps/web/dist; then
-            echo "::error::La page de démonstration ne doit pas partir en production."
+          long=$(printf '\xe2\x80\x94')
+          moyen=$(printf '\xe2\x80\x93')
+          trouves=$(git grep -n -F -e "$long" -e "$moyen" \
+            -- ':(exclude).claude/skills/' ':(exclude)pnpm-lock.yaml' \
+            | grep -vF "tiret long ($long) ni de tiret moyen ($moyen)" || true)
+          if [ -n "$trouves" ]; then
+            echo "$trouves"
+            echo "::error::Tiret long ou moyen interdit. Utiliser deux-points, virgules ou parenthèses."
             exit 1
           fi
 

@@ -130,7 +130,27 @@ test.describe('page de démonstration du design system', () => {
       locator: Locator,
       properties: readonly string[],
     ): Promise<Record<string, string>> {
-      return locator.evaluate((element, names: readonly string[]) => {
+      return locator.evaluate(async (element, names: readonly string[]) => {
+        /*
+          La lecture attend la fin des transitions en cours. Le survol et
+          l'enfoncement passent par une transition de --duration-fast, donc
+          une lecture immédiate après le geste attrape une couleur
+          intermédiaire, qui n'est celle d'aucun état : c'est ce que mesurait
+          une première version de ces tests.
+
+          Attendre la fin plutôt que sonder jusqu'à coïncidence : un sondage
+          réussit dès qu'une lecture correspond, donc une valeur figée qui
+          tomberait par hasard sur le trajet de la transition le ferait
+          passer. Ici, la valeur lue est toujours celle de l'état d'arrivée.
+
+          Une transition annulée rejette sa promesse. Ce n'est pas une erreur :
+          cela veut dire que l'état a changé entre temps, et la lecture qui
+          suit dira lequel.
+        */
+        await Promise.all(
+          element.getAnimations().map((animation) => animation.finished.catch(() => undefined)),
+        );
+
         const style = getComputedStyle(element);
         const found: Record<string, string> = {};
 
@@ -142,13 +162,6 @@ test.describe('page de démonstration du design system', () => {
       }, properties);
     }
 
-    /*
-      La valeur est relevée par expect.poll et non une seule fois : le survol
-      et l'enfoncement passent par une transition de --duration-fast, donc la
-      première lecture après le geste attrape une couleur intermédiaire, qui
-      n'est celle d'aucun état. On attend que la valeur se stabilise sur celle
-      de la copie figée, et un vrai écart fait expirer l'attente.
-    */
     test('fige le survol du champ comme le composant le produit', async ({ page }) => {
       const frozen = await computedStyle(
         page.getByLabel('Survol', { exact: true }),
@@ -158,7 +171,7 @@ test.describe('page de démonstration du design system', () => {
       const live = page.getByLabel('Repos', { exact: true });
       await live.hover();
 
-      await expect.poll(() => computedStyle(live, FIELD_PROPERTIES)).toEqual(frozen);
+      expect(await computedStyle(live, FIELD_PROPERTIES)).toEqual(frozen);
     });
 
     test("fige l'enfoncement du champ comme le composant le produit", async ({ page }) => {
@@ -175,7 +188,7 @@ test.describe('page de démonstration du design system', () => {
       await page.mouse.down();
 
       try {
-        await expect.poll(() => computedStyle(live, FIELD_PROPERTIES)).toEqual(frozen);
+        expect(await computedStyle(live, FIELD_PROPERTIES)).toEqual(frozen);
       } finally {
         await page.mouse.up();
       }
@@ -190,11 +203,16 @@ test.describe('page de démonstration du design system', () => {
       const live = page.getByLabel('Repos', { exact: true });
       await live.focus();
 
-      expect(frozen).toEqual(await computedStyle(live, FOCUS_PROPERTIES));
+      expect(await computedStyle(live, FOCUS_PROPERTIES)).toEqual(frozen);
     });
 
     test('fige les états du bouton comme le composant les produit', async ({ page }) => {
-      const restRow = page.locator('.states tbody tr').first();
+      // La ligne vivante est désignée par son en-tête et non par sa place :
+      // une ligne insérée avant elle ferait sinon comparer le figé au mauvais
+      // exemplaire, sans rien casser de visible.
+      const restRow = page.locator('.states tbody tr', {
+        has: page.getByRole('rowheader', { name: 'Repos' }),
+      });
 
       for (const variant of VARIANTS) {
         const live = restRow.locator(`.button--${variant}`);
@@ -210,20 +228,18 @@ test.describe('page de démonstration du design system', () => {
         ]);
 
         await live.hover();
-        await expect
-          .poll(() => computedStyle(live, ['background-color']), {
-            message: `survol du bouton ${variant}`,
-          })
-          .toEqual(frozenHover);
+        expect(
+          await computedStyle(live, ['background-color']),
+          `survol du bouton ${variant}`,
+        ).toEqual(frozenHover);
 
         await page.mouse.down();
 
         try {
-          await expect
-            .poll(() => computedStyle(live, ['background-color', 'translate']), {
-              message: `enfoncement du bouton ${variant}`,
-            })
-            .toEqual(frozenActive);
+          expect(
+            await computedStyle(live, ['background-color', 'translate']),
+            `enfoncement du bouton ${variant}`,
+          ).toEqual(frozenActive);
         } finally {
           await page.mouse.up();
         }

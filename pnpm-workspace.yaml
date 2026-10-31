@@ -33,6 +33,49 @@ overrides:
 # le cas échéant.
 #   npm view deepmerge versions
 #   npm view @rollup/plugin-node-resolve dependencies.deepmerge
+
+# Exception d'audit, à réexaminer le 29 janvier 2027, en même temps que la
+# précédente.
+#
+# GHSA-g3hv-75wg-m249 : minimatch avant 11.0.1, déni de service par
+# amplification de globparts. Corrigé en 11.0.1, mais aucun parent ne
+# l'accepte : eslint 10.13.0 demande minimatch ^10.2.5,
+# @eslint/config-array ^10.2.4 et @typescript-eslint/typescript-estree ^10.2.2.
+# La dernière version d'eslint (10.14.0) demande encore ^10.2.6, donc la mise à
+# jour ne corrige rien. Seul un overrides imposerait la version corrigée, sur
+# 57 arêtes et en sautant une version majeure que personne ne déclare, au
+# risque d'un fichier ignoré à tort sans erreur visible.
+#
+# Gravité modérée, et le chemin n'est pas atteignable : minimatch n'est ici que
+# le moteur de correspondance des ignores d'ESLint, et les motifs viennent de
+# notre eslint.config.js. Outillage de développement seulement. Rien de ce code
+# ne part dans le paquet livré au navigateur.
+#
+# À la date de réexamen : vérifier si l'outillage ESLint accepte enfin
+# minimatch 11, et retirer cette exception le cas échéant.
+#   npm view eslint dependencies.minimatch
+#   npm view @typescript-eslint/typescript-estree dependencies.minimatch
+
+# Exception d'audit, à réexaminer le 29 janvier 2027, en même temps que les
+# deux précédentes.
+#
+# GHSA-3g3m-2fjr-6pw4 : glob de 9.0.0 à 14.0.1, l'annulation par AbortSignal
+# peut être contournée et le parcours du système de fichiers se poursuivre
+# après l'expiration du délai. Corrigé en 14.0.2, et même situation :
+# workbox-build 7.4.1 demande glob ^11.0.1, js-beautify 2.0.3 demande ^13.0.6,
+# toutes deux dans leur dernière version publiée.
+#
+# Gravité modérée, et le chemin n'est pas atteignable : glob parcourt dist/
+# pour bâtir le manifeste du service worker (par vite-plugin-pwa), et sert aux
+# tests par @vue/test-utils > js-beautify. Les chemins parcourus viennent de la
+# construction locale, jamais d'un tiers.
+#
+# À la date de réexamen : vérifier si l'un des deux parents accepte glob 14, et
+# retirer cette exception le cas échéant.
+#   npm view workbox-build dependencies.glob
+#   npm view js-beautify dependencies.glob
 auditConfig:
   ignoreGhsas:
-    - GHSA-gcqx-w48m-w2h4
+    - GHSA-gcqx-w48m-w2h4 # deepmerge
+    - GHSA-g3hv-75wg-m249 # minimatch
+    - GHSA-3g3m-2fjr-6pw4 # glob

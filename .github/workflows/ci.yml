@@ -38,6 +38,21 @@ jobs:
       - name: Installe les dépendances
         run: pnpm install --frozen-lockfile
 
+      # La règle du projet dit que `pnpm audit` doit rester propre
+      # (.claude/rules/security.md). Elle ne tenait jusqu'ici qu'à un
+      # lancement manuel : deux vulnérabilités modérées sont arrivées par une
+      # mise à jour transitive sans que rien ne proteste.
+      #
+      # La commande est lancée nue, sans --audit-level : toute vulnérabilité
+      # fait échouer la CI, y compris une « low ». C'est voulu, parce que la
+      # soupape existe déjà et qu'elle est meilleure. Une alerte qu'on décide
+      # d'accepter s'ajoute à `auditConfig.ignoreGhsas` de pnpm-workspace.yaml,
+      # avec sa raison, son chemin non atteignable et sa date de réexamen. Un
+      # seuil, lui, ferait taire d'avance des alertes que personne n'aurait
+      # lues.
+      - name: Audit des dépendances
+        run: pnpm audit
+
       - name: ESLint et Prettier
         run: pnpm lint
 

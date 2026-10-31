@@ -42,5 +42,6 @@
 ## Dépendances
 
 - Toute dépendance a une version figée. `pnpm audit` doit rester propre ; une exception est documentée avec sa raison et une date de réexamen.
+- L'audit est vérifié en CI, à chaque passage. Les exceptions vivent dans `auditConfig.ignoreGhsas` de `pnpm-workspace.yaml`, chacune avec sa raison et sa date de réexamen : c'est la seule façon de faire taire une alerte, et elle laisse une trace.
 - Ajouter une dépendance hors de la stack du CLAUDE.md demande l'accord de Martin.
 - Un skill, un agent ou un outil externe est lu, scanné avec SkillSpector et figé à une version précise avant installation.

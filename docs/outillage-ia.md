@@ -132,14 +132,15 @@ demande toujours un redémarrage, et ce point n'a pas été remesuré.
 
 ### Une étape de CI a disparu sans bruit, et rien ne l'a vue
 
-Trouvé le 31 octobre 2026 par l'audit des trois relecteurs sur `main`.
+Trouvé le 31 octobre 2026 par l'audit des trois relecteurs sur `main`. Toutes
+les heures de cette sous-section sont en UTC.
 
 L'étape qui construit la production et vérifie que la page de démonstration en
-est absente a été ajoutée par `fa24697` le 30 octobre à 14:31, dans la PR #17.
-Elle a bien tourné : au commit `c5495a7`, le même jour à 17:14 UTC, les deux
-étapes figurent en succès dans le journal du travail de CI.
+est absente a été ajoutée par `fa24697` le 30 octobre à 13:31, dans la PR #17.
+Elle a bien tourné : au commit `c5495a7`, le même jour à 17:14, les deux étapes
+figurent en succès dans le journal du travail de CI.
 
-Le soir même, `a2a5f9a` l'a supprimée. L'étape du contrôle des tirets a été
+Quatre heures plus tard, à 17:35, `a2a5f9a` l'a supprimée. L'étape du contrôle des tirets a été
 écrite **par-dessus** les deux étapes de construction au lieu d'être ajoutée à
 leur suite, et le message de commit n'en disait rien : il décrivait longuement
 le nouveau contrôle, ses octets UTF-8 et ses exclusions. La PR #19, qui le
@@ -147,8 +148,9 @@ portait, n'a pas été soumise au code-reviewer.
 
 Rien n'a protesté. La CI est restée verte, puisque c'est elle qui avait perdu
 l'étape, et `docs/design-system.md` a continué d'affirmer à deux endroits que
-« la CI construit les deux ». La garantie a vécu dix-sept heures sur `main`, et
-son retrait n'a été vu que cinq PR plus tard.
+« la CI construit les deux ». La garantie a vécu seize heures et quarante-deux
+minutes sur `main`, du merge de la PR #17 le 30 octobre à 17:14 à celui de la
+PR #19 le 31 octobre à 09:56, et son retrait n'a été vu que cinq PR plus tard.
 
 **La règle qui en découle : toute PR passe par le code-reviewer avant fusion, y
 compris une PR d'outillage ou de documentation.** C'est précisément une PR

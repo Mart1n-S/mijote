@@ -85,8 +85,8 @@ function toggleLoading(): void {
   Survol, enfoncement et focus ne se voient qu'en interagissant, un état à la
   fois. Ce réglage les fige côte à côte pour qu'on puisse les comparer et les
   contrôler. Les règles correspondantes sont en bas de ce fichier : elles
-  recopient celles des composants, et c'est la seule duplication acceptée ici,
-  parce que l'exemplaire vivant est juste à côté du figé.
+  recopient celles des composants, et c'est la seule duplication acceptée ici.
+  Rien ne la garde automatiquement, voir le commentaire qui les précède.
 */
 const frozen = ref(true);
 </script>
@@ -535,8 +535,14 @@ p {
 /*
   Les règles ci-dessous recopient celles des composants pour figer un état
   qu'on ne peut sinon observer qu'en interagissant. C'est la seule duplication
-  acceptée dans ce fichier, et elle est sous contrôle : l'exemplaire vivant de
-  la ligne « Repos » est juste au-dessus, donc un écart se voit.
+  acceptée dans ce fichier.
+
+  Rien ne la garde, et mieux vaut le dire que de s'y fier. L'exemplaire vivant
+  de la ligne « Repos » ne montre que le repos : il ne compare rien des états
+  figés ici. Aucun test ne touche à cette copie. Deux divergences y ont donc
+  vécu jusqu'au 31 octobre 2026, dont une invisible en thème clair, où les deux
+  jetons concernés ont la même valeur. Un écart ne se voit qu'à la lecture,
+  ligne à ligne, contre BaseButton.vue, BaseField.vue et base.css.
 
   :deep() est nécessaire parce que la cible est à l'intérieur d'un composant
   enfant, hors de portée du style scopé.
@@ -583,8 +589,13 @@ p {
   border-color: var(--color-border-hover);
 }
 
+/* Le contour autant que le fond : dans l'application, un champ enfoncé est
+   forcément survolé au même instant, donc les deux règles de BaseField
+   s'appliquent ensemble. Figer le seul fond montrait un champ enfoncé au
+   contour de repos. */
 .is-frozen .row-active :deep(.field__input) {
   background-color: var(--color-surface-hover);
+  border-color: var(--color-border-hover);
 }
 
 @media (prefers-reduced-motion: reduce) {

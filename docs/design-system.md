@@ -292,7 +292,7 @@ Elles sont dans `base.css` et s'appliquent sans que personne ait à y penser :
 
 - La barre basse **ne passe jamais sur deux lignes** : ses libellés sont insécables et c'est elle qui défile horizontalement quand ils ne tiennent plus. Sa hauteur vaut donc toujours une zone tactile plus son liseré, et la réserve de place sous le contenu reste exacte à toute taille de texte. C'était une limite connue, mesurée puis corrigée : au texte agrandi à 200 %, la barre passait sur deux lignes et recouvrait 14 px du pied de page. Le prix de la correction est qu'avec beaucoup d'entrées, la barre défilera de côté sur un écran étroit.
 - La région vide d'un `BaseAlert` compte comme un élément dans un conteneur `flex` avec `gap` (voir sa section plus haut).
-- Le tableau des états de la page de démonstration recopie quelques règles de survol et d'enfoncement pour les figer côte à côte. C'est la seule duplication acceptée, et elle est sous contrôle : l'exemplaire vivant est juste à côté du figé.
+- Le tableau des états de la page de démonstration recopie quelques règles de survol, d'enfoncement et de focus pour les figer côte à côte. C'est la seule duplication acceptée, et **rien ne la garde** : aucun test ne la compare aux composants, et l'exemplaire vivant de la ligne « Repos » ne montre que le repos. Trois divergences y ont vécu sans être vues jusqu'au 31 octobre 2026, dont une invisible en thème clair, où les deux jetons concernés ont la même valeur. Un écart ne se voit qu'à la lecture, ligne à ligne.
 
 ## Vérification
 
@@ -301,7 +301,7 @@ Elles sont dans `base.css` et s'appliquent sans que personne ait à y penser :
 | Seuils de contraste, dans les deux thèmes                                     | `src/styles/tokens.spec.ts`              |
 | Attributs ARIA, refus du clic en cours, focus gardé                           | `src/components/base/*.spec.ts` (jsdom)  |
 | Titre du document et focus à la navigation                                    | `src/navigation.spec.ts`                 |
-| Page de démonstration sans violation axe-core, en clair, en sombre et à 320 px | `e2e/design-system.spec.ts`              |
+| Accueil et page de démonstration sans violation axe-core, en clair, en sombre, à 320 px et au texte à 200 % | `e2e/accessibility.ts` |
 | Lien d'évitement, activation au clavier, va-et-vient du focus du dialogue      | `e2e/design-system.spec.ts`              |
 | Place de la navigation selon la largeur, absence de défilement horizontal     | `e2e/design-system.spec.ts`              |
 | Absence de la page de démonstration dans le paquet livré                      | `.github/workflows/ci.yml`               |

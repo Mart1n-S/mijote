@@ -118,6 +118,18 @@ redémarrage du CLI avant d'être testée. C'est le piège à éviter quand on r
 un agent et qu'on mesure l'effet dans la même session : on mesure l'ancien
 prompt.
 
+**Nuance, mesurée le 31 octobre 2026 : un agent nouveau, lui, est pris en
+compte sans redémarrage.** `security-reviewer` et `a11y-reviewer` ont été
+écrits, installés et lancés dans une même session : ils sont devenus
+disponibles dès que leurs fichiers ont été sur `main`, et leur banc d'essai a
+montré qu'ils répondaient bien avec leur prompt réel, corrections de dernière
+minute comprises (format de rapport, barème à quatre gravités, refus de
+recopier la valeur d'un secret trouvé).
+
+La mise en cache porte donc sur le contenu d'une définition déjà connue, pas
+sur la liste des agents. Ajouter un agent ne demande rien ; en modifier un
+demande toujours un redémarrage, et ce point n'a pas été remesuré.
+
 ### Ce qui est prévu
 
 Un hook `PreToolUse` à la story 3 (comptes sur invitation), en même temps que

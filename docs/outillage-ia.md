@@ -14,6 +14,7 @@ Règle : un skill, un agent ou un outil externe est **lu**, **scanné avec Skill
 | `backlog-manager` | agent, écrit dans GitHub, jamais dans le dépôt | écrit pour le projet | dépôt | sans objet | 30 octobre 2026 |
 | `skillspector` | outil externe, scanner local | [NVIDIA/SkillSpector](https://github.com/NVIDIA/SkillSpector), Apache-2.0 | commit `abd82935b67f765a9541013c0866c6349251dcdf`, qui porte l'étiquette v2.13.2 | sans objet : c'est le scanner lui-même, son README a été lu à la place | 30 octobre 2026 |
 | `frontend-design` | skill externe, conseils de design | [anthropics/skills](https://github.com/anthropics/skills), `skills/frontend-design`, Apache-2.0 | commit `41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f`, dernier commit qui touche ce skill (3 septembre 2026) | 13/100, LOW, SAFE. Un signalement HIGH à 55 % analysé et écarté, voir section 6 | 30 octobre 2026 |
+| `context7` | skill externe, documentation de bibliothèques | [netresearch/context7-skill](https://github.com/netresearch/context7-skill), `skills/context7`, (MIT AND CC-BY-SA-4.0) | commit `3ff120aa168ac75fc7a110c589ff53dff0b6f284`, dernier commit qui touche `skills/` (7 octobre 2026) | 24/100, MEDIUM, CAUTION. Un signalement HIGH à 75 % analysé et écarté, voir section 6 | 31 octobre 2026 |
 
 Le commit est figé, et non l'étiquette, pour la raison donnée dans l'ADR 0003.
 L'emplacement sur le poste et la commande de retrait sont dans
@@ -25,10 +26,10 @@ L'emplacement sur le poste et la commande de retrait sont dans
 | --- | --- | --- |
 | Fait le 30 octobre 2026 | [SkillSpector](https://github.com/NVIDIA/SkillSpector) | Scanner tout skill ou agent externe avant installation, en `--no-llm` pour rester en local. Voir la section 1. |
 | Fait le 30 octobre 2026 | [anthropics/skills](https://github.com/anthropics/skills) (`frontend-design`) | Direction visuelle du design system, story #7. Voir les sections 1 et 6. |
-| Lot 1, après SkillSpector | [anthropics/skills](https://github.com/anthropics/skills) (`skill-creator`) | Écrire et tester les skills du projet. Même dépôt que `frontend-design`, mais un skill s'installe un par un, chacun lu et scanné. |
-| Lot 1, après SkillSpector | [context7-skill](https://github.com/netresearch/context7-skill) | Documentation à jour des bibliothèques. Appelle le service Context7 : seuls des noms de bibliothèques et des questions partent, jamais le code. |
+| Fait le 31 octobre 2026 | [context7-skill](https://github.com/netresearch/context7-skill) | Documentation à jour des bibliothèques. Appelle le service Context7 : seuls des noms de bibliothèques et des questions partent, jamais le code, ce que la lecture du script a vérifié. Voir les sections 1 et 6. |
 | Lot 1, en écrivant les agents | [agent-skills](https://github.com/addyosmani/agent-skills), [ECC](https://github.com/affaan-m/ecc) | À piocher, jamais à installer en bloc : leurs déroulés et leurs hooks concurrenceraient le pipeline du projet. |
 | Jamais en installation | [superpowers](https://github.com/obra/superpowers) | Source d'inspiration seulement : méthode complète et concurrente. |
+| Jamais en installation | [anthropics/skills](https://github.com/anthropics/skills) (`skill-creator`) | Source d'inspiration seulement. Écarté le 31 octobre 2026 sur mesure, pas sur principe : SkillSpector le classe 100/100, CRITICAL, DO NOT INSTALL. Voir la section 6. |
 | Fin du lot 1, avant la première invitation | [security-audit-skill](https://github.com/cloudflare/security-audit-skill) | Audit complet du code, puis avant chaque vague d'invitations. |
 | Fin du lot 1, sur une préproduction | [Strix](https://github.com/usestrix/strix) | Test d'intrusion par agents, uniquement sur l'environnement de test, avec des données fictives. |
 | Lot 3 ou plus tard | [Graphify](https://github.com/Graphify-Labs/graphify) | Graphe du code pour les agents, en `--code-only` pour rester local. |
@@ -306,3 +307,99 @@ Rien n'est modifié dans le fichier installé : il est gardé tel que le commit
 
 **Non installés, sur décision de Martin le 30 octobre 2026** : `impeccable` et
 `taste-skill`. Ils ne sont pas non plus au calendrier de la section 2.
+
+### `context7`, 31 octobre 2026
+
+- Origine : `netresearch/context7-skill`, chemin `skills/context7`. Seul ce dossier
+  est repris : le dépôt porte aussi un greffon complet, des tests, des crochets
+  pre-commit et un `verify-harness.sh` de 18 ko, que l'ADR 0003 interdit
+  d'installer en bloc.
+- Commit figé : `3ff120aa168ac75fc7a110c589ff53dff0b6f284`, dernier commit qui
+  touche `skills/`, du 7 octobre 2026.
+- Licence : `(MIT AND CC-BY-SA-4.0)`, déclarée dans le frontmatter. Les en-têtes
+  SPDX donnent MIT pour le script et CC-BY-SA-4.0 pour le `SKILL.md`. Les deux
+  fichiers de licence vivent à la racine du dépôt amont et sont repris à côté du
+  skill.
+- Contenu : deux fichiers, `SKILL.md` et `scripts/context7.sh`.
+- Empreintes SHA-256 de ce qui est installé, identiques à ce qui a été scanné :
+  `b58517d3...` pour `SKILL.md`, `809fdff8...` pour `scripts/context7.sh`.
+- Scan SkillSpector v2.13.2, en `--no-llm` : **24/100, MEDIUM, CAUTION**,
+  couverture 100 %.
+
+**Ce que le script fait, établi par lecture et non par confiance.** Il n'appelle
+que `curl`, `jq` et `printf`. Deux adresses, toutes deux sur `context7.com` :
+`GET /api/v2/search?query=...` et `GET /api/v2/docs/<mode>/<org>/<lib>?type=txt`.
+Il ne lit aucun fichier : pas de `cat`, pas de redirection d'entrée, pas de
+lecture du répertoire courant. **Il ne peut donc pas faire sortir du code ni un
+chemin du dépôt** ; il n'envoie que ses propres arguments. La responsabilité se
+déplace sur l'appelant, d'où la règle ajoutée à `.claude/rules/security.md`.
+
+Il n'écrit rien sur le disque, et ne lit qu'une variable d'environnement,
+`CONTEXT7_API_KEY`, facultative. Celle-ci est passée à `curl` par l'entrée
+standard (`-H @-`) et non sur la ligne de commande, que les autres utilisateurs
+locaux liraient dans la liste des processus.
+
+**Le signalement unique, LP1 à 75 %, est un faux positif.** Il annonce une
+capacité « shell » non couverte par `allowed-tools`. Or le frontmatter déclare
+`Bash(${CLAUDE_SKILL_DIR}/scripts/context7.sh:*)`, `Bash(bash ...)` et `Read`.
+Le scanner ne résout pas `${CLAUDE_SKILL_DIR}` et ne rapproche donc pas ce
+`Bash(...)` paramétré d'une capacité générique. Le skill déclare en réalité une
+portée **plus étroite** qu'un `Bash` nu.
+
+**Prérequis, satisfaits.** Le skill exige `curl` 7.55 ou plus, présent en 8.4.0,
+et `jq`, qui manquait au moment du scan et a été installé le 31 octobre 2026 en
+1.8.2. Les deux figurent dans `docs/poste-de-dev.md` avec leur commande de
+retrait. Sans `jq`, le script échouerait dès sa première commande.
+
+### `skill-creator`, 31 octobre 2026 : écarté
+
+Lu, scanné, **non installé**. Classé « source d'inspiration, jamais en
+installation », comme `superpowers`, mais pour une raison différente : non pas
+une méthode concurrente, mais ce que l'outil fait sur la machine.
+
+- Origine : `anthropics/skills`, chemin `skills/skill-creator`, Apache-2.0.
+- Commit examiné : `b9e19e6f44773509fbdd7001d77ff41a49a486c1`, du 20 avril 2026.
+- Contenu : 18 fichiers, dont 10 scripts Python et deux pages HTML.
+- Scan SkillSpector v2.13.2, en `--no-llm` : **100/100, CRITICAL, DO NOT
+  INSTALL**, 9 signalements, couverture **88,9 %**.
+
+**Ce qui a motivé le refus**, établi par lecture :
+
+1. **Deux scripts appellent le CLI `claude`** en lui passant l'environnement
+   entier moins la seule variable `CLAUDECODE` : `scripts/run_eval.py:85` par
+   `Popen`, en parallèle, et `scripts/improve_description.py:35`, qui lui envoie
+   le corps entier d'un `SKILL.md`. Le code dit lui-même qu'il réutilise
+   l'authentification de la session Claude Code.
+2. **`run_eval.py` écrit dans le dépôt** : il remonte jusqu'au dossier `.claude/`,
+   y crée `commands/` et y écrit un fichier avant chaque requête.
+3. **`eval-viewer/generate_review.py` ouvre un serveur HTTP local** et le
+   `SKILL.md` recommande de le lancer détaché par `nohup`. Sa fonction
+   `_kill_port` exécute `lsof -ti :<port>` puis `os.kill(pid, SIGTERM)` : elle
+   termine le processus qui écoute sur ce port, quel qu'il soit.
+4. **Deux appels vers l'extérieur** dans les pages engendrées : Google Fonts dans
+   `generate_report.py`, et un script distant depuis `cdn.sheetjs.com` dans
+   `eval-viewer/viewer.html`, avec un attribut `integrity`.
+5. **Aucune portée d'outils déclarée** : le frontmatter n'a que `name` et
+   `description`, sans `allowed-tools`.
+
+**Les neuf signalements, analysés** : AE1 (artefact non entièrement inspecté),
+deux E2 (moisson de variables d'environnement), AS1 (accès au dossier de
+configuration de l'agent), LP3 (aucune portée d'outils), RA2 (persistance), et
+trois AST4 (appels `subprocess`). Tous correspondent à un fait du code. Les trois
+AST4 signalent une capacité et non une faute : les appels sont écrits
+correctement, liste d'arguments explicite, jamais `shell=True`.
+
+**Rien de malveillant n'a été trouvé.** C'est l'outil d'Anthropic pour écrire des
+skills, et il doit imbriquer `claude` pour mesurer des déclenchements : ces
+capacités sont inhérentes à sa fonction. Le refus porte sur l'étendue de ces
+capacités au regard des règles du projet, pas sur une intention.
+
+**Une leçon sur le scan lui-même.** La couverture n'était que de 88,9 % : le
+scanner a buté sur les deux pages HTML (`static_parse_limit`), et c'est
+précisément dans l'une d'elles que se trouve le script distant. **Le scan seul
+n'aurait pas suffi**, ce qui confirme que l'étape de lecture de l'ADR 0003 n'est
+pas décorative.
+
+**Limite pratique, accessoire** : `run_eval.py` utilise `select.select()` sur un
+tube, ce que Windows n'accepte que pour des sockets. Ce script ne fonctionnerait
+pas sur le poste de toute façon.

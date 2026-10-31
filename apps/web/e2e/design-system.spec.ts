@@ -123,6 +123,26 @@ test.describe('page de démonstration du design system', () => {
         droite: number;
         fenetre: { largeur: number; hauteur: number };
         recouvert: boolean;
+        sommet: string;
+      }
+
+      /**
+       * Rend la barre de navigation sensible au pointeur, le temps de la mesure.
+       *
+       * Sans cela, aucune mesure par `elementFromPoint` ne peut voir la barre :
+       * Reka UI pose `pointer-events: none` sur l'arrière-plan d'un dialogue
+       * modal, et un test de pointage ignore ce qui n'est pas pointable. Une
+       * première version de ces tests passait donc au vert sur la version
+       * défectueuse, où la barre se peignait par-dessus le voile : elle
+       * mesurait le `pointer-events`, pas l'ordre de peinture.
+       *
+       * Avec la barre pointable, le pointage suit l'ordre de peinture, qui est
+       * la question posée : qu'est-ce qui est devant.
+       */
+      async function rendLaBarrePointable(page: Page): Promise<void> {
+        await page.evaluate(() => {
+          document.querySelector('nav')?.style.setProperty('pointer-events', 'auto');
+        });
       }
 
       /** Amène un élément dans la vue, puis mesure sa place dans la fenêtre. */
@@ -151,6 +171,7 @@ test.describe('page de démonstration du design system', () => {
             droite: rect.right,
             fenetre: { largeur: window.innerWidth, hauteur: window.innerHeight },
             recouvert: sommet === null || !(element === sommet || element.contains(sommet)),
+            sommet: sommet === null ? 'rien' : sommet.tagName.toLowerCase(),
           };
         });
       }
@@ -161,7 +182,7 @@ test.describe('page de démonstration du design system', () => {
         expect(place.bas, `${quoi} sort par le bas`).toBeLessThanOrEqual(place.fenetre.hauteur);
         expect(place.gauche, `${quoi} sort à gauche`).toBeGreaterThanOrEqual(0);
         expect(place.droite, `${quoi} sort à droite`).toBeLessThanOrEqual(place.fenetre.largeur);
-        expect(place.recouvert, `${quoi} est recouvert par un autre élément`).toBe(false);
+        expect(place.recouvert, `${quoi} est recouvert par un ${place.sommet}`).toBe(false);
       }
 
       /** Dit si un contrôle est atteint par tabulations, dans le piège de focus. */
@@ -183,6 +204,8 @@ test.describe('page de démonstration du design system', () => {
         await page.setViewportSize({ width: 320, height: 640 });
         await page.getByRole('button', { name: 'Supprimer la semaine' }).click();
         await expect(page.getByRole('dialog')).toBeVisible();
+
+        await rendLaBarrePointable(page);
 
         const sommet = await page.evaluate(() => {
           const nav = document.querySelector('nav');
@@ -223,6 +246,11 @@ test.describe('page de démonstration du design system', () => {
 
           const dialog = page.getByRole('dialog');
           await expect(dialog).toBeVisible();
+
+          // À 320 x 256, le dialogue descend jusque sur la barre : sans cette
+          // ligne, un titre ou un bouton peint sous elle passerait pour
+          // atteignable.
+          await rendLaBarrePointable(page);
 
           attendVisible(await amenerDansLaVue(dialog), 'le dialogue');
 

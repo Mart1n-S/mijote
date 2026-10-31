@@ -1,5 +1,5 @@
 import { AxeBuilder } from '@axe-core/playwright';
-import type { Page } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import type { Result } from 'axe-core';
 
 /*
@@ -17,4 +17,67 @@ export async function accessibilityViolations(page: Page): Promise<Result[]> {
   const result = await new AxeBuilder({ page }).withTags(TAGS).analyze();
 
   return result.violations;
+}
+
+/*
+  Les quatre contextes sous lesquels tout écran est contrôlé. Ils étaient
+  recopiés dans le fichier de la page de démonstration, et l'accueil, seul
+  écran réellement livré, n'en recevait qu'un : le thème clair, à la taille de
+  fenêtre par défaut.
+
+  320 px de large est l'équivalent du zoom à 200 %. Doubler la taille de base
+  du document est, lui, ce que fait l'agrandissement de texte d'un navigateur
+  sur des tailles en rem, que le projet utilise partout (RGAA 10.4). Les deux
+  cassent des choses différentes, d'où les deux contextes.
+*/
+const NARROW_VIEWPORT = { width: 320, height: 640 };
+
+/**
+ * Enregistre les quatre contrôles axe-core d'un écran. À appeler au premier
+ * niveau d'un fichier de test, hors de tout `describe` : chaque contexte pose
+ * son propre `test.use`, qui ne vaut que pour le bloc où il est déclaré.
+ */
+export function accessibilityMatrix(path: string): void {
+  test.describe(`${path}, en mode clair`, () => {
+    test.use({ colorScheme: 'light' });
+
+    test("n'a aucune violation d'accessibilité", async ({ page }) => {
+      await page.goto(path);
+
+      expect(await accessibilityViolations(page)).toEqual([]);
+    });
+  });
+
+  test.describe(`${path}, en mode sombre`, () => {
+    test.use({ colorScheme: 'dark' });
+
+    test("n'a aucune violation d'accessibilité", async ({ page }) => {
+      await page.goto(path);
+
+      expect(await accessibilityViolations(page)).toEqual([]);
+    });
+  });
+
+  test.describe(`${path}, à 320 px de large`, () => {
+    test.use({ viewport: NARROW_VIEWPORT });
+
+    test("n'a aucune violation d'accessibilité", async ({ page }) => {
+      await page.goto(path);
+
+      expect(await accessibilityViolations(page)).toEqual([]);
+    });
+  });
+
+  test.describe(`${path}, au texte agrandi à 200 %`, () => {
+    test.use({ viewport: NARROW_VIEWPORT });
+
+    test("n'a aucune violation d'accessibilité", async ({ page }) => {
+      await page.goto(path);
+      await page.evaluate(() => {
+        document.documentElement.style.fontSize = '32px';
+      });
+
+      expect(await accessibilityViolations(page)).toEqual([]);
+    });
+  });
 }

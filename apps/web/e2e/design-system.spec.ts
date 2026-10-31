@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { accessibilityViolations } from './accessibility';
+import { accessibilityMatrix, accessibilityViolations } from './accessibility';
 
 /*
   La page de démonstration du design system sert de support au contrôle
@@ -13,26 +13,12 @@ import { accessibilityViolations } from './accessibility';
   que Reka UI fait à la fin de l'animation de sortie.
 */
 
+accessibilityMatrix('/design-system');
+
 test.describe('page de démonstration du design system', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/design-system');
     await expect(page.getByRole('heading', { level: 1, name: 'Design system' })).toBeVisible();
-  });
-
-  test.describe('en mode clair', () => {
-    test.use({ colorScheme: 'light' });
-
-    test("n'a aucune violation d'accessibilité", async ({ page }) => {
-      expect(await accessibilityViolations(page)).toEqual([]);
-    });
-  });
-
-  test.describe('en mode sombre', () => {
-    test.use({ colorScheme: 'dark' });
-
-    test("n'a aucune violation d'accessibilité", async ({ page }) => {
-      expect(await accessibilityViolations(page)).toEqual([]);
-    });
   });
 
   test("mène au contenu principal par le lien d'évitement", async ({ page }) => {
@@ -185,10 +171,6 @@ test.describe('page de démonstration du design system', () => {
       */
       expect(Math.round(overlap ?? 0)).toBeLessThanOrEqual(0);
     });
-
-    test("n'a aucune violation d'accessibilité", async ({ page }) => {
-      expect(await accessibilityViolations(page)).toEqual([]);
-    });
   });
 
   /*
@@ -235,14 +217,6 @@ test.describe('page de démonstration du design system', () => {
       expect(mesure?.recouvrement).toBeLessThanOrEqual(0);
       // 44 px de zone tactile doublés, plus le liseré.
       expect(mesure?.hauteurBarre).toBe(89);
-    });
-
-    test("n'a aucune violation d'accessibilité", async ({ page }) => {
-      await page.evaluate(() => {
-        document.documentElement.style.fontSize = '32px';
-      });
-
-      expect(await accessibilityViolations(page)).toEqual([]);
     });
   });
 });

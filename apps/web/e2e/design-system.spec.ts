@@ -447,6 +447,20 @@ test.describe('page de démonstration du design system', () => {
   });
 
   test.describe('navigation', () => {
+    test("ramène à l'accueil par le nom du site", async ({ page }) => {
+      const brand = page.getByRole('link', { name: 'Mijote' });
+
+      // Une zone tactile de 44 px, comme tout ce qui se clique : le nom tient
+      // sur une ligne de --text-lg, qui est plus basse que cela.
+      const box = await brand.boundingBox();
+      expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+
+      await brand.click();
+
+      await expect(page).toHaveURL('/');
+      await expect(page.getByRole('heading', { level: 1, name: 'Accueil' })).toBeVisible();
+    });
+
     test('est une barre fixe en bas sous 640 px', async ({ page }) => {
       await page.setViewportSize({ width: 375, height: 700 });
 

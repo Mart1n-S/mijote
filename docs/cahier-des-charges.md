@@ -15,7 +15,7 @@ Je suis le premier utilisateur, mais l'app est conçue pour d'autres : comptes, 
 - Afficher un coût estimé par repas, par portion, par semaine et par mois, puis le coût réel grâce aux tickets de caisse. Ce coût reste partiel jusqu'aux premières courses : il indique combien de produits n'ont pas encore de prix.
 - Afficher les valeurs nutritionnelles par portion et par jour (kcal, protéines, glucides, lipides au minimum).
 - Proposer en priorité des recettes rapides, avec un temps maximum paramétrable par l'utilisateur.
-- Être conforme au RGAA 4.1 niveau AA sur tous les écrans.
+- Rester utilisable au clavier et lisible (socle d'accessibilité de base), sans viser de conformité RGAA formelle : la sécurité et l'UX/UI passent en premier.
 - Réduire le gaspillage en réutilisant un même produit sur plusieurs recettes.
 
 ## 2. Périmètre et utilisateurs
@@ -219,7 +219,7 @@ Les produits « placard » (sel, huile, épices) n'entrent pas dans ce calcul.
 
 ## 7. Design, responsive et accessibilité
 
-Une interface sobre et élégante, lisible avant d'être décorative, utilisable au clavier, au lecteur d'écran et au doigt. Cible : RGAA 4.1 niveau AA, vérifié à chaque livraison.
+Une interface sobre et élégante, lisible avant d'être décorative, utilisable au clavier, au lecteur d'écran et au doigt. Priorités : sécurité et UX/UI d'abord. L'accessibilité se limite à un socle de base, celui déjà posé par le design system (HTML natif, clavier, focus visible, labels, contrastes garantis par les jetons, axe-core en CI) ; pas de conformité RGAA AA visée, et un point d'accessibilité qui bloque trop peut être abandonné (décision du 1er novembre 2026).
 
 **Direction visuelle**
 
@@ -248,7 +248,7 @@ Navigation en barre basse sur mobile, latérale sur tablette et ordinateur. La b
 - Glisser-déposer du planning toujours doublé de boutons.
 - Changements dynamiques (prix recalculé, article coché, erreur) annoncés au lecteur d'écran.
 - Photos de plats avec un texte alternatif utile ; images décoratives ignorées.
-- Contrôle : axe-core dans les tests et la CI, test des contrastes de chaque couple de jetons dans les deux thèmes, audit manuel au lecteur d'écran (NVDA, VoiceOver) à chaque lot, relecture par l'agent accessibilité (section 12).
+- Contrôle : axe-core dans les tests et la CI, test des contrastes de chaque couple de jetons dans les deux thèmes, relecture par l'agent accessibilité sur demande seulement (section 12). Pas d'audit manuel systématique. Les exigences de cette liste servent de guide pour les composants de base ; sur un écran métier, seul le socle de base est tenu.
 
 ## 8. Gestion des erreurs et journalisation
 
@@ -353,7 +353,7 @@ Les sites marchands ne sont lus que par les connecteurs : collectes en tâche de
 
 ## 12. Agents IA et skills
 
-Le développement suit le pipeline d'agents défini dans le projet « Agent IA » : un humain valide le plan de tests et fusionne, les agents font le reste. Ajout propre à ce projet : un a11y-reviewer, en parallèle des deux autres revues.
+Le développement suit le pipeline d'agents défini dans le projet « Agent IA » : un humain valide le plan de tests et fusionne, les agents font le reste. Ajout propre à ce projet : un a11y-reviewer, hors de la revue par défaut, lancé seulement sur demande (décision du 1er novembre 2026, ADR 0007).
 
 ```mermaid
 flowchart TB
@@ -362,8 +362,8 @@ flowchart TB
   subgraph REV["Revue en parallèle, lecture seule, contexte vierge"]
     CR["code-reviewer"]
     SR["security-reviewer"]
-    AR["a11y-reviewer"]
   end
+  AR["a11y-reviewer"] -. "sur demande seulement" .-> REV
   REV -- "point bloquant, 3 tours max puis humain" --> CW
   REV -- "revue OK" --> DW["doc-writer"] --> PR["pr-manager"] --> CI["CI verte"] --> FH{{"Fusion humaine"}}
 ```
@@ -379,16 +379,16 @@ Une revue bloquante renvoie au code-writer ; après trois allers-retours, la mai
 | code-writer             | Écrit le code jusqu'à ce que les tests passent                                      | Read, Grep, Glob, Edit, Write, Bash    | Tout sauf les tests         | sonnet ou opus   |
 | code-reviewer           | Revue neutre du diff                                                                | Read, Grep, Glob, Bash                 | Rien                        | opus             |
 | security-reviewer       | Autorisations, IDOR, données personnelles, secrets                                  | Read, Grep, Glob, Bash                 | Rien                        | opus             |
-| a11y-reviewer (nouveau) | Conformité RGAA 4.1 AA du diff et du HTML rendu, lecture des résultats axe-core     | Read, Grep, Glob, Bash                 | Rien                        | opus             |
+| a11y-reviewer (sur demande) | Socle d'accessibilité du diff et du HTML rendu, lecture des résultats axe-core | Read, Grep, Glob, Bash             | Rien                        | opus             |
 | doc-writer              | ADR quand la story introduit une décision                                           | Read, Grep, Glob, Write                | docs/                       | sonnet           |
 | pr-manager              | Branche, commits, PR liée à l'issue                                                 | Read, Bash (git, gh)                   | Rien                        | sonnet           |
 
 **a11y-reviewer en détail**
 
-- Référentiels : RGAA 4.1 (critères et tests), WCAG 2.2, guide des motifs ARIA (APG), rangés dans un skill qu'il précharge.
-- Sortie : un rapport par critère RGAA (conforme, non conforme, non applicable), gravité, correctif proposé.
-- Règle : HTML natif avant ARIA ; une non-conformité bloquante renvoie au code-writer.
-- Limite : ne remplace pas le test manuel au lecteur d'écran.
+- Quand il tourne : sur demande de Martin, jamais de lui-même. La revue par défaut est code-reviewer, plus security-reviewer selon le changement.
+- Référentiels : RGAA 4.1 (critères et tests), WCAG 2.2, guide des motifs ARIA (APG), rangés dans un skill qu'il précharge. Il garde cette grille entière, puisque c'est ce niveau de détail qu'on vient chercher en le lançant.
+- Sortie : un rapport par critère RGAA (conforme, non conforme, non applicable), gravité, correctif proposé. Ce qui sort du socle de base se dit en limite connue, selon la règle de proportion du CLAUDE.md.
+- Règle : HTML natif avant ARIA ; un défaut bloquant du socle renvoie au code-writer.
 
 **Rules, skills et garde-fous**
 

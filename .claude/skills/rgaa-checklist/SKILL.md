@@ -1,6 +1,6 @@
 ---
 name: rgaa-checklist
-description: Grille RGAA 4.1.2 appliquée à l'interface Vue de mijote. À charger pour écrire ou relire un composant, une page, une route ou un style de apps/web, et chaque fois qu'il faut citer un critère d'accessibilité exact.
+description: Grille RGAA 4.1.2 appliquée à l'interface Vue de mijote. À charger seulement quand Martin demande une relecture d'accessibilité ou un critère RGAA exact, et par l'agent a11y-reviewer quand il tourne. Écrire ou relire un composant de apps/web ne suffit plus à la charger, le projet ne visant plus la conformité AA mais un socle de base (ADR 0007).
 ---
 
 # Grille RGAA pour mijote
@@ -11,7 +11,7 @@ Ce skill dit **quoi vérifier** dans le code de `apps/web` et **quel critère ci
 
 - **RGAA 4.1.2**, 106 critères. Liste complète, recopiée depuis la source officielle : `references/criteres-rgaa-4.1.2.md`. Un critère se cite par son numéro et son intitulé tels qu'ils y figurent, jamais de mémoire.
 - **RGAA 5** est annoncé par la DINUM pour fin 2026, aligné sur WCAG 2.2, sans texte publié à ce jour. La section 5 liste ce qu'il est sage d'anticiper. Le jour où il paraît, cette grille est à refaire.
-- Niveau visé par le projet : AA (cahier des charges, section 7).
+- **Le projet ne vise plus aucun niveau RGAA.** Son exigence est le socle de base de `.claude/rules/vue-accessibility.md` (cahier des charges, section 7, ADR 0007). Un critère cité depuis cette grille éclaire un point ; il n'engage pas une conformité, et il ne rend pas bloquant ce qui sort du socle.
 
 ## 2. Ce que l'outillage couvre déjà
 
@@ -117,7 +117,7 @@ Pour chaque point : le critère, puis ce qui se vérifie **dans le code de mijot
 
 ## 4. Ce que le code ne permet pas de trancher
 
-Certains critères ne se décident qu'à l'usage : restitution réelle au lecteur d'écran (NVDA, VoiceOver), pertinence d'une annonce, ordre de lecture ressenti. Dans ce cas, le point se classe **« À vérifier »**, avec la manipulation précise à faire ("ouvrir le dialogue avec NVDA et vérifier que son titre est annoncé"). Ces points nourrissent l'audit manuel de fin de lot.
+Certains critères ne se décident qu'à l'usage : restitution réelle au lecteur d'écran (NVDA, VoiceOver), pertinence d'une annonce, ordre de lecture ressenti. Dans ce cas, le point se classe **« À vérifier »**, avec la manipulation précise à faire ("ouvrir le dialogue avec NVDA et vérifier que son titre est annoncé"). L'audit manuel de fin de lot est arrêté (ADR 0007) : ces points se consignent en limite connue, avec la manipulation à faire, pour qui voudra les écouter un jour.
 
 ## 5. À anticiper : WCAG 2.2, attendu dans RGAA 5
 

@@ -39,7 +39,7 @@ S'il manque l'issue en mode branche, dis-le en tête de ton rapport et relis qua
 - **En-têtes et configuration** : CORS restreint à l'origine de l'application, en-têtes de sécurité, aucun mode débogage ni route de test exposés en production.
 - **Dépendances** : toute nouvelle dépendance a une version figée, est dans la stack du CLAUDE.md ou a reçu l'accord de Martin.
 
-Signale aussi un problème évident hors de ton domaine, avec sa gravité réelle, en le marquant « à confirmer par code-reviewer » ou « à confirmer par a11y-reviewer ». Ce renvoi sert à prévenir l'autre relecteur, et jamais à baisser une gravité.
+Signale aussi un problème évident hors de ton domaine, avec sa gravité réelle, en le marquant « à confirmer par code-reviewer ». Ce renvoi sert à prévenir l'autre relecteur, et jamais à baisser une gravité. Ne renvoie rien vers `a11y-reviewer` : il est hors du pipeline par défaut et ne tourne que sur demande de Martin (ADR 0007).
 
 ## Ce que tu ne fais jamais
 

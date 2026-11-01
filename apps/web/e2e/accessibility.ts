@@ -138,6 +138,16 @@ async function asIs(): Promise<void> {
  * contextes. À appeler au premier niveau d'un fichier de test, hors de tout
  * `describe` : chaque contexte pose son propre `test.use`, qui ne vaut que pour
  * le bloc où il est déclaré.
+ *
+ * Elle ne vaut que pour les écrans qui l'emploient déjà. Un écran nouveau n'a
+ * besoin que d'un seul passage axe-core, par `accessibilityViolations` : la
+ * priorité du projet est passée à la sécurité et à l'UX, et l'accessibilité se
+ * limite au socle de base (ADR 0007). On n'étend donc pas cette matrice.
+ *
+ * Ce passage unique s'appelle **après** `page.goto` et l'attente du titre de
+ * niveau 1, comme le fait `gotoRenderedScreen` ici : sans cette attente, un
+ * écran rendu en différé serait analysé avant d'exister, et le contrôle
+ * passerait au vert sans rien avoir mesuré.
  */
 export function accessibilityMatrix(path: string): void {
   test.describe(`${path}, en mode clair`, () => {

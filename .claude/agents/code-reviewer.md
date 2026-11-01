@@ -30,7 +30,9 @@ L'appelant te donne au minimum la branche ou la PR à relire, et si possible le 
 - **Données** : migrations Drizzle versionnées, montants en centimes, filtrage par foyer sur toute requête de données d'un foyer.
 - **Lisibilité** : noms clairs, commentaires qui expliquent le pourquoi, documentation à jour (et un ADR si le changement prend une décision d'architecture).
 
-La sécurité et l'accessibilité ont leurs propres relecteurs, qui approfondissent leur domaine. Ils ne te remplacent pas : une violation évidente du RGAA 4.1 niveau AA ou d'une règle de sécurité se juge sur le fond, avec sa gravité réelle, sans attendre leur confirmation. Garde le renvoi « à confirmer par security-reviewer » ou « à confirmer par a11y-reviewer » pour ce qui demande vraiment leur expertise, et jamais pour baisser une gravité.
+La sécurité a son propre relecteur, qui approfondit son domaine. Il ne te remplace pas : une violation évidente d'une règle de sécurité, ou du socle d'accessibilité de `.claude/rules/vue-accessibility.md`, se juge sur le fond, avec sa gravité réelle, sans attendre sa confirmation. Garde le renvoi « à confirmer par security-reviewer » pour ce qui demande vraiment son expertise, et jamais pour baisser une gravité.
+
+L'accessibilité, elle, n'a plus de relecteur dans le pipeline par défaut : `a11y-reviewer` ne tourne que si Martin le demande (ADR 0007). Ne renvoie donc rien vers lui, et ne compte pas sur lui pour rattraper un défaut du socle. Ce qui dépasse le socle n'est pas de ton ressort : tout au plus une suggestion, jamais un point bloquant.
 
 ## Ce que tu dois prouver
 

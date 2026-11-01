@@ -100,9 +100,17 @@ const open = defineModel<boolean>('open', { default: false });
     bloc conteneur est le bloc conteneur initial, dont la largeur exclut la
     barre de défilement. Une unité de fenêtre, elle, la compte toujours, et
     aucune variante n'y change rien : les variantes dynamiques ne concernent
-    que la hauteur, la seule qui varie avec l'interface du navigateur. Passer
-    cette ligne en dvw pour l'« harmoniser » avec celle du dessous ramènerait
-    donc le dialogue sous la barre de défilement.
+    que la hauteur, la seule qui varie avec l'interface du navigateur. Ne pas
+    « harmoniser » cette ligne en dvw par symétrie avec celle du dessous.
+
+    Mesuré le 1er novembre 2026 : l'écart ne se voit pas aujourd'hui, parce que
+    Reka UI verrouille le défilement du corps à l'ouverture (overflow: hidden
+    et padding-right compensatoire), ce qui retire la barre de défilement le
+    temps du dialogue. Les deux écritures donnent alors la même largeur. Le
+    pourcentage reste le bon, justement parce qu'il ne dépend pas de ce
+    comportement de la bibliothèque : un dialogue non modal, ou un Reka UI qui
+    cesserait de verrouiller, remettrait l'écart. Un test de source interdit
+    l'unité de fenêtre ici, voir BaseDialog.spec.ts.
   */
   width: min(32rem, calc(100% - 2 * var(--space-4)));
   /* Au zoom à 200 %, le contenu du dialogue défile dans le dialogue plutôt

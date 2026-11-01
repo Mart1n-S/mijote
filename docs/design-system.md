@@ -280,7 +280,9 @@ C'est le seul endroit de l'application qui utilise `--shadow-3` et, avec la barr
 
 Reka UI 2.11 rend le dialogue modal en posant `aria-hidden` sur le reste du document, et non `aria-modal` sur le dialogue. C'est une technique équivalente, mais qui change ce qu'un test doit regarder.
 
-Au zoom, le contenu du dialogue défile dans le dialogue plutôt que de sortir de l'écran. Sa hauteur maximale est en `dvh`, **jamais en `vh`** : c'est l'arbitrage déjà tranché pour la hauteur de `AppLayout`, où `vh` comptait la barre d'adresse du mobile et laissait le bas sous le bord de l'écran.
+Au zoom, le contenu du dialogue défile dans le dialogue plutôt que de sortir de l'écran, **mais verticalement seulement** : horizontalement, il n'y a nulle part où aller. Son titre porte donc `overflow-wrap: break-word`. Mesuré le 1er novembre 2026 avant correction : au texte doublé à 320 px, « Supprimer » en `--text-xl` ne tient pas dans les 208 px de la boîte, le contenu dépassait de 15 px et le mot se faisait couper. Le débordement du document restait nul, donc la matrice ne pouvait pas le voir.
+
+Sa hauteur maximale est en `dvh`, **jamais en `vh`** : c'est l'arbitrage déjà tranché pour la hauteur de `AppLayout`, où `vh` comptait la barre d'adresse du mobile et laissait le bas sous le bord de l'écran.
 
 **Sa largeur ne dépend d'aucune unité de fenêtre**, et c'est volontaire : `min(32rem, calc(100% - 2 * var(--space-4)))`. Pour un élément en `position: fixed`, le bloc conteneur est le bloc conteneur initial, dont la largeur exclut la barre de défilement. Une unité de fenêtre la compte toujours, et aucune variante n'y change rien : les variantes dynamiques (`dvw`, `svw`, `lvw`) ne concernent que la hauteur, la seule qui varie avec l'interface du navigateur. « Harmoniser » cette ligne en unité de fenêtre, par symétrie avec la hauteur juste en dessous, remettrait donc le dialogue sous la barre de défilement.
 
@@ -350,6 +352,7 @@ Elles sont dans `base.css` et s'appliquent sans que personne ait à y penser :
 | Place de la navigation selon la largeur                                       | `e2e/design-system.spec.ts`              |
 | Ni défilement horizontal ni contenu masqué par la barre, à 320 px et au texte à 200 %, sur les deux écrans | `e2e/accessibility.ts` |
 | Hauteur de la barre et doublement réel des libellés au texte à 200 %          | `e2e/design-system.spec.ts`              |
+| Contenu du dialogue dans sa boîte au texte à 200 %                            | `e2e/design-system.spec.ts`              |
 | Copie figée des états conforme à ce que les composants produisent             | `e2e/design-system.spec.ts`              |
 | Absence de la page de démonstration dans le paquet livré                      | `.github/workflows/ci.yml`               |
 | Aucune requête vers un service tiers, et la police bien chargée localement    | `e2e/third-party.spec.ts`                |

@@ -132,6 +132,12 @@ const open = defineModel<boolean>('open', { default: false });
   margin: 0;
   font-size: var(--text-xl);
   line-height: var(--leading-tight);
+  /* Au texte doublé, un mot du titre est plus large que le dialogue : à 320 px,
+     « Supprimer » en --text-xl ne tient pas dans les 208 px de la boîte. Sans
+     césure, il débordait de 15 px et se faisait couper, le dialogue n'ayant
+     nulle part où défiler horizontalement. break-word et non anywhere : on ne
+     coupe que le mot qui ne tient pas, pas au milieu de n'importe quel autre. */
+  overflow-wrap: break-word;
 }
 
 .dialog__description {

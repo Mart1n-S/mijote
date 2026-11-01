@@ -663,5 +663,30 @@ test.describe('page de démonstration du design system', () => {
       // de chaque côté, plus le liseré, qui ne suit pas le texte : 88 + 16 + 1.
       expect(mesure?.hauteurBarre).toBe(105);
     });
+
+    /*
+      Le dialogue défile dans le dialogue, mais verticalement seulement :
+      horizontalement, il n'y a nulle part où aller. Mesuré le 1er novembre
+      2026 avant correction, son contenu dépassait sa boîte de 15 px au texte
+      doublé, et un mot du titre était coupé. Le débordement du document restait
+      nul, donc la matrice ne pouvait pas le voir.
+
+      La cause est que les titres n'ont pas de césure : base.css ne pose
+      overflow-wrap que sur code, samp et kbd.
+    */
+    test('garde le contenu du dialogue dans sa boîte', async ({ page }) => {
+      await page.evaluate(() => {
+        document.documentElement.style.fontSize = '32px';
+      });
+
+      await page.getByRole('button', { name: 'Supprimer la semaine' }).click();
+      await expect(page.getByRole('dialog')).toBeVisible();
+
+      const debordement = await page
+        .getByRole('dialog')
+        .evaluate((element) => element.scrollWidth - element.clientWidth);
+
+      expect(debordement, 'le contenu du dialogue déborde de sa largeur').toBeLessThanOrEqual(0);
+    });
   });
 });

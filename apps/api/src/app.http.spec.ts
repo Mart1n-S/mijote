@@ -92,6 +92,43 @@ describe("les erreurs de l'API", () => {
     expect(problem.status).toBe(404);
   });
 
+  it("ne recopie pas l'adresse demandée dans le détail du 404", async () => {
+    /*
+      NestJS lève « Cannot GET /stores?address=... » : son message porte l'URL
+      avec sa chaîne de requête. Or l'adresse saisie pour trouver un magasin
+      arrivera par là, et elle ne doit pas plus sortir dans une réponse que
+      dans un journal (security.md). Le détail servi est donc le nôtre.
+    */
+    const { problem } = await problemAt('/stores?address=12%20rue%20des%20Lilas');
+
+    expect(problem.detail).toBe("Cette adresse n'existe pas.");
+    expect(JSON.stringify(problem)).not.toContain('Lilas');
+    expect(JSON.stringify(problem)).not.toContain('Cannot GET');
+  });
+
+  it('refuse un corps illisible en français, sans le recopier', async () => {
+    const { response, problem } = await problemAt('/test-errors/household', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '<html>12 rue des Lilas</html>',
+    });
+
+    expect(response.status).toBe(400);
+    // L'analyseur d'Express dirait « Unexpected token '<', "<html>12 r"... »,
+    // en anglais et avec les premiers caractères du corps reçu.
+    expect(problem.detail).toBe("La requête n'a pas pu être lue.");
+    expect(JSON.stringify(problem)).not.toContain('Lilas');
+    expect(JSON.stringify(problem)).not.toContain('Unexpected token');
+    /*
+      Cette requête est refusée avant l'intergiciel de journalisation, donc
+      elle n'a pas d'identifiant : le filtre lui en engendre un, le pose en
+      en-tête et écrit la seule ligne qu'elle produira. Mesuré avant
+      correction, elle repartait sans en-tête et avec un requestId vide.
+    */
+    expect(problem.requestId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(response.headers.get(REQUEST_ID_HEADER)).toBe(problem.requestId);
+  });
+
   it('renvoie un 500 générique, sans rien de technique', async () => {
     const { response, problem } = await problemAt('/test-errors/boom');
 
@@ -156,8 +193,8 @@ describe("l'identifiant de requête", () => {
   });
 
   it("est posé aussi sur une réponse qui n'est pas une erreur", async () => {
-    // La sonde échoue ici, mais l'en-tête ne dépend pas du résultat : il est
-    // posé à l'arrivée de la requête, pas à la sortie de la réponse.
+    // L'en-tête est posé à l'arrivée de la requête, pas à la sortie de la
+    // réponse : il est donc là sur un 201 comme sur une erreur.
     const response = await fetch(`${baseUrl}/test-errors/household`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },

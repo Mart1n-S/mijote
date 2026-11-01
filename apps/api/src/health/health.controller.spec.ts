@@ -1,5 +1,6 @@
-import { ServiceUnavailableException } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
+
+import { ProblemException } from '../errors/problem.exception.js';
 
 import { HealthController } from './health.controller.js';
 
@@ -20,7 +21,7 @@ describe('HealthController', () => {
   it('refuse de répondre ok quand la base ne répond pas', async () => {
     const controller = new HealthController({ isDatabaseReachable: () => Promise.resolve(false) });
 
-    await expect(controller.check()).rejects.toBeInstanceOf(ServiceUnavailableException);
+    await expect(controller.check()).rejects.toBeInstanceOf(ProblemException);
   });
 
   it('ne dit rien de la base dans le message renvoyé', async () => {

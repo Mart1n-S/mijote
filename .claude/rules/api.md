@@ -14,6 +14,7 @@ paths:
 
 - Format unique RFC 9457 (Problem Details) pour toutes les réponses d'erreur, par un filtre d'exceptions global : `type`, `title`, `status`, `detail`, et l'identifiant de requête.
 - Distinguer les erreurs attendues (validation, droits, ressource absente) des erreurs inattendues. Une erreur inattendue renvoie un message générique ; le détail ne part qu'au journal.
+- Le `detail` renvoyé ne vient **que** d'une exception écrite par le projet (`ProblemException` et ses filles). Le message d'une exception de NestJS ou d'une bibliothèque reste au journal, et le filtre sert un détail générique en français à sa place. Mesuré : sur une route inconnue, NestJS recopie l'URL avec sa chaîne de requête, donc l'adresse saisie pour trouver un magasin ; sur un corps illisible, l'adaptateur Express recopie les premiers caractères du corps reçu.
 - Jamais de trace technique, de requête SQL ni de chemin de fichier dans une réponse.
 
 ## Journaux

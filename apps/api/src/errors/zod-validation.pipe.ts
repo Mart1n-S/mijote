@@ -7,14 +7,26 @@ import { ValidationException } from './validation.exception.js';
 
 /*
   Les messages de zod sont en anglais par défaut. La locale française est posée
-  une fois, à l'import de ce fichier, parce que ce pipe est le seul endroit du
-  projet qui transforme une erreur zod en message destiné à un utilisateur. Un
-  schéma analysé ailleurs, sans passer par ici, parlerait anglais : c'est voulu,
-  ses messages ne sortent pas de l'API.
+  à l'import de ce fichier, et `z.config` est **global au processus** : tout
+  schéma analysé après cet import parle français, y compris ceux de
+  packages/shared.
+
+  Elle vit ici plutôt que dans main.ts pour une raison de mesure : le pipe est
+  le seul endroit du projet qui transforme une erreur de schéma en message lu
+  par un utilisateur, et son test vérifie donc la langue que la production
+  produira vraiment. Un réglage posé au démarrage serait absent de ce test.
 */
 z.config(fr());
 
-/** Les champs refusés, dans l'ordre où zod les a rencontrés. */
+/*
+  Les champs refusés, dans l'ordre où zod les a rencontrés.
+
+  Un segment de chemin ne peut être qu'une clé de propriété ou un indice de
+  tableau, donc jamais une trace ni un chemin de fichier. Avec un `z.record()`
+  ou un schéma `.strict()`, en revanche, ce segment serait une clé **envoyée par
+  le client** : il faudra alors en borner la longueur. Aucun schéma du projet
+  n'est dans ce cas.
+*/
 function toFieldErrors(error: ZodError): FieldError[] {
   return error.issues.map((issue) => ({
     // Un chemin vide désigne le corps lui-même : un objet attendu et une

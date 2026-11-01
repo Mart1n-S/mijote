@@ -1,5 +1,7 @@
 import type { FieldError } from '@mijote/shared';
-import { BadRequestException } from '@nestjs/common';
+import { HttpStatus } from '@nestjs/common';
+
+import { ProblemException } from './problem.exception.js';
 
 /**
  * Entrée refusée par la validation. Elle porte la liste des champs fautifs, que
@@ -9,8 +11,8 @@ import { BadRequestException } from '@nestjs/common';
  * le filtre reconnaît alors le cas par son type, et non en devinant la forme de
  * ce qu'il a reçu.
  */
-export class ValidationException extends BadRequestException {
+export class ValidationException extends ProblemException {
   constructor(readonly fieldErrors: readonly FieldError[]) {
-    super('La requête contient des champs invalides.');
+    super(HttpStatus.BAD_REQUEST, 'La requête contient des champs invalides.');
   }
 }

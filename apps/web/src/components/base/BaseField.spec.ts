@@ -189,6 +189,30 @@ describe('BaseField', () => {
     expect(wrapper.emitted('update:modelValue')).toEqual([['250']]);
   });
 
+  it('dit en clair quand il est obligatoire', () => {
+    // Les écrans de compte sont les premiers à s'en servir. La mention est
+    // dans le label, donc lue avec lui, et l'attribut porte la contrainte.
+    const wrapper = mountField({ required: true });
+
+    expect(wrapper.get('label').text()).toContain('(obligatoire)');
+    expect(inputElement().required).toBe(true);
+  });
+
+  it("n'annonce rien d'obligatoire par défaut", () => {
+    const wrapper = mountField();
+
+    expect(wrapper.text()).not.toContain('obligatoire');
+    expect(inputElement().required).toBe(false);
+  });
+
+  it('relaie autocomplete tel quel', () => {
+    // La finalité du champ doit rester déductible : c'est ce qui permet au
+    // navigateur et aux aides techniques de pré-remplir (RGAA 11.13).
+    mountField({ autocomplete: 'email' });
+
+    expect(inputElement().getAttribute('autocomplete')).toBe('email');
+  });
+
   it("sort de l'ordre de tabulation quand il est désactivé", () => {
     const wrapper = mountField({ disabled: true });
 

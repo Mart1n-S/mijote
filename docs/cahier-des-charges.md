@@ -353,7 +353,7 @@ Les sites marchands ne sont lus que par les connecteurs : collectes en tâche de
 
 ## 12. Agents IA et skills
 
-Le développement suit le pipeline d'agents défini dans le projet « Agent IA » : un humain valide le plan de tests et fusionne, les agents font le reste. Ajout propre à ce projet : un a11y-reviewer, en parallèle des deux autres revues.
+Le développement suit le pipeline d'agents défini dans le projet « Agent IA » : un humain valide le plan de tests et fusionne, les agents font le reste. Ajout propre à ce projet : un a11y-reviewer, hors de la revue par défaut, lancé seulement sur demande (décision du 1er novembre 2026, ADR 0007).
 
 ```mermaid
 flowchart TB
@@ -362,8 +362,8 @@ flowchart TB
   subgraph REV["Revue en parallèle, lecture seule, contexte vierge"]
     CR["code-reviewer"]
     SR["security-reviewer"]
-    AR["a11y-reviewer"]
   end
+  AR["a11y-reviewer"] -. "sur demande seulement" .-> REV
   REV -- "point bloquant, 3 tours max puis humain" --> CW
   REV -- "revue OK" --> DW["doc-writer"] --> PR["pr-manager"] --> CI["CI verte"] --> FH{{"Fusion humaine"}}
 ```
@@ -379,16 +379,16 @@ Une revue bloquante renvoie au code-writer ; après trois allers-retours, la mai
 | code-writer             | Écrit le code jusqu'à ce que les tests passent                                      | Read, Grep, Glob, Edit, Write, Bash    | Tout sauf les tests         | sonnet ou opus   |
 | code-reviewer           | Revue neutre du diff                                                                | Read, Grep, Glob, Bash                 | Rien                        | opus             |
 | security-reviewer       | Autorisations, IDOR, données personnelles, secrets                                  | Read, Grep, Glob, Bash                 | Rien                        | opus             |
-| a11y-reviewer (nouveau) | Conformité RGAA 4.1 AA du diff et du HTML rendu, lecture des résultats axe-core     | Read, Grep, Glob, Bash                 | Rien                        | opus             |
+| a11y-reviewer (sur demande) | Socle d'accessibilité du diff et du HTML rendu, lecture des résultats axe-core | Read, Grep, Glob, Bash             | Rien                        | opus             |
 | doc-writer              | ADR quand la story introduit une décision                                           | Read, Grep, Glob, Write                | docs/                       | sonnet           |
 | pr-manager              | Branche, commits, PR liée à l'issue                                                 | Read, Bash (git, gh)                   | Rien                        | sonnet           |
 
 **a11y-reviewer en détail**
 
-- Référentiels : RGAA 4.1 (critères et tests), WCAG 2.2, guide des motifs ARIA (APG), rangés dans un skill qu'il précharge.
-- Sortie : un rapport par critère RGAA (conforme, non conforme, non applicable), gravité, correctif proposé.
-- Règle : HTML natif avant ARIA ; une non-conformité bloquante renvoie au code-writer.
-- Limite : ne remplace pas le test manuel au lecteur d'écran.
+- Quand il tourne : sur demande de Martin, jamais de lui-même. La revue par défaut est code-reviewer, plus security-reviewer selon le changement.
+- Référentiels : RGAA 4.1 (critères et tests), WCAG 2.2, guide des motifs ARIA (APG), rangés dans un skill qu'il précharge. Il garde cette grille entière, puisque c'est ce niveau de détail qu'on vient chercher en le lançant.
+- Sortie : un rapport par critère RGAA (conforme, non conforme, non applicable), gravité, correctif proposé. Ce qui sort du socle de base se dit en limite connue, selon la règle de proportion du CLAUDE.md.
+- Règle : HTML natif avant ARIA ; un défaut bloquant du socle renvoie au code-writer.
 
 **Rules, skills et garde-fous**
 

@@ -13,7 +13,7 @@ Taille : L
 
 ### Pourquoi
 
-Tous les écrans du projet doivent partager une apparence sobre et une accessibilité RGAA 4.1 niveau AA. Les poser une fois, dans des jetons et quelques composants de base, évite de refaire ces choix écran par écran et rend la conformité vérifiable dès le premier écran métier.
+Tous les écrans du projet doivent partager une apparence sobre et le socle d'accessibilité de base : HTML natif, clavier, focus visible, labels, contrastes garantis par les jetons (ADR 0007, qui écarte la cible RGAA 4.1 niveau AA écrite ici au départ). Les poser une fois, dans des jetons et quelques composants de base, évite de refaire ces choix écran par écran et tient ce socle dès le premier écran métier.
 
 ### Critères d'acceptation
 

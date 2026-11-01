@@ -1,6 +1,6 @@
-import { expect, test, type Locator } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
-import { accessibilityMatrix, accessibilityViolations } from './accessibility';
+import { accessibilityMatrix, accessibilityViolations, horizontalOverflow } from './accessibility';
 
 /*
   La page de démonstration du design system sert de support au contrôle
@@ -96,6 +96,197 @@ test.describe('page de démonstration du design system', () => {
       await expect(page.getByRole('dialog')).toBeVisible();
 
       expect(await accessibilityViolations(page)).toEqual([]);
+    });
+
+    /*
+      Sous 640 px, le dialogue est le seul composant qui partage l'écran avec la
+      barre de navigation fixe. Jusqu'au 31 octobre 2026, la barre se peignait
+      par-dessus le voile et le dialogue, et le seul test qui ouvrait le
+      dialogue tournait à 1280 px, largeur à laquelle la barre repasse dans le
+      flux et perd son z-index : rien ne pouvait le voir.
+
+      Les deux hauteurs ne mesurent pas la même chose. À 640 px le dialogue
+      tient en entier ; à 256 px il atteint sa hauteur maximale et c'est lui
+      qui défile, le cas où son titre ou ses boutons pourraient devenir
+      inatteignables.
+    */
+    test.describe('sous 640 px', () => {
+      const NARROW_VIEWPORTS = [
+        { width: 320, height: 640 },
+        { width: 320, height: 256 },
+      ] as const;
+
+      interface ViewportPlacement {
+        top: number;
+        bottom: number;
+        left: number;
+        right: number;
+        viewport: { width: number; height: number };
+        covered: boolean;
+        topMost: string;
+      }
+
+      /**
+       * Rend l'arrière-plan sensible au pointeur, le temps de la mesure.
+       *
+       * Sans cela, aucune mesure par `elementFromPoint` ne peut voir la barre
+       * de navigation : Reka UI pose `pointer-events: none` sur `body` quand un
+       * dialogue modal est ouvert, et un test de pointage ignore ce qui n'est
+       * pas pointable. Une première version de ces tests passait donc au vert
+       * sur la version défectueuse, où la barre se peignait par-dessus le
+       * voile : elle mesurait le `pointer-events`, pas l'ordre de peinture.
+       *
+       * C'est `body` qu'on rouvre, et non la seule barre : la mesure vaut alors
+       * pour tout élément flottant que Reka UI aurait neutralisé, et pas
+       * seulement pour celui auquel on pensait.
+       */
+      async function makeBackgroundHittable(page: Page): Promise<void> {
+        await page.evaluate(() => {
+          document.body.style.setProperty('pointer-events', 'auto');
+        });
+      }
+
+      /** Amène un élément dans la vue, puis mesure sa place dans la fenêtre. */
+      async function bringIntoView(target: Locator): Promise<ViewportPlacement> {
+        // Le contenu du dialogue défile dans le dialogue : une partie hors de
+        // la vue n'est pas un défaut tant qu'on peut l'y amener.
+        await target.scrollIntoViewIfNeeded();
+
+        return target.evaluate((element) => {
+          const rect = element.getBoundingClientRect();
+          /*
+            elementFromPoint répond à la seconde question, celle qu'un
+            rectangle ne dit pas : l'élément est-il recouvert. Une boîte bien
+            placée dans la fenêtre mais peinte sous la barre de navigation
+            n'est pas atteignable, et c'est exactement le défaut corrigé ici.
+          */
+          const topMost = document.elementFromPoint(
+            rect.left + rect.width / 2,
+            rect.top + rect.height / 2,
+          );
+
+          return {
+            top: rect.top,
+            bottom: rect.bottom,
+            left: rect.left,
+            right: rect.right,
+            viewport: { width: window.innerWidth, height: window.innerHeight },
+            covered: topMost === null || !(element === topMost || element.contains(topMost)),
+            topMost: topMost === null ? 'rien' : topMost.tagName.toLowerCase(),
+          };
+        });
+      }
+
+      /** Exige qu'un élément soit entier dans la fenêtre et non recouvert. */
+      function expectFullyVisible(placement: ViewportPlacement, label: string): void {
+        expect(placement.top, `${label} sort par le haut`).toBeGreaterThanOrEqual(0);
+        expect(placement.bottom, `${label} sort par le bas`).toBeLessThanOrEqual(
+          placement.viewport.height,
+        );
+        expect(placement.left, `${label} sort à gauche`).toBeGreaterThanOrEqual(0);
+        expect(placement.right, `${label} sort à droite`).toBeLessThanOrEqual(
+          placement.viewport.width,
+        );
+        expect(placement.covered, `${label} est recouvert par un ${placement.topMost}`).toBe(false);
+      }
+
+      /** Dit si un contrôle est atteint par tabulations, dans le piège de focus. */
+      async function reachableByTab(page: Page, target: Locator): Promise<boolean> {
+        // Le piège de focus de Reka UI boucle sur les contrôles du dialogue,
+        // qui sont trois : huit tabulations en font plus que le tour.
+        for (let attempt = 0; attempt < 8; attempt += 1) {
+          if (await target.evaluate((element) => element === document.activeElement)) {
+            return true;
+          }
+
+          await page.keyboard.press('Tab');
+        }
+
+        return false;
+      }
+
+      test('fait passer le voile au-dessus de la barre de navigation', async ({ page }) => {
+        await page.setViewportSize({ width: 320, height: 640 });
+        await page.getByRole('button', { name: 'Supprimer la semaine' }).click();
+        await expect(page.getByRole('dialog')).toBeVisible();
+
+        await makeBackgroundHittable(page);
+
+        const topMost = await page.evaluate(() => {
+          const nav = document.querySelector('nav');
+
+          if (nav === null) {
+            return null;
+          }
+
+          const rect = nav.getBoundingClientRect();
+          const element = document.elementFromPoint(
+            rect.left + rect.width / 2,
+            rect.top + rect.height / 2,
+          );
+
+          if (element === null) {
+            return null;
+          }
+
+          return {
+            inNav: nav.contains(element),
+            inModal: element.closest('.dialog__overlay, .dialog') !== null,
+          };
+        });
+
+        expect(topMost).not.toBeNull();
+        // Ce que voit l'oeil doit dire la même chose que ce qu'annonce le
+        // lecteur d'écran, auquel Reka UI a déjà retiré la barre.
+        expect(topMost?.inNav, 'la barre est encore au-dessus du voile').toBe(false);
+        expect(topMost?.inModal).toBe(true);
+      });
+
+      for (const viewport of NARROW_VIEWPORTS) {
+        test(`garde tout le dialogue atteignable à ${viewport.width} x ${viewport.height}`, async ({
+          page,
+        }) => {
+          await page.setViewportSize(viewport);
+          await page.getByRole('button', { name: 'Supprimer la semaine' }).click();
+
+          const dialog = page.getByRole('dialog');
+          await expect(dialog).toBeVisible();
+
+          // À 320 x 256, le dialogue descend jusque sur la barre : sans cette
+          // ligne, un titre ou un bouton peint sous elle passerait pour
+          // atteignable.
+          await makeBackgroundHittable(page);
+
+          expectFullyVisible(await bringIntoView(dialog), 'le dialogue');
+
+          const parts: ReadonlyArray<readonly [string, Locator]> = [
+            ['le titre', dialog.getByRole('heading', { level: 2 })],
+            ['la description', dialog.locator('.dialog__description')],
+            ['le contenu', dialog.getByText('Cette démonstration ne supprime rien.')],
+            ['le bouton Supprimer', dialog.getByRole('button', { name: 'Supprimer', exact: true })],
+            ['le bouton Annuler', dialog.getByRole('button', { name: 'Annuler' })],
+          ];
+
+          for (const [label, target] of parts) {
+            expectFullyVisible(await bringIntoView(target), label);
+          }
+
+          for (const [label, target] of parts.slice(-2)) {
+            expect(
+              await reachableByTab(page, target),
+              `${label} n'est pas atteint par tabulation`,
+            ).toBe(true);
+          }
+
+          // Le dialogue ne fait pas déborder la page, dialogue ouvert compris.
+          // Attention : ce contrôle ne départage pas les unités de fenêtre du
+          // pourcentage. Reka UI verrouille le défilement du corps à
+          // l'ouverture, donc la barre de défilement disparaît et les deux
+          // écritures donnent la même largeur. C'est BaseDialog.styles.spec.ts
+          // qui tient cette distinction, sur la source.
+          expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
+        });
+      }
     });
   });
 
@@ -273,6 +464,162 @@ test.describe('page de démonstration du design system', () => {
       // La navigation est à gauche du contenu, et non au-dessus de lui.
       expect((navBox?.x ?? 0) + (navBox?.width ?? 0)).toBeLessThanOrEqual((mainBox?.x ?? 0) + 1);
     });
+
+    test('réserve la hauteur de la barre pour le défilement', async ({ page }) => {
+      await page.setViewportSize({ width: 320, height: 640 });
+
+      const belowBreakpoint = await page.evaluate(() => {
+        const nav = document.querySelector('nav');
+
+        if (nav === null) {
+          return null;
+        }
+
+        return {
+          reserve: getComputedStyle(document.documentElement).scrollPaddingBottom,
+          barHeight: `${nav.getBoundingClientRect().height}px`,
+        };
+      });
+
+      expect(belowBreakpoint).not.toBeNull();
+      /*
+        Les deux quantités sont comparées l'une à l'autre, et non à un nombre
+        écrit ici : c'est tout l'intérêt de --nav-bar-height, qui les tient
+        ensemble. Le navigateur arrête alors son défilement une hauteur de
+        barre plus haut.
+
+        Réserve : le scroll-padding n'agit que si le navigateur défile. Un
+        contrôle déjà dans la fenêtre mais derrière la barre y reste, voir les
+        limites connues de docs/design-system.md.
+      */
+      expect(belowBreakpoint?.reserve).toBe(belowBreakpoint?.barHeight);
+
+      await page.setViewportSize({ width: 1024, height: 700 });
+
+      // La barre est revenue dans le flux : plus rien à réserver.
+      expect(
+        await page.evaluate(() => getComputedStyle(document.documentElement).scrollPaddingBottom),
+      ).toBe('0px');
+    });
+
+    /*
+      La barre basse est un conteneur de défilement sur les deux axes, parce
+      qu'elle porte overflow-x: auto. Elle rogne donc ce qui dépasse d'elle,
+      anneau de focus compris : mesuré le 31 octobre 2026 à 375 x 667, il
+      restait 1 px au-dessus de la première entrée et 0 en dessous comme à
+      gauche, pour un anneau qui demande 4 px.
+
+      Le test ne compare pas à 4 px écrits en dur : il lit ce que l'anneau
+      demande vraiment à l'entrée focalisée, épaisseur plus écart, et exige
+      cette place de chaque côté. Changer l'anneau dans base.css change donc
+      les deux côtés de la comparaison, et la barre devra suivre.
+
+      Limite connue : la barre ne déborde pas aux tailles mesurées ici. Quand
+      elle déborde, au texte agrandi, Chromium ne la fait pas défiler vers
+      l'entrée focalisée et le bord de son anneau redevient invisible. Ce n'est
+      pas couvert, voir les limites connues de docs/design-system.md.
+    */
+
+    /** Exige que l'anneau de focus tienne dans la barre, première et dernière entrée. */
+    async function expectRingFitsInNav(page: Page): Promise<void> {
+      const links = page
+        .getByRole('navigation', { name: 'Navigation principale' })
+        .getByRole('link');
+      const count = await links.count();
+
+      expect(count).toBeGreaterThan(1);
+
+      // La première et la dernière entrée : ce sont les deux qui touchent un
+      // bord de la zone rognée, donc les seules à pouvoir être coupées.
+      for (const [label, index] of [
+        ['la première entrée', 0],
+        ['la dernière entrée', count - 1],
+      ] as const) {
+        const link = links.nth(index);
+
+        await link.scrollIntoViewIfNeeded();
+        await link.focus();
+
+        const measurement = await link.evaluate((element) => {
+          const nav = element.closest('nav');
+
+          if (nav === null) {
+            return null;
+          }
+
+          const navStyle = getComputedStyle(nav);
+          const ringStyle = getComputedStyle(element);
+          const rect = element.getBoundingClientRect();
+          const navRect = nav.getBoundingClientRect();
+
+          /*
+            La zone de rognage d'un conteneur de défilement est son bloc de
+            remplissage : le remplissage en fait partie, les liserés non.
+          */
+          const border = (side: string): number =>
+            Number.parseFloat(navStyle.getPropertyValue(`border-${side}-width`));
+
+          return {
+            required:
+              Number.parseFloat(ringStyle.outlineWidth) +
+              Number.parseFloat(ringStyle.outlineOffset),
+            clearances: {
+              top: rect.top - (navRect.top + border('top')),
+              bottom: navRect.bottom - border('bottom') - rect.bottom,
+              left: rect.left - (navRect.left + border('left')),
+              right: navRect.right - border('right') - rect.right,
+            },
+          };
+        });
+
+        expect(measurement).not.toBeNull();
+        // 2 px d'épaisseur posés à 2 px d'écart : si ce chiffre bouge, c'est
+        // base.css qui a changé, et la place réservée dans la barre aussi.
+        expect(measurement?.required, "l'anneau de base.css fait 4 px au-delà de la boîte").toBe(4);
+
+        for (const [side, clearance] of Object.entries(measurement?.clearances ?? {})) {
+          expect(clearance, `${label} est rognée du côté ${side}`).toBeGreaterThanOrEqual(
+            measurement?.required ?? 4,
+          );
+        }
+      }
+    }
+
+    for (const viewport of [
+      { width: 375, height: 667 },
+      { width: 320, height: 640 },
+    ]) {
+      test(`laisse l'anneau de focus entier à ${viewport.width} x ${viewport.height}`, async ({
+        page,
+      }) => {
+        await page.setViewportSize(viewport);
+
+        await expectRingFitsInNav(page);
+      });
+    }
+
+    /*
+      La place de l'anneau a un plancher en pixels (--nav-focus-room), parce que
+      l'anneau lui-même est en pixels alors que l'échelle d'espacement est en
+      rem. Avec une taille de police par défaut de 12 px, --space-1 ne vaut plus
+      que 3 px : sans ce plancher, l'anneau serait de nouveau rogné d'un pixel,
+      et aucun autre test ne tourne à cette taille.
+    */
+    test("laisse l'anneau de focus entier à 12 px de police par défaut", async ({ page }) => {
+      await page.setViewportSize({ width: 320, height: 640 });
+
+      const rootFontSize = await page.evaluate(() => {
+        document.documentElement.style.fontSize = '12px';
+
+        return getComputedStyle(document.body).fontSize;
+      });
+
+      // Sans ce contrôle, un changement de la taille de base ferait mesurer la
+      // page non réduite, et le test passerait sans rien avoir réduit.
+      expect(rootFontSize).toBe('12px');
+
+      await expectRingFitsInNav(page);
+    });
   });
 
   /*
@@ -312,8 +659,34 @@ test.describe('page de démonstration du design system', () => {
 
       expect(mesure).not.toBeNull();
       expect(mesure?.taillePolice).toBe('28px');
-      // 44 px de zone tactile doublés, plus le liseré.
-      expect(mesure?.hauteurBarre).toBe(89);
+      // 44 px de zone tactile doublés, la marge de l'anneau de focus doublée
+      // de chaque côté, plus le liseré, qui ne suit pas le texte : 88 + 16 + 1.
+      expect(mesure?.hauteurBarre).toBe(105);
+    });
+
+    /*
+      Le dialogue défile dans le dialogue, mais verticalement seulement :
+      horizontalement, il n'y a nulle part où aller. Mesuré le 1er novembre
+      2026 avant correction, son contenu dépassait sa boîte de 15 px au texte
+      doublé, et un mot du titre était coupé. Le débordement du document restait
+      nul, donc la matrice ne pouvait pas le voir.
+
+      La cause est que les titres n'ont pas de césure : base.css ne pose
+      overflow-wrap que sur code, samp et kbd.
+    */
+    test('garde le contenu du dialogue dans sa boîte', async ({ page }) => {
+      await page.evaluate(() => {
+        document.documentElement.style.fontSize = '32px';
+      });
+
+      await page.getByRole('button', { name: 'Supprimer la semaine' }).click();
+      await expect(page.getByRole('dialog')).toBeVisible();
+
+      const debordement = await page
+        .getByRole('dialog')
+        .evaluate((element) => element.scrollWidth - element.clientWidth);
+
+      expect(debordement, 'le contenu du dialogue déborde de sa largeur').toBeLessThanOrEqual(0);
     });
   });
 });

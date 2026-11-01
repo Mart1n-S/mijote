@@ -29,6 +29,24 @@ html {
   /* Le défilement amené par un lien d'évitement ou une ancre reste doux,
      sauf si l'utilisateur a demandé à réduire les animations (voir plus bas). */
   scroll-behavior: smooth;
+  /*
+    La barre de navigation basse est fixe : un contrôle amené au bord bas de la
+    fenêtre par la tabulation ou par une ancre passerait sous elle. Le
+    navigateur arrête donc son défilement une hauteur de barre plus haut.
+
+    La réserve de place de AppLayout ne couvre pas ce cas : elle empêche la
+    barre de recouvrir la fin de la page, pas de recouvrir ce vers quoi on
+    vient de défiler en cours de page.
+  */
+  scroll-padding-bottom: calc(var(--nav-bar-height) + env(safe-area-inset-bottom, 0px));
+}
+
+/* Au-delà de --breakpoint-nav, la navigation est une colonne dans le flux :
+   il n'y a plus de barre sous laquelle passer. */
+@media (min-width: 40rem) {
+  html {
+    scroll-padding-bottom: 0;
+  }
 }
 
 body {

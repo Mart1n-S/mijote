@@ -91,6 +91,23 @@ Trois niveaux, et pas un de plus. **Une ombre ne sert qu'à dire qu'une surface 
 
 En clair, la teinte des ombres reprend `--color-text` plutôt que du noir pur : une ombre grise sur un fond teinté se voit comme une salissure. En sombre, les ombres sont du noir pur, parce qu'une ombre teintée ne se voit pas sur un fond sombre et que c'est la surface, pas elle, qui porte l'information.
 
+### Empilement
+
+L'ombre dit qu'une surface est au-dessus d'une autre ; l'échelle d'empilement dit laquelle passe devant l'autre. Quatre couches, dans cet ordre.
+
+| Jeton               | Couche                            | Qui l'utilise                   |
+| ------------------- | --------------------------------- | ------------------------------- |
+| `--layer-nav`       | La barre de navigation basse      | `AppLayout`                     |
+| `--layer-skip-link` | Le lien d'évitement               | `AppLayout`                     |
+| `--layer-overlay`   | Le voile posé derrière un dialogue | `BaseDialog`                    |
+| `--layer-dialog`    | Le dialogue lui-même              | `BaseDialog`                    |
+
+**Tout nouvel élément flottant prend sa place dans cette échelle**, en renumérotant `tokens.css` si besoin, plutôt qu'un `z-index` inventé sur place. Les valeurs se suivent sans trou, exprès : réserver des paliers laisserait croire qu'on peut en glisser un sans toucher à l'échelle.
+
+L'ordre est vérifié par `src/styles/tokens.spec.ts`, parce que c'est son inversion qui fait le défaut, pas sa valeur. Le lien d'évitement est au-dessus de la barre, puisqu'il doit se voir dès qu'il a le focus, et sous le voile : peint par-dessus, il resterait visible alors qu'un dialogue ouvert l'a retiré de l'arbre d'accessibilité.
+
+C'est exactement ce qui est arrivé à la barre basse jusqu'au 31 octobre 2026. Elle portait `z-index: 1` quand le voile et le dialogue n'en portaient aucun, donc `auto` : dans un même contexte d'empilement, un `z-index` positif passe après les éléments positionnés en `auto`. Mesuré à 320 x 640, dialogue ouvert, toute la page était assombrie et la barre restait à pleine luminosité, alors que Reka UI lui avait bien posé `aria-hidden`. Ce que voyait l'oeil et ce qu'annonçait le lecteur d'écran divergeaient.
+
 ### Typographie
 
 **Atkinson Hyperlegible Next**, hébergée dans le dépôt (`src/assets/fonts/`), figée au commit `7925f50f649b3813257faf2f4c0b381011f434f1` de `googlefonts/atkinson-hyperlegible-next`, licence OFL-1.1 reprise à côté du fichier. Empreinte SHA-256 du `.woff2` : `abde1ad5cf78b9ac575ef90d991f2e9101eb0b3b6668bde9a00e2e1e27d99afd`. **Aucune requête vers Google Fonts ni vers un autre service tiers**, ce que `e2e/third-party.spec.ts` vérifie sur chaque page : il échoue sur toute requête sortant de l'origine de l'application.
@@ -263,7 +280,24 @@ C'est le seul endroit de l'application qui utilise `--shadow-3` et, avec la barr
 
 Reka UI 2.11 rend le dialogue modal en posant `aria-hidden` sur le reste du document, et non `aria-modal` sur le dialogue. C'est une technique équivalente, mais qui change ce qu'un test doit regarder.
 
-Au zoom, le contenu du dialogue défile dans le dialogue plutôt que de sortir de l'écran.
+Au zoom, le contenu du dialogue défile dans le dialogue plutôt que de sortir de l'écran, **mais verticalement seulement** : horizontalement, il n'y a nulle part où aller. Son titre porte donc `overflow-wrap: break-word`. Mesuré le 1er novembre 2026 avant correction : au texte doublé à 320 px, « Supprimer » en `--text-xl` ne tient pas dans les 208 px de la boîte, le contenu dépassait de 15 px et le mot se faisait couper. Le débordement du document restait nul, donc la matrice ne pouvait pas le voir.
+
+Sa hauteur maximale est en `dvh`, **jamais en `vh`** : c'est l'arbitrage déjà tranché pour la hauteur de `AppLayout`, où `vh` comptait la barre d'adresse du mobile et laissait le bas sous le bord de l'écran.
+
+**Sa largeur ne dépend d'aucune unité de fenêtre**, et c'est volontaire : `min(32rem, calc(100% - 2 * var(--space-4)))`. Pour un élément en `position: fixed`, le bloc conteneur est le bloc conteneur initial, dont la largeur exclut la barre de défilement. Une unité de fenêtre la compte toujours, et aucune variante n'y change rien : les variantes dynamiques (`dvw`, `svw`, `lvw`) ne concernent que la hauteur, la seule qui varie avec l'interface du navigateur. « Harmoniser » cette ligne en unité de fenêtre, par symétrie avec la hauteur juste en dessous, remettrait donc le dialogue sous la barre de défilement.
+
+#### Appui hors du dialogue
+
+Mesuré le 31 octobre 2026 : **le dialogue se ferme à l'appui, pas au relâchement.** Un appui commencé hors du contenu ferme le dialogue sans attendre de voir où le doigt ou la souris se relève.
+
+Le critère en jeu est **RGAA 13.11** : une action déclenchée au pointeur sur un point unique doit pouvoir être annulée. Ce n'est donc pas une préférence, et le cas de la saisie serait une non-conformité de niveau A.
+
+La décision, pour ne pas la reprendre à chaque dialogue :
+
+- **Dialogue de confirmation** : la fermeture à l'appui est acceptée, et conforme, parce que l'action est réversible : on réouvre le dialogue sans avoir rien perdu. Fermer équivaut à annuler, et annuler est l'issue sans conséquence. C'est le seul cas qui existe aujourd'hui.
+- **Dialogue qui contient une saisie** : à protéger. Un appui malheureux ne doit pas faire perdre ce qui est saisi. Au choix du moment venu, et à trancher alors : fermer au relâchement seulement si l'appui a commencé hors du contenu, ou demander confirmation quand le formulaire est modifié.
+
+La mise en oeuvre attend le premier formulaire en dialogue, parce qu'il n'en existe aucun : l'écrire d'avance serait du code spéculatif. Ce qui est écrit ici, c'est la règle, pour qu'elle ne se décide pas dans la précipitation d'une story de formulaire.
 
 ## Mise en page
 
@@ -273,7 +307,10 @@ Au zoom, le contenu du dialogue défile dans le dialogue plutôt que de sortir d
 - **Navigation** : un **seul** élément `nav` dans le DOM, placé par le CSS. Barre fixe en bas sous 640 px, colonne latérale au-delà. Deux `nav`, un par largeur, dupliqueraient le repère de navigation et l'ordre de tabulation.
 - **La barre basse est une surface surélevée** : fond `--color-raised` et `--shadow-2`, parce qu'elle reste au-dessus du contenu qui défile. En colonne latérale elle n'est plus au-dessus de rien, donc elle perd son ombre et reprend le fond de surface.
 - Ses libellés sont en `--text-sm` et `--weight-semibold` : quatre entrées doivent tenir sur une seule ligne à 320 px, et le gras de la page courante ne doit pas déborder de sa colonne. Chaque entrée fait au moins `--tap-min` de haut, et la barre réserve `env(safe-area-inset-bottom)` pour l'encoche et la barre de gestes des téléphones.
+- **La barre laisse 4 px autour de ses entrées**, parce que son `overflow-x: auto` en fait un conteneur de défilement sur les deux axes : elle rogne donc ce qui dépasse d'elle, et l'anneau de focus est posé 4 px au-delà de la boîte du lien. Mesuré le 31 octobre 2026 à 375 x 667, avant correction : 1 px au-dessus de la première entrée, 0 en dessous, 0 à gauche, et seul le bord droit de l'anneau se voyait. Cette marge compte dans la hauteur de la barre.
+- La hauteur de la barre vient du jeton `--nav-bar-height` : zone tactile, marge de l'anneau des deux côtés, liseré du haut. Elle vit là une seule fois parce que trois endroits en dépendent, la réserve de place de la grille, le `scroll-padding-bottom` de `html` et la barre elle-même.
 - La barre étant hors du flux, la grille réserve sa hauteur, **liseré compris**, pour que rien ne passe dessous. Vérifié à 320 px, l'équivalent du zoom à 200 %, sans tolérance.
+- **`html` porte un `scroll-padding-bottom` de la hauteur de la barre**, remis à zéro au-delà de 640 px. La réserve de place de la grille empêche la barre de recouvrir la fin de la page ; elle n'empêche pas de recouvrir un contrôle vers lequel le navigateur vient de défiler en cours de page, qu'une tabulation amènerait au bord bas. C'est le `scroll-padding` qui arrête le défilement une hauteur de barre plus haut (WCAG 2.2, 2.4.11, hors RGAA 4.1.2).
 - Les colonnes de la grille sont en `minmax(0, 1fr)` et non `1fr`. Une colonne de grille vaut `min-content` par défaut : un tableau large étirerait alors la page entière au lieu de défiler lui-même.
 - Les entrées de navigation se déduisent des routes qui déclarent un `meta.navLabel`, plutôt que d'une seconde liste à tenir en parallèle.
 - **À chaque changement de page**, le titre du document suit la page et le focus repart de `main`. Le premier affichage est exclu : y déplacer le focus ferait sauter l'en-tête et le lien d'évitement.
@@ -290,8 +327,11 @@ Elles sont dans `base.css` et s'appliquent sans que personne ait à y penser :
 
 ## Limites connues
 
-- La barre basse **ne passe jamais sur deux lignes** : ses libellés sont insécables et c'est elle qui défile horizontalement quand ils ne tiennent plus. Sa hauteur vaut donc toujours une zone tactile plus son liseré, et la réserve de place sous le contenu reste exacte à toute taille de texte. C'était une limite connue, mesurée puis corrigée : au texte agrandi à 200 %, la barre passait sur deux lignes et recouvrait 14 px du pied de page. Le prix de la correction est qu'avec beaucoup d'entrées, la barre défilera de côté sur un écran étroit.
+- La barre basse **ne passe jamais sur deux lignes** : ses libellés sont insécables et c'est elle qui défile horizontalement quand ils ne tiennent plus. Sa hauteur vaut donc toujours `--nav-bar-height` : une zone tactile, la place de l'anneau de focus des deux côtés, et son liseré. C'était une limite connue, mesurée puis corrigée : au texte agrandi à 200 %, la barre passait sur deux lignes et recouvrait 14 px du pied de page. Le prix de la correction est qu'avec beaucoup d'entrées, la barre défile de côté sur un écran étroit, ce qui engagera **RGAA 10.11** : à quatre entrées, elle débordera dès 320 px au texte par défaut. L'arbitrage repéré ce jour-là, à ne pas redécouvrir : passer la barre à la ligne, avec une hauteur mesurée au lieu de calculée.
+- **Le défilement latéral de la barre défait deux garanties, et ce n'est tenu par aucun test** (mesuré le 1er novembre 2026, à 320 px, texte à 200 %, barres de défilement rétablies). D'abord, Chromium ne fait pas défiler la barre vers l'entrée qui vient de recevoir le focus quand elle est déjà partiellement visible : la dernière entrée reste rognée de 76 px et le bord droit de son anneau est invisible (**RGAA 10.7**). Ensuite, la barre de défilement horizontale de la barre ajoute 15 px à sa hauteur, que `--nav-bar-height` ne compte pas : la réserve de place et le `scroll-padding` deviennent courts d'autant, et la barre recouvre 14,5 px du bas du pied de page, soit son remplissage et non son texte (**RGAA 10.4**). Les tests ne le voient pas, parce que Playwright passe `--hide-scrollbars` en mode sans tête. À traiter avec l'arbitrage ci-dessus, dont c'est la vraie motivation.
+- **Le `scroll-padding-bottom` ne couvre que ce vers quoi le navigateur défile.** Un contrôle déjà dans la fenêtre mais derrière la barre fixe y reste : mesuré, Chromium ne défile pas du tout quand l'élément focalisé est partiellement visible. La réserve traite le cas fréquent, pas celui-là.
 - La région vide d'un `BaseAlert` compte comme un élément dans un conteneur `flex` avec `gap` (voir sa section plus haut).
+- **La largeur du dialogue n'est tenue par aucune mesure**, mais par un test de source, `src/components/base/BaseDialog.styles.spec.ts`, qui refuse l'unité de fenêtre dans la déclaration. La raison est mesurée, et ce n'est pas celle qu'on croit : Reka UI verrouille le défilement du corps à l'ouverture d'un dialogue modal (`overflow: hidden` et `padding-right` compensatoire), donc la barre de défilement disparaît le temps du dialogue et un `100vw` y vaut exactement un `100%`. Aucune mesure géométrique ne peut départager les deux écritures, même avec les barres de défilement rétablies. Le pourcentage reste le bon justement parce qu'il ne dépend pas de ce comportement de la bibliothèque : un dialogue non modal, ou un Reka UI qui cesserait de verrouiller, remettrait l'écart de 15 px.
 - Le tableau des états de la page de démonstration recopie quelques règles de survol, d'enfoncement et de focus pour les figer côte à côte. C'est la seule duplication acceptée. Elle n'a longtemps été gardée par rien, et trois divergences y ont vécu sans être vues jusqu'au 31 octobre 2026, dont une invisible en thème clair, où les deux jetons concernés ont la même valeur. Depuis, le bloc « copie figée des états » de `e2e/design-system.spec.ts` compare chaque état figé à ce que le composant vivant produit, en thème sombre. Restent hors du verrou, à comparer à la lecture : le focus du bouton et les règles sous `prefers-reduced-motion`.
 
 ## Vérification
@@ -301,11 +341,18 @@ Elles sont dans `base.css` et s'appliquent sans que personne ait à y penser :
 | Seuils de contraste, dans les deux thèmes                                     | `src/styles/tokens.spec.ts`              |
 | Attributs ARIA, refus du clic en cours, focus gardé                           | `src/components/base/*.spec.ts` (jsdom)  |
 | Titre du document et focus à la navigation                                    | `src/navigation.spec.ts`                 |
-| Accueil et page de démonstration sans violation axe-core, en clair, en sombre, à 320 px et au texte à 200 % | `e2e/accessibility.ts` |
+| Accueil et page de démonstration sans violation axe-core, en clair, en sombre, à 320 px, à 320 px en sombre et au texte à 200 % | `e2e/accessibility.ts` |
+| Ordre de l'échelle d'empilement                                               | `src/styles/tokens.spec.ts`              |
+| Voile et dialogue au-dessus de la barre basse, à 320 px                       | `e2e/design-system.spec.ts`              |
+| Dialogue entier et atteignable à 320 x 640 et à 320 x 256                     | `e2e/design-system.spec.ts`              |
+| Anneau de focus entier dans la barre, à 375 x 667, à 320 px et à 12 px de police par défaut | `e2e/design-system.spec.ts`  |
+| Largeur du dialogue sans unité de fenêtre                                     | `src/components/base/BaseDialog.styles.spec.ts` |
+| Réserve de défilement égale à la hauteur de la barre, et nulle au-delà de 640 px | `e2e/design-system.spec.ts`            |
 | Lien d'évitement, activation au clavier, va-et-vient du focus du dialogue      | `e2e/design-system.spec.ts`              |
 | Place de la navigation selon la largeur                                       | `e2e/design-system.spec.ts`              |
 | Ni défilement horizontal ni contenu masqué par la barre, à 320 px et au texte à 200 %, sur les deux écrans | `e2e/accessibility.ts` |
 | Hauteur de la barre et doublement réel des libellés au texte à 200 %          | `e2e/design-system.spec.ts`              |
+| Contenu du dialogue dans sa boîte au texte à 200 %                            | `e2e/design-system.spec.ts`              |
 | Copie figée des états conforme à ce que les composants produisent             | `e2e/design-system.spec.ts`              |
 | Absence de la page de démonstration dans le paquet livré                      | `.github/workflows/ci.yml`               |
 | Aucune requête vers un service tiers, et la police bien chargée localement    | `e2e/third-party.spec.ts`                |

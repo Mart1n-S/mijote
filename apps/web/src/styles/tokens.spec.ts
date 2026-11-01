@@ -11,6 +11,9 @@ import { describe, expect, it } from 'vitest';
   Il tient les seuils, pas les valeurs : les ratios consignés dans
   docs/design-system.md sont saisis à la main et sont à reporter avec la
   couleur.
+
+  Le même fichier porte l'ordre de l'échelle d'empilement, pour la même
+  raison : c'est une garantie mécanique sur tokens.css, pas une relecture.
 */
 
 const SOURCE = readFileSync(new URL('./tokens.css', import.meta.url), 'utf8');
@@ -187,5 +190,51 @@ describe('jetons de couleur', () => {
 
       expect(contrastRatio(front!, back!)).toBeGreaterThanOrEqual(threshold);
     });
+  });
+});
+
+/** Les déclarations `--layer-*: <entier>` de tokens.css, dans l'ordre du fichier. */
+function declaredLayers(): Map<string, number> {
+  const found = new Map<string, number>();
+
+  for (const [, name, value] of SOURCE.matchAll(/--layer-([\w-]+):\s*(\d+)\s*;/g)) {
+    // Les deux groupes sont obligatoires dans le motif.
+    found.set(name!, Number.parseInt(value!, 10));
+  }
+
+  return found;
+}
+
+/*
+  L'ordre attendu, de la couche la plus basse à la plus haute. Il est écrit ici
+  et vérifié contre le fichier : le test ne dit pas que les couches valent 1, 2,
+  3 et 4, il dit qu'elles se suivent dans cet ordre.
+*/
+const LAYER_ORDER = ['nav', 'skip-link', 'overlay', 'dialog'] as const;
+
+describe("échelle d'empilement", () => {
+  const layers = declaredLayers();
+
+  it('déclare les quatre couches', () => {
+    expect([...layers.keys()].sort()).toEqual([...LAYER_ORDER].sort());
+  });
+
+  it('les ordonne de la barre de navigation au dialogue', () => {
+    /*
+      Une inversion ramènerait le défaut mesuré le 31 octobre 2026 : le voile
+      peint sous la barre de navigation, qui restait en pleine lumière devant
+      un écran assombri, alors que Reka UI l'avait retirée de l'arbre
+      d'accessibilité. Rien d'autre ne le verrait avant une capture d'écran.
+    */
+    const values = LAYER_ORDER.map((name) => layers.get(name));
+
+    for (const [index, value] of values.entries()) {
+      expect(value, `--layer-${LAYER_ORDER[index]} doit être déclaré`).toBeDefined();
+    }
+
+    expect(values).toEqual([...values].sort((a, b) => (a ?? 0) - (b ?? 0)));
+    expect(new Set(values).size, 'deux couches ne peuvent pas partager un palier').toBe(
+      values.length,
+    );
   });
 });

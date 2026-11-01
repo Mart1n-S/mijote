@@ -24,7 +24,8 @@ Objectif (section 13 du cahier des charges) : design system, comptes sur invitat
 | Front      | Vue 3, Vite, PWA, Vue Router                                                                       |
 | Composants | Reka UI (comportement et ARIA), styles maison à partir de jetons de design (CSS custom properties) |
 | Tests      | Vitest (unitaires et intégration), Playwright (bout en bout), axe-core (accessibilité)             |
-| Journaux   | pino, au format JSON                                                                               |
+| Validation | zod, schémas partagés dans `packages/shared` (ADR 0008)                                            |
+| Journaux   | pino par nestjs-pino, au format JSON (ADR 0008)                                                    |
 | Conteneurs | Docker Compose en développement, homelab en production                                             |
 
 ## Structure

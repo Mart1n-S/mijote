@@ -38,6 +38,15 @@ jobs:
       - name: Installe les dépendances
         run: pnpm install --frozen-lockfile
 
+      # packages/shared est consommé par apps/api et apps/web à travers son
+      # dist, et son script `prepare` ne le reconstruit qu'à une installation
+      # qui change quelque chose : avec un lockfile gelé et un cache à jour,
+      # pnpm saute cette étape. Sans la ligne ci-dessous, la vérification des
+      # types échouerait sur un import introuvable, et pour une raison qui n'a
+      # rien à voir avec le changement relu.
+      - name: Construit les paquets partagés
+        run: pnpm --filter @mijote/shared build
+
       # La règle du projet dit que `pnpm audit` doit rester propre
       # (.claude/rules/security.md). Elle ne tenait jusqu'ici qu'à un
       # lancement manuel : deux vulnérabilités modérées sont arrivées par une
@@ -168,6 +177,15 @@ jobs:
 
       - name: Installe les dépendances
         run: pnpm install --frozen-lockfile
+
+      # packages/shared est consommé par apps/api et apps/web à travers son
+      # dist, et son script `prepare` ne le reconstruit qu'à une installation
+      # qui change quelque chose : avec un lockfile gelé et un cache à jour,
+      # pnpm saute cette étape. Sans la ligne ci-dessous, la vérification des
+      # types échouerait sur un import introuvable, et pour une raison qui n'a
+      # rien à voir avec le changement relu.
+      - name: Construit les paquets partagés
+        run: pnpm --filter @mijote/shared build
 
       # Chromium seul, comme dans playwright.config.ts : les autres navigateurs
       # seraient des centaines de méga-octets téléchargés à chaque exécution.

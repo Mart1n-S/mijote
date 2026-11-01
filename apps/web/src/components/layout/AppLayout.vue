@@ -149,13 +149,13 @@ const links = computed(() =>
   */
   overflow-x: auto;
   /* Ce conteneur de défilement rogne ce qui dépasse de lui, anneau de focus
-     compris : il lui faut donc la marge que l'anneau demande, sur les quatre
+     compris : il lui faut donc la place que l'anneau demande, sur les quatre
      côtés. Sans elle, l'anneau des entrées est coupé, ce qu'il était jusqu'au
-     31 octobre 2026. Cette marge compte dans --nav-bar-height. */
-  padding: var(--space-1);
+     31 octobre 2026. Cette place compte dans --nav-bar-height. */
+  padding: var(--nav-focus-room);
   /* Encoche et barre de gestes des téléphones : la barre garde sa hauteur
      utile et pousse son fond jusqu'au bord bas de l'écran. */
-  padding-bottom: calc(var(--space-1) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(var(--nav-focus-room) + env(safe-area-inset-bottom, 0px));
 }
 
 .layout__nav-list {
@@ -166,9 +166,10 @@ const links = computed(() =>
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Zone tactile de 44 px minimum, RGAA. La barre ne porte aucun espacement
-     vertical propre : sa hauteur est donc celle-ci plus son liseré, ce que la
-     réserve de place du conteneur recalcule à l'identique. */
+  /* Zone tactile de 44 px minimum, RGAA. C'est le premier terme de
+     --nav-bar-height, qui y ajoute la place de l'anneau de focus et le liseré :
+     la réserve de place du conteneur et le scroll-padding de html lisent cette
+     même formule. */
   min-height: var(--tap-min);
   min-width: var(--tap-min);
   padding: var(--space-2) var(--space-3);

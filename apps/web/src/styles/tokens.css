@@ -158,22 +158,27 @@
      donc dans la place réservée sous le contenu. */
   --nav-border-width: 1px;
   /*
-    Hauteur de la barre de navigation basse, hors encoche : la zone tactile
-    d'une entrée, la marge que l'anneau de focus demande de chaque côté, et le
-    liseré du haut.
+    Place que l'anneau de focus demande autour d'une entrée de la barre : 2 px
+    d'épaisseur posés à 2 px d'écart, soit 4 px (voir base.css). La barre rogne
+    ce qui dépasse d'elle, parce que son overflow-x: auto en fait un conteneur
+    de défilement : sans cette place, l'anneau de ses entrées est coupé.
 
-    L'anneau fait 4 px au-delà de la boîte (2 px d'épaisseur posés à 2 px
-    d'écart, voir base.css), et la barre rogne ce qui dépasse parce que son
-    overflow-x: auto en fait un conteneur de défilement. D'où le --space-1 de
-    remplissage sur ses quatre côtés, qui est aussi le 2 * --space-1 compté
-    ici : changer l'un sans l'autre fait tomber le test de hauteur de la barre.
+    Un plancher en pixels, parce que l'anneau lui-même est en pixels. Avec une
+    taille de police par défaut inférieure à 16 px, --space-1 vaut moins de
+    4 px et l'anneau serait de nouveau rogné. Au-delà, c'est --space-1 qui
+    gagne : au texte agrandi, la marge grandit avec le reste.
+  */
+  --nav-focus-room: max(4px, var(--space-1));
+  /*
+    Hauteur de la barre de navigation basse, hors encoche : la zone tactile
+    d'une entrée, la place de l'anneau de chaque côté, et le liseré du haut.
 
     Trois endroits en dépendent : la réserve de place sous le contenu dans
     AppLayout, le scroll-padding-bottom de html dans base.css, et la barre
     elle-même. La formule vit donc ici une seule fois. Elle ne veut rien dire
     au-delà de --breakpoint-nav, où la barre devient une colonne dans le flux.
   */
-  --nav-bar-height: calc(var(--tap-min) + 2 * var(--space-1) + var(--nav-border-width));
+  --nav-bar-height: calc(var(--tap-min) + 2 * var(--nav-focus-room) + var(--nav-border-width));
 
   /* Largeur à partir de laquelle la navigation passe de la barre basse à la
      colonne latérale (section 7 : mobile sous 640 px). Une requête de media ne

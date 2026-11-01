@@ -2,6 +2,8 @@ import { AxeBuilder } from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import type { Result } from 'axe-core';
 
+import { stubHealthyApi } from './api';
+
 /*
   Le contrôle axe-core est partagé par tous les tests de bout en bout : les
   étiquettes doivent être les mêmes partout, sinon un écran se trouve relu
@@ -45,6 +47,9 @@ const NARROW_VIEWPORT = { width: 320, height: 640 };
  * fichier, qui attendait le titre de niveau 1.
  */
 async function gotoRenderedScreen(page: Page, path: string): Promise<void> {
+  // Sans API derrière, le bandeau de service s'afficherait sur chaque écran et
+  // la matrice mesurerait une page que personne ne verra (voir e2e/api.ts).
+  await stubHealthyApi(page);
   await page.goto(path);
 
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();

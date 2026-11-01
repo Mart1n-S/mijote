@@ -5,8 +5,17 @@ packages:
 # pnpm bloque les scripts d'installation par défaut. esbuild a besoin du sien
 # pour mettre en place son binaire natif ; il arrive par drizzle-kit et par la
 # CLI NestJS. Toute autre autorisation doit être ajoutée ici sciemment.
+#
+# @swc/core est à false, et c'est un refus, pas un oubli : sans entrée ici,
+# pnpm fait échouer l'installation entière plutôt que d'ignorer un script en
+# silence. Son postinstall ne fait que vérifier que le binaire natif se charge,
+# et à défaut lance un `npm install @swc/wasm`. Le binaire natif est bien
+# installé (@swc/core-win32-x64-msvc en dépendance facultative, et son
+# équivalent Linux en CI), donc ce script n'a rien à faire, et le laisser
+# courir donnerait à l'installation le droit d'en lancer une autre.
 allowBuilds:
   esbuild: true
+  '@swc/core': false
 
 # drizzle-kit charge sa configuration par @esbuild-kit/esm-loader, déprécié, qui
 # réclame un esbuild antérieur à 0.25, vulnérable (GHSA-67mh-4wv8-2f99 : le

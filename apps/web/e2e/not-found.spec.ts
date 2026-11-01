@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import { accessibilityMatrix } from './accessibility';
+import { stubHealthyApi } from './api';
 
 /*
   L'adresse est volontairement quelconque : ce qui est contrôlé ici est ce que
@@ -13,6 +14,7 @@ accessibilityMatrix(UNKNOWN_PATH);
 
 test.describe('page de repli', () => {
   test.beforeEach(async ({ page }) => {
+    await stubHealthyApi(page);
     await page.goto(UNKNOWN_PATH);
   });
 

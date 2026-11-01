@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import { accessibilityMatrix, accessibilityViolations, horizontalOverflow } from './accessibility';
+import { stubHealthyApi } from './api';
 
 /*
   La page de démonstration du design system sert de support au contrôle
@@ -20,6 +21,9 @@ type ObservedRegion = Element & { steps?: string[] };
 
 test.describe('page de démonstration du design system', () => {
   test.beforeEach(async ({ page }) => {
+    // Pas d'API derrière les tests : le bandeau de service resterait affiché et
+    // décalerait toutes les mesures de géométrie (voir e2e/api.ts).
+    await stubHealthyApi(page);
     await page.goto('/design-system');
     await expect(page.getByRole('heading', { level: 1, name: 'Design system' })).toBeVisible();
   });

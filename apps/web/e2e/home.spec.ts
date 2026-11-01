@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import { accessibilityMatrix } from './accessibility';
+import { stubHealthyApi } from './api';
 
 /*
   L'accueil est le seul écran réellement livré, et c'était celui qui recevait
@@ -12,6 +13,7 @@ accessibilityMatrix('/');
 
 test.describe("page d'accueil", () => {
   test('désigne la page de la même façon partout', async ({ page }) => {
+    await stubHealthyApi(page);
     await page.goto('/');
 
     // Le titre de niveau 1, le titre du document et l'entrée de navigation

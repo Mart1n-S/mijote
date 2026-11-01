@@ -327,8 +327,9 @@ La mise en oeuvre attend le premier formulaire en dialogue, parce qu'il n'en exi
 
 ## Mise en page
 
-`AppLayout` donne à tous les écrans : lien d'évitement, `header`, `nav`, `main`, `footer`.
+`AppLayout` donne à tous les écrans : lien d'évitement, `header`, `nav`, `main`, `footer`, et le bandeau d'état du service.
 
+- **Le bandeau d'état du service** est le premier élément de `main`, avant le contenu de la page. C'est un `BaseAlert` en variante `error`, dont le message reste vide tant que l'API répond : rien ne s'affiche alors, et la région `aria-live` est quand même montée, sans quoi l'arrivée du message ne serait pas annoncée. Il vit dans `main` et non dans une rangée de la grille, parce que la hauteur de la barre basse et la réserve qui lui répond sont mesurées : une rangée de plus les ferait recalculer pour un bandeau presque toujours absent. La vérification de l'API se fait une fois, au montage de la mise en page, donc changer de page ne la relance pas.
 - **Lien d'évitement** : premier élément focusable du document, hors de l'écran au repos, visible dès qu'il reçoit le focus. Il est déplacé par `transform` et non retiré par `display: none`, qui le sortirait de l'ordre de tabulation.
 - **Le nom du site, dans l'en-tête, est un lien vers l'accueil.** Un retour à l'accueil par le nom du site est une attente courante, et c'était un `p` que rien n'activait. Il garde l'aspect qu'il avait en texte, sans couleur d'accent ni soulignement au repos : RGAA 10.6 demande qu'un lien se distingue du texte environnant, et celui-ci est seul dans l'en-tête, donc il n'y a aucun texte dont le confondre. Le soulignement vient au survol et au focus. Comme tout ce qui se clique, il fait au moins `--tap-min` de haut, ce qu'une ligne de `--text-lg` n'atteint pas. **Cette justification tient tant que l'en-tête ne contient que ce lien** : au premier autre texte dans le `header` (nom de l'utilisateur, déconnexion), il faudra rétablir le soulignement au repos, ou vérifier 10.6. **Écouté le 1er novembre 2026, au Narrateur de Windows puis à NVDA, depuis la page de repli : le lien « Mijote » se comprend sans complément** (RGAA 6.1).
 - **Sur l'accueil, deux liens portent `aria-current="page"`** : le nom du site et l'entrée de navigation. C'est exact, les deux mènent bien à la page courante, et rien ne l'interdit. La règle de style visuel de l'état courant ne vise que les liens de la barre, donc l'en-tête ne change pas d'aspect. Ce n'est pas contourné. Le retirer du nom du site serait toutefois défendable, `aria-current` désignant l'élément courant au sein d'un ensemble d'éléments liés, auquel l'en-tête n'appartient pas : c'est la restitution réelle qui a tranché. **Écouté le 1er novembre 2026, au Narrateur de Windows puis à NVDA : le double « page actuelle » est annoncé comme prévu et ne gêne pas.** Les deux `aria-current` restent donc en place.
@@ -393,6 +394,8 @@ Elles sont dans `base.css` et s'appliquent sans que personne ait à y penser :
 | Copie figée des états conforme à ce que les composants produisent             | `e2e/design-system.spec.ts`              |
 | Absence de la page de démonstration dans le paquet livré                      | `.github/workflows/ci.yml`               |
 | Aucune requête vers un service tiers, et la police bien chargée localement    | `e2e/third-party.spec.ts`                |
+| Bandeau d'état du service : muet quand l'API répond, message en français sinon | `src/components/layout/ServiceStatusBanner.spec.ts` et `e2e/service-status.spec.ts` |
+| Lecture du format d'erreur RFC 9457 par le front                              | `src/api/client.spec.ts`                 |
 
 Deux choses ne se testent pas en jsdom, et sont donc couvertes par Playwright :
 

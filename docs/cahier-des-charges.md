@@ -15,7 +15,7 @@ Je suis le premier utilisateur, mais l'app est conçue pour d'autres : comptes, 
 - Afficher un coût estimé par repas, par portion, par semaine et par mois, puis le coût réel grâce aux tickets de caisse. Ce coût reste partiel jusqu'aux premières courses : il indique combien de produits n'ont pas encore de prix.
 - Afficher les valeurs nutritionnelles par portion et par jour (kcal, protéines, glucides, lipides au minimum).
 - Proposer en priorité des recettes rapides, avec un temps maximum paramétrable par l'utilisateur.
-- Être conforme au RGAA 4.1 niveau AA sur tous les écrans.
+- Rester utilisable au clavier et lisible (socle d'accessibilité de base), sans viser de conformité RGAA formelle : la sécurité et l'UX/UI passent en premier.
 - Réduire le gaspillage en réutilisant un même produit sur plusieurs recettes.
 
 ## 2. Périmètre et utilisateurs
@@ -219,7 +219,7 @@ Les produits « placard » (sel, huile, épices) n'entrent pas dans ce calcul.
 
 ## 7. Design, responsive et accessibilité
 
-Une interface sobre et élégante, lisible avant d'être décorative, utilisable au clavier, au lecteur d'écran et au doigt. Cible : RGAA 4.1 niveau AA, vérifié à chaque livraison.
+Une interface sobre et élégante, lisible avant d'être décorative, utilisable au clavier, au lecteur d'écran et au doigt. Priorités : sécurité et UX/UI d'abord. L'accessibilité se limite à un socle de base, celui déjà posé par le design system (HTML natif, clavier, focus visible, labels, contrastes garantis par les jetons, axe-core en CI) ; pas de conformité RGAA AA visée, et un point d'accessibilité qui bloque trop peut être abandonné (décision du 1er novembre 2026).
 
 **Direction visuelle**
 
@@ -248,7 +248,7 @@ Navigation en barre basse sur mobile, latérale sur tablette et ordinateur. La b
 - Glisser-déposer du planning toujours doublé de boutons.
 - Changements dynamiques (prix recalculé, article coché, erreur) annoncés au lecteur d'écran.
 - Photos de plats avec un texte alternatif utile ; images décoratives ignorées.
-- Contrôle : axe-core dans les tests et la CI, test des contrastes de chaque couple de jetons dans les deux thèmes, audit manuel au lecteur d'écran (NVDA, VoiceOver) à chaque lot, relecture par l'agent accessibilité (section 12).
+- Contrôle : axe-core dans les tests et la CI, test des contrastes de chaque couple de jetons dans les deux thèmes, relecture par l'agent accessibilité sur demande seulement (section 12). Pas d'audit manuel systématique. Les exigences de cette liste servent de guide pour les composants de base ; sur un écran métier, seul le socle de base est tenu.
 
 ## 8. Gestion des erreurs et journalisation
 

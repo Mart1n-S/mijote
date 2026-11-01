@@ -1,6 +1,7 @@
 import type { RouteRecordRaw } from 'vue-router';
 
 import HomePage from './pages/HomePage.vue';
+import NotFoundPage from './pages/NotFoundPage.vue';
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -45,6 +46,22 @@ export function createRoutes(withDesignSystem: boolean): RouteRecordRaw[] {
       meta: { title: 'Design system', navLabel: 'Design system' },
     });
   }
+
+  /*
+    Le repli vient en dernier, et hors de toute condition : une URL inconnue
+    est servie par la bascule SPA, et sans cette route RouterView ne rend rien.
+    L'utilisateur obtient alors un main vide, sans titre, sans explication et
+    sans moyen de repartir. Import statique, la page devant exister en
+    production, où le défaut se produit le plus.
+  */
+  routes.push({
+    path: '/:pathMatch(.*)*',
+    name: 'not-found',
+    component: NotFoundPage,
+    // Pas de navLabel : ce n'est pas une destination, elle n'a rien à faire
+    // dans la barre de navigation.
+    meta: { title: 'Page introuvable' },
+  });
 
   return routes;
 }

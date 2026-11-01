@@ -333,6 +333,7 @@ La mise en oeuvre attend le premier formulaire en dialogue, parce qu'il n'en exi
 - **`html` porte un `scroll-padding-bottom` de la hauteur de la barre**, remis à zéro au-delà de 640 px. La réserve de place de la grille empêche la barre de recouvrir la fin de la page ; elle n'empêche pas de recouvrir un contrôle vers lequel le navigateur vient de défiler en cours de page, qu'une tabulation amènerait au bord bas. C'est le `scroll-padding` qui arrête le défilement une hauteur de barre plus haut (WCAG 2.2, 2.4.11, hors RGAA 4.1.2).
 - Les colonnes de la grille sont en `minmax(0, 1fr)` et non `1fr`. Une colonne de grille vaut `min-content` par défaut : un tableau large étirerait alors la page entière au lieu de défiler lui-même.
 - Les entrées de navigation se déduisent des routes qui déclarent un `meta.navLabel`, plutôt que d'une seconde liste à tenir en parallèle.
+- **Une route attrape-tout sert la page de repli**, en production comme en développement. Une adresse inconnue (lien partagé périmé, adresse tapée à la main, historique d'une version précédente) est servie par la bascule SPA : sans cette route, `RouterView` ne rend rien et l'utilisateur obtient un `main` vide, sans titre, sans explication et sans moyen de repartir, sous un titre de document replié sur « Mijote ». La page porte un `h1`, une phrase et un lien vers l'accueil, et son `meta.title` dit « Page introuvable ». Elle n'a pas de `navLabel` : ce n'est pas une destination.
 - **À chaque changement de page**, le titre du document suit la page et le focus repart de `main`. Le premier affichage est exclu : y déplacer le focus ferait sauter l'en-tête et le lien d'évitement.
 
 ## Règles transverses
@@ -362,7 +363,7 @@ Elles sont dans `base.css` et s'appliquent sans que personne ait à y penser :
 | Seuils de contraste, dans les deux thèmes                                     | `src/styles/tokens.spec.ts`              |
 | Attributs ARIA, refus du clic en cours, focus gardé                           | `src/components/base/*.spec.ts` (jsdom)  |
 | Titre du document et focus à la navigation                                    | `src/navigation.spec.ts`                 |
-| Accueil et page de démonstration sans violation axe-core, en clair, en sombre, à 320 px, à 320 px en sombre et au texte à 200 % | `e2e/accessibility.ts` |
+| Accueil, page de repli et page de démonstration sans violation axe-core, en clair, en sombre, à 320 px, à 320 px en sombre et au texte à 200 % | `e2e/accessibility.ts` |
 | Ordre de l'échelle d'empilement                                               | `src/styles/tokens.spec.ts`              |
 | Voile et dialogue au-dessus de la barre basse, à 320 px                       | `e2e/design-system.spec.ts`              |
 | Dialogue entier et atteignable à 320 x 640 et à 320 x 256                     | `e2e/design-system.spec.ts`              |
@@ -371,7 +372,8 @@ Elles sont dans `base.css` et s'appliquent sans que personne ait à y penser :
 | Réserve de défilement égale à la hauteur de la barre, et nulle au-delà de 640 px | `e2e/design-system.spec.ts`            |
 | Lien d'évitement, activation au clavier, va-et-vient du focus du dialogue      | `e2e/design-system.spec.ts`              |
 | Place de la navigation selon la largeur                                       | `e2e/design-system.spec.ts`              |
-| Ni défilement horizontal ni contenu masqué par la barre, à 320 px et au texte à 200 %, sur les deux écrans | `e2e/accessibility.ts` |
+| Ni défilement horizontal ni contenu masqué par la barre, à 320 px et au texte à 200 %, sur les trois écrans | `e2e/accessibility.ts` |
+| Adresse inconnue servie par la page de repli, titre du document et retour à l'accueil | `src/routes.spec.ts` et `e2e/not-found.spec.ts` |
 | Hauteur de la barre et doublement réel des libellés au texte à 200 %          | `e2e/design-system.spec.ts`              |
 | Contenu du dialogue dans sa boîte au texte à 200 %                            | `e2e/design-system.spec.ts`              |
 | Copie figée des états conforme à ce que les composants produisent             | `e2e/design-system.spec.ts`              |

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, useTemplateRef } from 'vue';
 
 import type { AlertVariant } from '../components/base/BaseAlert.vue';
 import BaseAlert from '../components/base/BaseAlert.vue';
@@ -66,12 +66,24 @@ const locked = ref('250');
 
 // Le message part vide pour montrer ce que garantit BaseAlert : la région
 // aria-live est déjà dans le DOM, donc le premier message est bien annoncé.
+// Un message propre à cette démonstration : celui de la variante info est
+// affiché juste au-dessus, et la même phrase deux fois ne dit pas qu'elle
+// démontre deux choses différentes.
+const ANNOUNCED_MESSAGE = 'Les prix ont été recalculés.';
 const announced = ref('');
-let announcementCount = 0;
+const announcer = useTemplateRef<InstanceType<typeof BaseAlert>>('announcer');
 
 function announce(): void {
-  announcementCount += 1;
-  announced.value = `Message annoncé ${announcementCount} fois depuis le chargement.`;
+  if (announced.value === ANNOUNCED_MESSAGE) {
+    // Le même message : le DOM ne changerait pas, donc rien ne serait annoncé.
+    // C'est le composant qui porte la réannonce, l'appelant n'a rien à
+    // numéroter.
+    announcer.value?.reannounce();
+
+    return;
+  }
+
+  announced.value = ANNOUNCED_MESSAGE;
 }
 
 const dialogOpen = ref(false);
@@ -87,8 +99,13 @@ function toggleLoading(): void {
   contrôler. Les règles correspondantes sont en bas de ce fichier : elles
   recopient celles des composants, et c'est la seule duplication acceptée ici.
   Ce qui la garde, et ce qui lui échappe, est dit juste avant ces règles.
+
+  Au repos, et non figé : c'est sur cette page que se font les vérifications au
+  clavier, et trois boutons et un champ portant en permanence un anneau
+  identique au vrai ne laissent plus distinguer le focus réel des états
+  simulés.
 */
-const frozen = ref(true);
+const frozen = ref(false);
 </script>
 
 <template>
@@ -316,13 +333,15 @@ const frozen = ref(true);
       />
     </div>
 
-    <h3>Annonce d'un message qui arrive</h3>
+    <h3>Annonce et réannonce d'un message</h3>
 
     <p>
-      <BaseButton variant="secondary" @click="announce">Annoncer un message</BaseButton>
+      <!-- Un intitulé vrai aux deux clics : au premier, rien n'a encore été
+           annoncé, donc il n'y a pas de « même » message. -->
+      <BaseButton variant="secondary" @click="announce">Annoncer le message</BaseButton>
     </p>
 
-    <BaseAlert variant="success" :message="announced" />
+    <BaseAlert ref="announcer" variant="success" :message="announced" />
   </section>
 
   <section aria-labelledby="loading-title">

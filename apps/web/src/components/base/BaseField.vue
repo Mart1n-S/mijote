@@ -24,6 +24,14 @@ const props = withDefaults(
   },
 );
 
+/*
+  Le composant n'a qu'une racine, le div.field : sans cette ligne, tout attribut
+  non déclaré atterrissait sur ce conteneur au lieu du champ. name, inputmode,
+  maxlength et pattern étaient donc silencieusement inopérants, et un attribut
+  ARIA se retrouvait sur un div sans rôle.
+*/
+defineOptions({ inheritAttrs: false });
+
 const value = defineModel<string>({ default: '' });
 
 // Un identifiant stable par instance, et unique même si deux champs portent le
@@ -68,7 +76,12 @@ const describedBy = computed<string | undefined>(() => {
 
     <p v-if="hasHelp" :id="helpId" class="field__help">{{ help }}</p>
 
+    <!-- $attrs en premier, et l'ordre compte : ce qui vient après gagne. Un
+         appelant qui passerait son propre aria-describedby ou aria-invalid ne
+         doit pas casser le lien vers l'aide et vers l'erreur, que le composant
+         seul sait tenir. -->
     <input
+      v-bind="$attrs"
       :id="inputId"
       v-model="value"
       class="field__input"

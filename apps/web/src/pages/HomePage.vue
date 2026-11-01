@@ -1,5 +1,5 @@
 <template>
-  <h1>Mijote</h1>
+  <h1>Accueil</h1>
 
   <p>
     Planification de repas sur 7 ou 14 jours, liste de courses par magasin, prix et valeurs

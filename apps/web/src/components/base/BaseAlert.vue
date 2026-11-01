@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 export type AlertVariant = 'info' | 'success' | 'warning' | 'error';
 
@@ -25,6 +25,73 @@ const props = withDefaults(
   message, pas au moment où le message arrive.
 */
 
+/*
+  Reposer le même message ne change pas le DOM, et une région aria-live
+  n'annonce que ce qui change : deux tentatives de connexion rejetées par le
+  même « Identifiants incorrects » ne diraient rien la seconde fois. Réannoncer
+  demande donc deux changements de contenu, en vidant la région puis en y
+  reposant le texte.
+
+  D'où cette copie du message : c'est elle qui est rendue, et c'est ce qui
+  permet de vider la région sans toucher à ce que l'appelant a passé.
+*/
+const shown = ref(props.message ?? '');
+
+/*
+  Le délai entre les deux changements, et non un simple nextTick : les deux
+  mutations tomberaient dans la même image et plusieurs lecteurs d'écran n'en
+  verraient qu'une. 50 ms est la valeur usuelle de cette technique. Aucun test
+  ne dit ce qui est réellement annoncé, voir docs/design-system.md.
+*/
+const REPLAY_DELAY_MS = 50;
+
+let replayTimer: ReturnType<typeof setTimeout> | undefined;
+
+function cancelReplay(): void {
+  if (replayTimer !== undefined) {
+    clearTimeout(replayTimer);
+    replayTimer = undefined;
+  }
+}
+
+/** Vide la région, puis y repose le message en cours. */
+function replay(): void {
+  // Un second appel repart de zéro : deux cycles entremêlés reposeraient le
+  // texte au milieu du suivant, qui n'annoncerait alors plus rien.
+  cancelReplay();
+  shown.value = '';
+
+  replayTimer = setTimeout(() => {
+    replayTimer = undefined;
+    shown.value = props.message ?? '';
+  }, REPLAY_DELAY_MS);
+}
+
+/*
+  Un message différent change déjà le DOM : il s'annonce sans qu'on force rien.
+
+  Rien à annuler ici : le minuteur d'une réannonce en cours repose toujours le
+  message courant, donc après ce changement il reposerait la valeur déjà
+  affichée. Une annulation serait du code que rien ne peut mettre en défaut.
+*/
+watch(
+  () => props.message,
+  (message) => {
+    shown.value = message ?? '';
+  },
+);
+
+// Sans cela, le minuteur survit au composant : il écrit dans l'état d'une
+// instance démontée, et en test il déborde sur le cas suivant.
+onBeforeUnmount(cancelReplay);
+
+/**
+ * Réannonce le message en cours, identique ou non au précédent. C'est le
+ * composant qui porte ce travail : l'appelant n'a pas à numéroter son message
+ * pour forcer un changement.
+ */
+defineExpose({ reannounce: replay });
+
 /** Avertissement et erreur interrompent la lecture en cours, le reste attend. */
 const urgent = computed(() => props.variant === 'warning' || props.variant === 'error');
 
@@ -46,11 +113,11 @@ const MARKS: Record<AlertVariant, string> = {
 
 <template>
   <div :role="urgent ? 'alert' : 'status'" :aria-live="urgent ? 'assertive' : 'polite'">
-    <div v-if="message" class="alert" :class="`alert--${variant}`">
+    <div v-if="shown" class="alert" :class="`alert--${variant}`">
       <span class="alert__mark" aria-hidden="true">{{ MARKS[variant] }}</span>
 
       <p class="alert__text">
-        <strong>{{ PREFIXES[variant] }} :</strong> {{ message }}
+        <strong>{{ PREFIXES[variant] }} :</strong> {{ shown }}
       </p>
     </div>
   </div>

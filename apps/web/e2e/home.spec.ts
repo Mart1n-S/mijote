@@ -11,9 +11,22 @@ import { accessibilityMatrix } from './accessibility';
 accessibilityMatrix('/');
 
 test.describe("page d'accueil", () => {
-  test('affiche son titre principal', async ({ page }) => {
+  test('désigne la page de la même façon partout', async ({ page }) => {
     await page.goto('/');
 
-    await expect(page.getByRole('heading', { level: 1, name: 'Mijote' })).toBeVisible();
+    // Le titre de niveau 1, le titre du document et l'entrée de navigation
+    // disaient trois choses différentes : « Mijote », « Accueil - Mijote » et
+    // « Accueil ». C'est le nom de la page qui tranche, le nom de marque étant
+    // porté par l'en-tête.
+    await expect(page.getByRole('heading', { level: 1, name: 'Accueil' })).toBeVisible();
+    await expect(page).toHaveTitle('Accueil - Mijote');
+    // La seule entrée « Accueil », et non la liste complète de la barre : la
+    // page de démonstration n'existe pas en production, et ce test n'a pas à
+    // échouer pour une raison étrangère à son sujet.
+    await expect(
+      page
+        .getByRole('navigation', { name: 'Navigation principale' })
+        .getByRole('link', { name: 'Accueil' }),
+    ).toBeVisible();
   });
 });

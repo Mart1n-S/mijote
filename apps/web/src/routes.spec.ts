@@ -1,3 +1,4 @@
+import { createMemoryHistory, createRouter } from 'vue-router';
 import { describe, expect, it } from 'vitest';
 
 import { createRoutes } from './routes';
@@ -10,7 +11,18 @@ describe('createRoutes', () => {
   });
 
   it("n'expose aucune page métier", () => {
-    expect(createRoutes(false)).toHaveLength(1);
+    // L'égalité sur les noms et non un compte : la route de repli n'est pas
+    // une page métier, mais elle fait nombre. Un écran ajouté par mégarde se
+    // verrait ici.
+    expect(createRoutes(false).map((route) => route.name)).toEqual(['home', 'not-found']);
+  });
+
+  it('attrape une adresse inconnue', () => {
+    // Sans cette route, RouterView ne rend rien et l'utilisateur obtient un
+    // main vide : ni titre, ni explication, ni moyen de repartir.
+    const router = createRouter({ history: createMemoryHistory(), routes: createRoutes(false) });
+
+    expect(router.resolve('/une-adresse-qui-nexiste-pas').name).toBe('not-found');
   });
 
   it('ajoute la page de démonstration quand on la demande', () => {

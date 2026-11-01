@@ -28,7 +28,11 @@ const links = computed(() =>
 
   <div class="layout">
     <header class="layout__header">
-      <p class="layout__brand">Mijote</p>
+      <!-- Le nom du site ramène à l'accueil : c'est une attente courante, et
+           un p ne s'active pas. Sur l'accueil, RouterLink pose ici le même
+           aria-current que sur l'entrée de navigation, voir
+           docs/design-system.md. -->
+      <RouterLink class="layout__brand" :to="{ name: 'home' }">Mijote</RouterLink>
     </header>
 
     <!--
@@ -108,9 +112,30 @@ const links = computed(() =>
   border-bottom: 1px solid var(--color-border);
 }
 
+/*
+  Le nom du site garde l'aspect qu'il avait en texte : ni couleur d'accent, ni
+  soulignement au repos. RGAA 10.6 demande qu'un lien se distingue du texte
+  environnant ; celui-ci est seul dans l'en-tête, donc il n'y a pas de texte
+  dont le confondre, et un nom de site souligné passerait pour une erreur.
+
+  Le soulignement vient au survol et au focus, où il dit que c'est cliquable
+  sans l'avoir annoncé par la couleur.
+*/
 .layout__brand {
+  /* Zone tactile de 44 px minimum, comme tout ce qui se clique : le nom du
+     site ne fait qu'une ligne de --text-lg, soit moins que cela. */
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap-min);
+  color: var(--color-text);
   font-size: var(--text-lg);
   font-weight: var(--weight-display);
+  text-decoration: none;
+}
+
+.layout__brand:hover,
+.layout__brand:focus-visible {
+  text-decoration: underline;
 }
 
 .layout__main {

@@ -143,6 +143,8 @@ Les titres sont resserrés par `--tracking-tight` : aux grandes tailles, l'appro
 
 Chaque contrôle doit dire dans quel état il est, **et jamais par la seule couleur**. La page de démonstration les montre tous côte à côte, avec une case qui fige le survol, l'enfoncement et le focus.
 
+**Cette case part décochée.** C'est sur cette page que se font les vérifications au clavier : trois boutons et un champ portant en permanence un anneau identique au vrai ne laissent plus distinguer le focus réel des états simulés. Les tests qui comparent la copie figée aux composants vivants cochent donc la case avant de mesurer, sans quoi ils compareraient l'état de repos à lui-même.
+
 | Composant                | Repos                     | Survol            | Focus visible            | Actif, enfoncé                       | Désactivé                              | En cours                                   | Invalide                                  |
 | ------------------------ | ------------------------- | ----------------- | ------------------------ | ------------------------------------ | -------------------------------------- | ------------------------------------------ | ----------------------------------------- |
 | **Bouton principal**     | `accent`                  | `accent-hover`    | anneau global, 2 px      | `accent-active`, descend de 1 px     | `disabled`, atténué, curseur interdit  | `aria-disabled`, `aria-busy`, témoin, texte | sans objet                                |
@@ -248,6 +250,10 @@ Un champ de saisie avec label visible, aide et erreur.
 - **Une chaîne vide n'est pas une erreur.** Une validation qui rend « rien à signaler » sous cette forme ne doit pas rendre le champ invalide, sans quoi il s'annonce invalide sans dire pourquoi. L'état passe par un calcul unique, utilisé par l'attribut, la classe et l'affichage.
 - Une erreur pose `aria-invalid`, double l'épaisseur du contour et préfixe le message par « Erreur : ». L'état se lit donc sans la couleur.
 
+**Les attributs passés au composant vont sur le champ**, pas sur son conteneur : `inheritAttrs: false` et `v-bind="$attrs"` sur l'`input`. Sans cela, `name`, `inputmode`, `maxlength` ou `pattern` atterrissaient sur le `div.field` et n'avaient aucun effet. `$attrs` est lié **avant** les attributs calculés, parce que ce qui vient après gagne : `aria-describedby` et `aria-invalid` restent donc sous le contrôle du composant, seul à savoir quels éléments il rend. Un appelant qui passerait les siens ne coupe pas le champ de son aide ni de son erreur. `class` et `style` suivent `$attrs` jusqu'à l'`input` eux aussi, et non plus le conteneur : Vue les fusionne avec ceux du composant au lieu de les remplacer.
+
+Ce qui n'est **pas** protégé est le nom accessible : un `aria-label` passé au composant remplacerait silencieusement le `label` visible, et l'étiquette vue ne serait plus celle restituée (RGAA 11.2). On ne passe donc ni `aria-label` ni `aria-labelledby` à ce composant : son étiquette est son `label`.
+
 **Partage des rôles pour l'annonce.** Le champ n'annonce pas son erreur lui-même : il la relie. Ce qui l'annonce à l'envoi du formulaire est le résumé en tête, un `BaseAlert`, dont la région existe déjà. C'est aussi ce que demande `vue-accessibility.md` : erreur sous le champ, et résumé en haut.
 
 ### BaseAlert
@@ -261,6 +267,26 @@ Le composant est donc fait pour cela : la région est rendue inconditionnellemen
 - monter le `BaseAlert` dès l'affichage de l'écran, avec un `message` vide, et non le faire apparaître quand le message arrive ;
 - ne pas l'envelopper dans un `v-if`, qui annulerait exactement la garantie ;
 - ne pas changer de variante en même temps que le message : le `role` de la région changerait alors sous le lecteur d'écran, au moment même où il doit la lire. Le noeud n'est pas recréé pour autant, Vue se contentant de mettre l'attribut à jour, mais la restitution en souffre.
+
+**Réannoncer un message identique.** Le composant expose une méthode, `reannounce()` : elle vide la région puis y repose le texte, ce qui fait les deux changements de contenu qu'une région `aria-live` demande. Reposer la même chaîne dans `message` ne change pas le DOM et n'annonce donc rien : deux tentatives de connexion rejetées par le même « Identifiants incorrects » laisseraient croire que le second envoi n'a rien produit. L'appelant garde donc son message tel quel et appelle la méthode ; il n'a pas à le numéroter pour forcer un changement.
+
+```vue
+<BaseAlert ref="announcer" variant="error" :message="error" />
+```
+
+```ts
+const announcer = useTemplateRef<InstanceType<typeof BaseAlert>>('announcer');
+
+announcer.value?.reannounce();
+```
+
+Un message **différent** n'a pas besoin de cette méthode : il change déjà le DOM. Une réannonce en cours devient alors sans effet, et non annulée : son minuteur repose le message courant, c'est-à-dire la valeur déjà affichée.
+
+Les deux changements sont séparés par 50 ms, et non par un simple `nextTick` : les deux mutations tomberaient dans la même image et plusieurs lecteurs d'écran n'en verraient qu'une. Un second appel pendant ce délai annule le premier cycle et repart de zéro ; le minuteur est nettoyé au démontage.
+
+**Le temps du cycle, la boîte disparaît**, et pas seulement son texte : ce qui est en dessous remonte puis redescend 50 ms plus tard. C'est choisi. Ne vider que le texte en gardant la boîte ferait pire au lecteur d'écran, la région annonçant alors « Erreur : » seul, puis le message, soit deux annonces au lieu d'une. Si ce battement gêne un jour, l'issue est de séparer les deux rôles : une boîte visible alimentée par `message`, et une région `aria-live` masquée par `.visually-hidden` qui porte seule le cycle, au prix du texte présent deux fois dans le DOM.
+
+**Ce que les tests ne disent pas.** `BaseAlert.spec.ts` vérifie que la région passe bien par un état vide puis retrouve son texte, et que c'est le même noeud. Il ne vérifie pas ce qu'un lecteur d'écran annonce : seule l'écoute réelle le dit. **Écouté le 1er novembre 2026, au Narrateur de Windows puis à NVDA : deux clics sur le même message donnent bien deux annonces**, avec le délai de 50 ms. VoiceOver reste à écouter à l'audit de fin de lot.
 
 La région vide est un `div` sans style, donc de hauteur nulle. Dans un conteneur `flex` avec `gap`, elle compte en revanche comme un élément : `display: contents` corrigerait cela, mais plusieurs moteurs l'ont déjà, à un moment, sortie de l'arbre d'accessibilité, ce qui est exclu sur une région `aria-live`.
 
@@ -280,7 +306,7 @@ C'est le seul endroit de l'application qui utilise `--shadow-3` et, avec la barr
 
 Reka UI 2.11 rend le dialogue modal en posant `aria-hidden` sur le reste du document, et non `aria-modal` sur le dialogue. C'est une technique équivalente, mais qui change ce qu'un test doit regarder.
 
-Au zoom, le contenu du dialogue défile dans le dialogue plutôt que de sortir de l'écran, **mais verticalement seulement** : horizontalement, il n'y a nulle part où aller. Son titre porte donc `overflow-wrap: break-word`. Mesuré le 1er novembre 2026 avant correction : au texte doublé à 320 px, « Supprimer » en `--text-xl` ne tient pas dans les 208 px de la boîte, le contenu dépassait de 15 px et le mot se faisait couper. Le débordement du document restait nul, donc la matrice ne pouvait pas le voir.
+Au zoom, le contenu du dialogue défile dans le dialogue plutôt que de sortir de l'écran, **mais verticalement seulement** : horizontalement, il n'y a nulle part où aller. Son titre se coupe donc, par la règle de césure des titres de `base.css`, mesurée ici d'abord. Mesuré le 1er novembre 2026 avant correction : au texte doublé à 320 px, « Supprimer » en `--text-xl` ne tient pas dans les 208 px de la boîte, le contenu dépassait de 15 px et le mot se faisait couper. Le débordement du document restait nul, donc la matrice ne pouvait pas le voir.
 
 Sa hauteur maximale est en `dvh`, **jamais en `vh`** : c'est l'arbitrage déjà tranché pour la hauteur de `AppLayout`, où `vh` comptait la barre d'adresse du mobile et laissait le bas sous le bord de l'écran.
 
@@ -304,6 +330,8 @@ La mise en oeuvre attend le premier formulaire en dialogue, parce qu'il n'en exi
 `AppLayout` donne à tous les écrans : lien d'évitement, `header`, `nav`, `main`, `footer`.
 
 - **Lien d'évitement** : premier élément focusable du document, hors de l'écran au repos, visible dès qu'il reçoit le focus. Il est déplacé par `transform` et non retiré par `display: none`, qui le sortirait de l'ordre de tabulation.
+- **Le nom du site, dans l'en-tête, est un lien vers l'accueil.** Un retour à l'accueil par le nom du site est une attente courante, et c'était un `p` que rien n'activait. Il garde l'aspect qu'il avait en texte, sans couleur d'accent ni soulignement au repos : RGAA 10.6 demande qu'un lien se distingue du texte environnant, et celui-ci est seul dans l'en-tête, donc il n'y a aucun texte dont le confondre. Le soulignement vient au survol et au focus. Comme tout ce qui se clique, il fait au moins `--tap-min` de haut, ce qu'une ligne de `--text-lg` n'atteint pas. **Cette justification tient tant que l'en-tête ne contient que ce lien** : au premier autre texte dans le `header` (nom de l'utilisateur, déconnexion), il faudra rétablir le soulignement au repos, ou vérifier 10.6. **Écouté le 1er novembre 2026, au Narrateur de Windows puis à NVDA, depuis la page de repli : le lien « Mijote » se comprend sans complément** (RGAA 6.1).
+- **Sur l'accueil, deux liens portent `aria-current="page"`** : le nom du site et l'entrée de navigation. C'est exact, les deux mènent bien à la page courante, et rien ne l'interdit. La règle de style visuel de l'état courant ne vise que les liens de la barre, donc l'en-tête ne change pas d'aspect. Ce n'est pas contourné. Le retirer du nom du site serait toutefois défendable, `aria-current` désignant l'élément courant au sein d'un ensemble d'éléments liés, auquel l'en-tête n'appartient pas : c'est la restitution réelle qui a tranché. **Écouté le 1er novembre 2026, au Narrateur de Windows puis à NVDA : le double « page actuelle » est annoncé comme prévu et ne gêne pas.** Les deux `aria-current` restent donc en place.
 - **Navigation** : un **seul** élément `nav` dans le DOM, placé par le CSS. Barre fixe en bas sous 640 px, colonne latérale au-delà. Deux `nav`, un par largeur, dupliqueraient le repère de navigation et l'ordre de tabulation.
 - **La barre basse est une surface surélevée** : fond `--color-raised` et `--shadow-2`, parce qu'elle reste au-dessus du contenu qui défile. En colonne latérale elle n'est plus au-dessus de rien, donc elle perd son ombre et reprend le fond de surface.
 - Ses libellés sont en `--text-sm` et `--weight-semibold` : quatre entrées doivent tenir sur une seule ligne à 320 px, et le gras de la page courante ne doit pas déborder de sa colonne. Chaque entrée fait au moins `--tap-min` de haut, et la barre réserve `env(safe-area-inset-bottom)` pour l'encoche et la barre de gestes des téléphones.
@@ -313,6 +341,8 @@ La mise en oeuvre attend le premier formulaire en dialogue, parce qu'il n'en exi
 - **`html` porte un `scroll-padding-bottom` de la hauteur de la barre**, remis à zéro au-delà de 640 px. La réserve de place de la grille empêche la barre de recouvrir la fin de la page ; elle n'empêche pas de recouvrir un contrôle vers lequel le navigateur vient de défiler en cours de page, qu'une tabulation amènerait au bord bas. C'est le `scroll-padding` qui arrête le défilement une hauteur de barre plus haut (WCAG 2.2, 2.4.11, hors RGAA 4.1.2).
 - Les colonnes de la grille sont en `minmax(0, 1fr)` et non `1fr`. Une colonne de grille vaut `min-content` par défaut : un tableau large étirerait alors la page entière au lieu de défiler lui-même.
 - Les entrées de navigation se déduisent des routes qui déclarent un `meta.navLabel`, plutôt que d'une seconde liste à tenir en parallèle.
+- **Une route attrape-tout sert la page de repli**, en production comme en développement. Une adresse inconnue (lien partagé périmé, adresse tapée à la main, historique d'une version précédente) est servie par la bascule SPA : sans cette route, `RouterView` ne rend rien et l'utilisateur obtient un `main` vide, sans titre, sans explication et sans moyen de repartir, sous un titre de document replié sur « Mijote ». La page porte un `h1`, une phrase et un lien vers l'accueil, et son `meta.title` dit « Page introuvable ». Elle n'a pas de `navLabel` : ce n'est pas une destination.
+- **Une page porte un seul nom**, le même dans son `h1`, dans `meta.title` et dans l'entrée de navigation. L'accueil en avait trois : `h1` « Mijote », titre « Accueil - Mijote », navigation « Accueil ». Le nom retenu est **« Accueil »** : c'est le nom de la page, et c'est ce que `documentTitleFor` combine avec le nom du site. Garder « Mijote » en `h1` aurait demandé un cas particulier dans cette fonction, pour ne pas produire « Mijote - Mijote ». Le nom de marque ne disparaît pas de la page : il est dans l'en-tête, qui est un lien vers l'accueil.
 - **À chaque changement de page**, le titre du document suit la page et le focus repart de `main`. Le premier affichage est exclu : y déplacer le focus ferait sauter l'en-tête et le lien d'évitement.
 
 ## Règles transverses
@@ -322,6 +352,7 @@ Elles sont dans `base.css` et s'appliquent sans que personne ait à y penser :
 - **Focus** : un anneau unique, `:focus-visible`, avec un écart de 2 px qui laisse voir le fond entre le contrôle et l'anneau. Il reste donc visible même sur un bouton rempli de la couleur d'accent. `:focus-visible` et non `:focus`, pour ne pas poser l'anneau sur un clic de souris.
 - **Zones tactiles** : 44 px au minimum, par `--tap-min`, sur tout ce qui se clique.
 - **Animations** : sous `prefers-reduced-motion: reduce`, elles sont supprimées, pas raccourcies. La durée résiduelle de 0,01 ms garde l'événement de fin de transition, dont Reka UI dépend pour savoir quand démonter un contenu. Le déplacement d'un pixel des boutons enfoncés est supprimé lui aussi.
+- **Césure des titres** : `overflow-wrap: break-word` sur `h1`, `h2` et `h3`. Un titre est le texte le plus grand de la page, donc celui dont un seul mot cesse le premier de tenir au texte agrandi. Mesuré à 320 px, texte doublé : « Page introuvable » demandait 344 px pour une boîte de 256 et faisait défiler la page de 56 px. `break-word` et non `anywhere` : seul le mot qui ne tient pas est coupé.
 - **Liens** : soulignés, y compris au milieu d'un paragraphe. Un lien ne se reconnaît pas à sa seule couleur.
 - **Texte masqué** : `.visually-hidden` retire du visuel sans retirer de l'arbre d'accessibilité, ce que ni `display: none` ni `visibility: hidden` ne permettent. Attention, il est en position absolue : un conteneur défilant qui en contient doit être positionné, sinon ce texte s'échappe et étire la page.
 
@@ -330,6 +361,7 @@ Elles sont dans `base.css` et s'appliquent sans que personne ait à y penser :
 - La barre basse **ne passe jamais sur deux lignes** : ses libellés sont insécables et c'est elle qui défile horizontalement quand ils ne tiennent plus. Sa hauteur vaut donc toujours `--nav-bar-height` : une zone tactile, la place de l'anneau de focus des deux côtés, et son liseré. C'était une limite connue, mesurée puis corrigée : au texte agrandi à 200 %, la barre passait sur deux lignes et recouvrait 14 px du pied de page. Le prix de la correction est qu'avec beaucoup d'entrées, la barre défile de côté sur un écran étroit, ce qui engagera **RGAA 10.11** : à quatre entrées, elle débordera dès 320 px au texte par défaut. L'arbitrage repéré ce jour-là, à ne pas redécouvrir : passer la barre à la ligne, avec une hauteur mesurée au lieu de calculée.
 - **Le défilement latéral de la barre défait deux garanties, et ce n'est tenu par aucun test** (mesuré le 1er novembre 2026, à 320 px, texte à 200 %, barres de défilement rétablies). D'abord, Chromium ne fait pas défiler la barre vers l'entrée qui vient de recevoir le focus quand elle est déjà partiellement visible : la dernière entrée reste rognée de 76 px et le bord droit de son anneau est invisible (**RGAA 10.7**). Ensuite, la barre de défilement horizontale de la barre ajoute 15 px à sa hauteur, que `--nav-bar-height` ne compte pas : la réserve de place et le `scroll-padding` deviennent courts d'autant, et la barre recouvre 14,5 px du bas du pied de page, soit son remplissage et non son texte (**RGAA 10.4**). Les tests ne le voient pas, parce que Playwright passe `--hide-scrollbars` en mode sans tête. À traiter avec l'arbitrage ci-dessus, dont c'est la vraie motivation.
 - **Le `scroll-padding-bottom` ne couvre que ce vers quoi le navigateur défile.** Un contrôle déjà dans la fenêtre mais derrière la barre fixe y reste : mesuré, Chromium ne défile pas du tout quand l'élément focalisé est partiellement visible. La réserve traite le cas fréquent, pas celui-là.
+- **La matrice ne mesure jamais 256 px de haut**, alors que RGAA 10.11 demande les deux dimensions : seul le dialogue est contrôlé à 320 x 256. Mesuré à la main le 1er novembre 2026 sur la page de repli, en 320 x 256, texte normal puis doublé : aucun débordement horizontal, et le lien de retour reste au-dessus de la barre basse, avec 55 px de marge au texte doublé. Cette garantie ne tient donc à aucun test. L'arbitrage, s'il faut y revenir : ajouter un sixième contexte à `accessibilityMatrix`, au prix d'un contexte de plus par écran.
 - La région vide d'un `BaseAlert` compte comme un élément dans un conteneur `flex` avec `gap` (voir sa section plus haut).
 - **La largeur du dialogue n'est tenue par aucune mesure**, mais par un test de source, `src/components/base/BaseDialog.styles.spec.ts`, qui refuse l'unité de fenêtre dans la déclaration. La raison est mesurée, et ce n'est pas celle qu'on croit : Reka UI verrouille le défilement du corps à l'ouverture d'un dialogue modal (`overflow: hidden` et `padding-right` compensatoire), donc la barre de défilement disparaît le temps du dialogue et un `100vw` y vaut exactement un `100%`. Aucune mesure géométrique ne peut départager les deux écritures, même avec les barres de défilement rétablies. Le pourcentage reste le bon justement parce qu'il ne dépend pas de ce comportement de la bibliothèque : un dialogue non modal, ou un Reka UI qui cesserait de verrouiller, remettrait l'écart de 15 px.
 - Le tableau des états de la page de démonstration recopie quelques règles de survol, d'enfoncement et de focus pour les figer côte à côte. C'est la seule duplication acceptée. Elle n'a longtemps été gardée par rien, et trois divergences y ont vécu sans être vues jusqu'au 31 octobre 2026, dont une invisible en thème clair, où les deux jetons concernés ont la même valeur. Depuis, le bloc « copie figée des états » de `e2e/design-system.spec.ts` compare chaque état figé à ce que le composant vivant produit, en thème sombre. Restent hors du verrou, à comparer à la lecture : le focus du bouton et les règles sous `prefers-reduced-motion`.
@@ -341,7 +373,11 @@ Elles sont dans `base.css` et s'appliquent sans que personne ait à y penser :
 | Seuils de contraste, dans les deux thèmes                                     | `src/styles/tokens.spec.ts`              |
 | Attributs ARIA, refus du clic en cours, focus gardé                           | `src/components/base/*.spec.ts` (jsdom)  |
 | Titre du document et focus à la navigation                                    | `src/navigation.spec.ts`                 |
-| Accueil et page de démonstration sans violation axe-core, en clair, en sombre, à 320 px, à 320 px en sombre et au texte à 200 % | `e2e/accessibility.ts` |
+| Réannonce d'un message identique, région vidée puis reposée                   | `src/components/base/BaseAlert.spec.ts`  |
+| Attributs relayés sur le champ, `required` et `autocomplete`                  | `src/components/base/BaseField.spec.ts`  |
+| Nom du site cliquable, haut de 44 px, et ramenant à l'accueil                 | `e2e/design-system.spec.ts`              |
+| Nom unique de l'accueil : titre de niveau 1, titre du document, navigation    | `e2e/home.spec.ts`                       |
+| Accueil, page de repli et page de démonstration sans violation axe-core, en clair, en sombre, à 320 px, à 320 px en sombre et au texte à 200 % | `e2e/accessibility.ts` |
 | Ordre de l'échelle d'empilement                                               | `src/styles/tokens.spec.ts`              |
 | Voile et dialogue au-dessus de la barre basse, à 320 px                       | `e2e/design-system.spec.ts`              |
 | Dialogue entier et atteignable à 320 x 640 et à 320 x 256                     | `e2e/design-system.spec.ts`              |
@@ -350,7 +386,8 @@ Elles sont dans `base.css` et s'appliquent sans que personne ait à y penser :
 | Réserve de défilement égale à la hauteur de la barre, et nulle au-delà de 640 px | `e2e/design-system.spec.ts`            |
 | Lien d'évitement, activation au clavier, va-et-vient du focus du dialogue      | `e2e/design-system.spec.ts`              |
 | Place de la navigation selon la largeur                                       | `e2e/design-system.spec.ts`              |
-| Ni défilement horizontal ni contenu masqué par la barre, à 320 px et au texte à 200 %, sur les deux écrans | `e2e/accessibility.ts` |
+| Ni défilement horizontal ni contenu masqué par la barre, à 320 px et au texte à 200 %, sur les trois écrans | `e2e/accessibility.ts` |
+| Adresse inconnue servie par la page de repli, titre du document et retour à l'accueil | `src/routes.spec.ts` et `e2e/not-found.spec.ts` |
 | Hauteur de la barre et doublement réel des libellés au texte à 200 %          | `e2e/design-system.spec.ts`              |
 | Contenu du dialogue dans sa boîte au texte à 200 %                            | `e2e/design-system.spec.ts`              |
 | Copie figée des états conforme à ce que les composants produisent             | `e2e/design-system.spec.ts`              |
@@ -363,3 +400,5 @@ Deux choses ne se testent pas en jsdom, et sont donc couvertes par Playwright :
 2. **le démontage du dialogue et le retour du focus**, que Reka UI fait à la fin de l'animation de sortie, laquelle ne se joue pas en jsdom.
 
 axe-core ne trouve qu'une partie des problèmes. Le clavier et le lecteur d'écran (NVDA, VoiceOver) se testent à la main à chaque lot.
+
+Écoutes faites le 1er novembre 2026, au Narrateur de Windows puis à NVDA : la réannonce d'un message identique, le double `aria-current` de l'accueil, et le lien du nom du site depuis une autre page. Les trois sont conformes, chacune notée dans sa section. **VoiceOver reste à écouter à l'audit de fin de lot**, sur ces trois points comme sur le reste.

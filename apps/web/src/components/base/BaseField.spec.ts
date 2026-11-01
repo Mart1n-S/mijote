@@ -150,6 +150,35 @@ describe('BaseField', () => {
     });
   });
 
+  describe("attributs passés par l'appelant", () => {
+    it('les pose sur le champ et non sur le conteneur', () => {
+      // Le composant n'a qu'une racine : sans inheritAttrs: false, name,
+      // inputmode, maxlength ou pattern atterrissaient sur le div et
+      // n'avaient donc aucun effet.
+      mountField({ name: 'quantity' });
+
+      expect(inputElement().getAttribute('name')).toBe('quantity');
+      expect(fieldRoot().hasAttribute('name')).toBe(false);
+    });
+
+    it("ne laisse pas remplacer le lien vers l'aide et l'erreur", () => {
+      mountField({
+        help: 'En grammes.',
+        error: 'Indiquez un nombre.',
+        'aria-describedby': 'ailleurs',
+        'aria-invalid': 'false',
+      });
+
+      // Le composant seul sait quels éléments il rend : un aria-describedby
+      // venu de l'appelant couperait le champ de son aide et de son erreur.
+      const textes = describedElements().map((element) => element.textContent?.trim());
+
+      expect(textes[0]).toBe('En grammes.');
+      expect(textes[1]).toContain('Indiquez un nombre.');
+      expect(inputElement().getAttribute('aria-invalid')).toBe('true');
+    });
+  });
+
   it('remonte la saisie au modèle', async () => {
     const wrapper = mountField();
 
@@ -158,6 +187,30 @@ describe('BaseField', () => {
     // Sans parent qui lie le modèle, c'est l'événement qu'il faut lire : le
     // prop ne revient que par la liaison v-model de l'appelant.
     expect(wrapper.emitted('update:modelValue')).toEqual([['250']]);
+  });
+
+  it('dit en clair quand il est obligatoire', () => {
+    // Les écrans de compte sont les premiers à s'en servir. La mention est
+    // dans le label, donc lue avec lui, et l'attribut porte la contrainte.
+    const wrapper = mountField({ required: true });
+
+    expect(wrapper.get('label').text()).toContain('(obligatoire)');
+    expect(inputElement().required).toBe(true);
+  });
+
+  it("n'annonce rien d'obligatoire par défaut", () => {
+    const wrapper = mountField();
+
+    expect(wrapper.text()).not.toContain('obligatoire');
+    expect(inputElement().required).toBe(false);
+  });
+
+  it('relaie autocomplete tel quel', () => {
+    // La finalité du champ doit rester déductible : c'est ce qui permet au
+    // navigateur et aux aides techniques de pré-remplir (RGAA 11.13).
+    mountField({ autocomplete: 'email' });
+
+    expect(inputElement().getAttribute('autocomplete')).toBe('email');
   });
 
   it("sort de l'ordre de tabulation quand il est désactivé", () => {

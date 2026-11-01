@@ -59,6 +59,7 @@ Le navigateur ne connaît aucune adresse d'API : il appelle `/api`, servi par le
 - Les tests de bout en bout bouchonnent la sonde de santé (`apps/web/e2e/api.ts`) : sans API derrière la construction statique, le bandeau de service s'afficherait sur chaque écran et les mesures de géométrie porteraient sur une page que personne ne verra.
 - Après une modification des sources de `packages/shared`, il faut la reconstruire pour que la vérification des types et la construction du front voient le changement : `pnpm --filter @mijote/shared build`. C'est la limite du `dist` partagé, assumée ici plutôt que résolue par des références de projet TypeScript.
 - `LOG_LEVEL` entre dans `.env.example`, avec ses valeurs acceptées et ce qu'elle vaut par défaut.
+- **Les erreurs journalisées passent par une liste blanche**, comme les requêtes : type, message, code, pile, et la cause sur un seul niveau. Le sérialiseur par défaut de pino recopie toutes les propriétés énumérables, et une erreur de PostgreSQL en porte qui nomment la valeur fautive (`detail`, « Key (email)=(...) already exists »), tandis qu'une erreur de client inactif porte l'objet de connexion entier. Limite qui reste, mesurée : Drizzle place la requête et ses paramètres dans le message de ses erreurs, donc à la première requête portant des données personnelles, il faudra journaliser son `code` et non l'erreur entière.
 
 ## Quand revoir cette décision
 

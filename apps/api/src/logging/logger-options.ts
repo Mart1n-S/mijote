@@ -90,6 +90,53 @@ function serializeResponse(response: ServerResponse): Record<string, unknown> {
   return { statusCode: response.statusCode };
 }
 
+/** Le code d'erreur quand il y en a un, sans supposer qu'il existe. */
+function readErrorCode(error: Error): string | undefined {
+  if (!('code' in error)) {
+    return undefined;
+  }
+
+  const { code } = error;
+
+  return typeof code === 'string' ? code : undefined;
+}
+
+function errorFields(error: Error): Record<string, unknown> {
+  return {
+    type: error.name,
+    message: error.message,
+    code: readErrorCode(error),
+    stack: error.stack,
+  };
+}
+
+/*
+  Liste blanche pour les erreurs aussi, et pas seulement pour les requêtes.
+
+  Le sérialiseur par défaut de pino recopie toutes les propriétés énumérables de
+  l'erreur. Or une erreur de PostgreSQL en porte beaucoup : `detail` (« Key
+  (email)=(...) already exists »), `where`, `internalQuery`, `table`,
+  `constraint`. Et une erreur de client inactif du pool porte `client`, donc
+  tout l'objet de connexion. Rien de cela n'a à entrer dans un journal.
+
+  La cause est gardée, sur un seul niveau : c'est elle qui dit pourquoi, et elle
+  passe par le même tamis.
+
+  Limite connue, mesurée : Drizzle place la requête et ses paramètres dans le
+  message de ses erreurs. Tant que le seul SQL du projet est `select 1`, ce
+  message ne porte rien de personnel. À la première requête qui en portera, il
+  ne faudra pas journaliser l'erreur entière mais son `code`.
+*/
+function serializeError(value: unknown): Record<string, unknown> {
+  if (!(value instanceof Error)) {
+    return { type: typeof value, message: String(value) };
+  }
+
+  const fields = errorFields(value);
+
+  return value.cause instanceof Error ? { ...fields, cause: errorFields(value.cause) } : fields;
+}
+
 /**
  * Les options de pino-http, à part du module NestJS.
  *
@@ -108,6 +155,11 @@ export function buildPinoHttpOptions(env: LoggingEnvironment): Options {
 
       L'en-tête de réponse est posé au passage, parce que c'est le seul moment
       où l'identifiant et la réponse sont tous deux sous la main.
+
+      Le jour où le serveur frontal du homelab posera le sien, il faudra
+      l'accepter pour que ses journaux et ceux de l'API se recoupent, mais
+      seulement s'il vient de ce mandataire et qu'il a bien la forme d'un UUID.
+      Rien ne l'envoie aujourd'hui.
     */
     genReqId: (_request, response): string => {
       const id = randomUUID();
@@ -116,25 +168,25 @@ export function buildPinoHttpOptions(env: LoggingEnvironment): Options {
 
       return id;
     },
-    serializers: { req: serializeRequest, res: serializeResponse },
+    serializers: { req: serializeRequest, res: serializeResponse, err: serializeError },
     /*
-      Filet, pas garantie : la règle reste de ne pas journaliser ces valeurs.
-      Les chemins sans étoile valent pour la racine de l'objet journalisé,
-      ceux avec étoile pour un seul niveau en dessous. Ce que ce filet attrape
-      vraiment est mesuré dans logger-options.spec.ts.
+      Filet, pas garantie : la règle reste de ne pas journaliser ces valeurs, et
+      ce sont les sérialiseurs ci-dessus qui tiennent vraiment les en-têtes, le
+      corps et les erreurs hors des journaux.
+
+      Ce filet ne vise donc que ce qu'un appel maladroit passerait directement :
+      les chemins sans étoile valent pour la racine de l'objet journalisé, ceux
+      avec étoile pour un seul niveau en dessous. Plus profond, ou dans un
+      tableau, il ne voit rien. Ce qu'il attrape est mesuré dans
+      logger-options.spec.ts.
+
+      Les chemins d'en-têtes ont été retirés le 1er novembre 2026 : pino
+      applique les sérialiseurs avant le masquage, donc `req.headers` n'existait
+      plus au moment où ces chemins étaient évalués, et ils ne protégeaient
+      rien.
     */
     redact: {
-      paths: [
-        'req.headers.authorization',
-        'req.headers.cookie',
-        'res.headers["set-cookie"]',
-        'password',
-        'token',
-        'email',
-        '*.password',
-        '*.token',
-        '*.email',
-      ],
+      paths: ['password', 'token', 'email', '*.password', '*.token', '*.email'],
       censor: '[masqué]',
     },
     // Une ligne par requête terminée : méthode, route, statut, durée,

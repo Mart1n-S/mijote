@@ -3,6 +3,7 @@ import { Socket } from 'node:net';
 
 import { REQUEST_ID_HEADER } from '@mijote/shared';
 import { pino } from 'pino';
+import { pinoHttp } from 'pino-http';
 import { describe, expect, it } from 'vitest';
 
 import { buildPinoHttpOptions, resolveLogLevel } from './logger-options.js';
@@ -125,5 +126,71 @@ describe('buildPinoHttpOptions', () => {
     expect(joined).not.toContain('jeton');
     expect(joined).not.toContain('qui@exemple.fr');
     expect(joined).toContain('[masqué]');
+  });
+  it('réduit une erreur à son type, son message, son code et sa pile', () => {
+    const lines: string[] = [];
+    /*
+      Les champs d'une erreur de PostgreSQL : `detail` porte la valeur fautive,
+      et une erreur de client inactif porte l'objet de connexion entier.
+    */
+    const failure = Object.assign(new Error('insert into accounts a échoué'), {
+      code: '23505',
+      detail: 'Key (email)=(qui@exemple.fr) already exists.',
+      where: 'table accounts',
+      client: { connectionParameters: { password: 'motdepasse' } },
+    });
+
+    loggerWritingTo(lines).error({ err: failure }, 'conflit');
+
+    const logged = lastLine(lines);
+    const error = logged['err'];
+
+    expect(error).toMatchObject({ type: 'Error', code: '23505' });
+    expect(Object.keys(error ?? {}).sort()).toEqual(['code', 'message', 'stack', 'type']);
+    expect(lines.join('')).not.toContain('qui@exemple.fr');
+    expect(lines.join('')).not.toContain('motdepasse');
+    expect(lines.join('')).not.toContain('already exists');
+  });
+
+  it('garde la cause sur un seul niveau', () => {
+    const lines: string[] = [];
+    const cause = Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' });
+
+    loggerWritingTo(lines).error({ err: new Error('la requête a échoué', { cause }) }, 'échec');
+
+    expect(lastLine(lines)['err']).toMatchObject({
+      message: 'la requête a échoué',
+      cause: { message: 'connect ECONNREFUSED', code: 'ECONNREFUSED' },
+    });
+  });
+
+  it("écrit une ligne d'accès par requête terminée", () => {
+    const lines: string[] = [];
+    const { request, response } = fakeExchange('/health?x=1');
+    const middleware = pinoHttp(buildPinoHttpOptions({ NODE_ENV: 'development' }), {
+      write(line: string): void {
+        lines.push(line);
+      },
+    });
+
+    middleware(request, response);
+    // Sans en-tête écrit, `statusCode` reste nul : une vraie réponse passe par
+    // là, celle-ci doit le faire explicitement.
+    response.writeHead(200);
+    /*
+      La réponse n'a pas de socket connectée, donc `end()` n'émet pas
+      `finish` : c'est cet événement que pino-http attend pour écrire sa ligne,
+      et il est émis ici à sa place. Ce qui est mesuré reste bien le contenu de
+      la ligne que nos options produisent.
+    */
+    response.emit('finish');
+
+    const logged = lastLine(lines);
+
+    expect(logged['req']).toMatchObject({ method: 'GET', route: '/health' });
+    expect(logged['res']).toMatchObject({ statusCode: 200 });
+    // La durée, et l'identifiant qui relie cette ligne aux autres.
+    expect(logged['responseTime']).toEqual(expect.any(Number));
+    expect(logged['req']).toHaveProperty('id');
   });
 });

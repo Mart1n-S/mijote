@@ -300,7 +300,7 @@ C'est le seul endroit de l'application qui utilise `--shadow-3` et, avec la barr
 
 Reka UI 2.11 rend le dialogue modal en posant `aria-hidden` sur le reste du document, et non `aria-modal` sur le dialogue. C'est une technique équivalente, mais qui change ce qu'un test doit regarder.
 
-Au zoom, le contenu du dialogue défile dans le dialogue plutôt que de sortir de l'écran, **mais verticalement seulement** : horizontalement, il n'y a nulle part où aller. Son titre porte donc `overflow-wrap: break-word`. Mesuré le 1er novembre 2026 avant correction : au texte doublé à 320 px, « Supprimer » en `--text-xl` ne tient pas dans les 208 px de la boîte, le contenu dépassait de 15 px et le mot se faisait couper. Le débordement du document restait nul, donc la matrice ne pouvait pas le voir.
+Au zoom, le contenu du dialogue défile dans le dialogue plutôt que de sortir de l'écran, **mais verticalement seulement** : horizontalement, il n'y a nulle part où aller. Son titre se coupe donc, par la règle de césure des titres de `base.css`, mesurée ici d'abord. Mesuré le 1er novembre 2026 avant correction : au texte doublé à 320 px, « Supprimer » en `--text-xl` ne tient pas dans les 208 px de la boîte, le contenu dépassait de 15 px et le mot se faisait couper. Le débordement du document restait nul, donc la matrice ne pouvait pas le voir.
 
 Sa hauteur maximale est en `dvh`, **jamais en `vh`** : c'est l'arbitrage déjà tranché pour la hauteur de `AppLayout`, où `vh` comptait la barre d'adresse du mobile et laissait le bas sous le bord de l'écran.
 
@@ -342,6 +342,7 @@ Elles sont dans `base.css` et s'appliquent sans que personne ait à y penser :
 - **Focus** : un anneau unique, `:focus-visible`, avec un écart de 2 px qui laisse voir le fond entre le contrôle et l'anneau. Il reste donc visible même sur un bouton rempli de la couleur d'accent. `:focus-visible` et non `:focus`, pour ne pas poser l'anneau sur un clic de souris.
 - **Zones tactiles** : 44 px au minimum, par `--tap-min`, sur tout ce qui se clique.
 - **Animations** : sous `prefers-reduced-motion: reduce`, elles sont supprimées, pas raccourcies. La durée résiduelle de 0,01 ms garde l'événement de fin de transition, dont Reka UI dépend pour savoir quand démonter un contenu. Le déplacement d'un pixel des boutons enfoncés est supprimé lui aussi.
+- **Césure des titres** : `overflow-wrap: break-word` sur `h1`, `h2` et `h3`. Un titre est le texte le plus grand de la page, donc celui dont un seul mot cesse le premier de tenir au texte agrandi. Mesuré à 320 px, texte doublé : « Page introuvable » demandait 344 px pour une boîte de 256 et faisait défiler la page de 56 px. `break-word` et non `anywhere` : seul le mot qui ne tient pas est coupé.
 - **Liens** : soulignés, y compris au milieu d'un paragraphe. Un lien ne se reconnaît pas à sa seule couleur.
 - **Texte masqué** : `.visually-hidden` retire du visuel sans retirer de l'arbre d'accessibilité, ce que ni `display: none` ni `visibility: hidden` ne permettent. Attention, il est en position absolue : un conteneur défilant qui en contient doit être positionné, sinon ce texte s'échappe et étire la page.
 

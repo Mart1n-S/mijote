@@ -679,8 +679,9 @@ test.describe('page de démonstration du design system', () => {
       doublé, et un mot du titre était coupé. Le débordement du document restait
       nul, donc la matrice ne pouvait pas le voir.
 
-      La cause est que les titres n'ont pas de césure : base.css ne pose
-      overflow-wrap que sur code, samp et kbd.
+      La cause était que les titres n'avaient pas de césure. base.css la pose
+      désormais sur h1, h2 et h3 : ce test garde le cas du dialogue, le seul
+      où le débordement ne se voit pas sur le document.
     */
     test('garde le contenu du dialogue dans sa boîte', async ({ page }) => {
       await page.evaluate(() => {

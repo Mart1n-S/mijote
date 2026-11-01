@@ -68,6 +68,18 @@ h3 {
   /* Aux grandes tailles, l'approche d'une police pensée pour le texte courant
      paraît lâche : on la resserre. */
   letter-spacing: var(--tracking-tight);
+  /*
+    Un titre est le texte le plus grand de la page : c'est celui dont un seul
+    mot cesse le premier de tenir au texte agrandi. Mesuré le 1er novembre
+    2026 à 320 px, texte doublé : « Page introuvable » en --text-2xl demandait
+    344 px pour une boîte de 256, et faisait défiler la page de 56 px (RGAA
+    10.4). Le titre du dialogue portait déjà cette règle pour lui seul, la
+    même cause mesurée six heures plus tôt.
+
+    break-word et non anywhere : on ne coupe que le mot qui ne tient pas, pas
+    au milieu de n'importe quel autre.
+  */
+  overflow-wrap: break-word;
 }
 
 h1 {

@@ -46,7 +46,7 @@ Les numéros renvoient à l'ordre des neuf stories de `docs/backlog/lot-1.md`.
 | Story du lot 1 | Agent ajouté |
 | --- | --- |
 | 1, poser le design system et les jetons de design | `code-reviewer` (en place) |
-| 2, uniformiser les erreurs et la journalisation | `security-reviewer` (en place) |
+| 2, uniformiser les erreurs et la journalisation | `security-reviewer` (en place), `a11y-reviewer` (en place, sorti du pipeline par défaut le 1er novembre 2026) |
 | 4, créer les comptes, la connexion et la session | `test-planner`, `test-writer` (limité aux fichiers de test par un hook) |
 | 6, inviter et inscrire un utilisateur | `code-writer`, `doc-writer`, `pr-manager` |
 | À partir de 7 | skill `/feature <issue>`, qui enchaîne le pipeline |
@@ -633,8 +633,17 @@ agents. Ce qui est contrôlé ici, c'est la source extérieure qu'il recopie.
 - Contenu : deux fichiers, `SKILL.md` et `references/criteres-rgaa-4.1.2.md`.
   Aucun script, aucune commande, aucune adresse réseau appelée.
 - Empreintes SHA-256 de ce qui est installé :
-  `f7c1c6b1...` pour `SKILL.md`,
+  `08ff6060...` pour `SKILL.md`,
   `967731ca...` pour `references/criteres-rgaa-4.1.2.md`.
+
+**`SKILL.md` a changé le 1er novembre 2026**, et son empreinte avec lui : elle
+valait `f7c1c6b1...` à l'installation. Le skill est écrit pour le projet, donc
+il se modifie comme une rule ; c'est la liste de critères recopiée qui ne bouge
+pas, et son empreinte est bien restée la même. Trois points ont été repris :
+sa `description`, qui le faisait charger dès qu'on écrivait un composant et
+ramenait ainsi la grille des 106 critères par la porte de derrière ; le niveau
+AA « visé par le projet » ; le renvoi à l'audit manuel de fin de lot. Voir
+l'ADR 0007.
 
 **La source des critères, vérifiée le 31 octobre 2026.** Les 106 critères
 viennent du dépôt `DISIC/accessibilite.numerique.gouv.fr`, fichier
@@ -657,12 +666,13 @@ Contrôlé par lecture de l'API GitHub, sans rien télécharger :
 **Le contenu recopié, recompté.** 106 entrées, réparties en 9, 2, 3, 13, 8, 2,
 5, 10, 4, 14, 13, 11 et 12 par thème, ce qui est la structure du RGAA 4.1.2.
 
-**Deux écarts relevés à l'installation, laissés tels quels.** Le fichier n'est
-pas retouché, pour que son empreinte reste celle qui a été lue.
+**Deux écarts relevés à l'installation.** Ils étaient laissés tels quels pour
+que l'empreinte reste celle qui avait été lue. Le premier s'est résolu depuis.
 
-1. Le `SKILL.md` renvoie à l'agent `a11y-reviewer` au présent, alors qu'il
-   n'existe pas encore : il est prévu à la story #8, voir la section 3. La
-   phrase est gardée, l'agent arrive à l'étape suivante.
+1. Le `SKILL.md` renvoyait à l'agent `a11y-reviewer` au présent, alors qu'il
+   n'existait pas encore : il était prévu à la story #8, voir la section 3.
+   L'agent a finalement été posé le 31 octobre 2026, le même jour, et la phrase
+   est devenue vraie.
 2. Le contrôle des tirets de la CI excluait tout `.claude/skills/`. Ce skill
    étant écrit pour le projet, l'exclusion a été resserrée aux deux dossiers
    tiers au lieu de laisser passer le nouveau. Les deux fichiers installés ne

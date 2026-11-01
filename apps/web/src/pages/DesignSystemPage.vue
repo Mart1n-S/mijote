@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, useTemplateRef } from 'vue';
 
 import type { AlertVariant } from '../components/base/BaseAlert.vue';
 import BaseAlert from '../components/base/BaseAlert.vue';
@@ -66,12 +66,21 @@ const locked = ref('250');
 
 // Le message part vide pour montrer ce que garantit BaseAlert : la région
 // aria-live est déjà dans le DOM, donc le premier message est bien annoncé.
+const ANNOUNCED_MESSAGE = 'La liste de courses est à jour.';
 const announced = ref('');
-let announcementCount = 0;
+const announcer = useTemplateRef<InstanceType<typeof BaseAlert>>('announcer');
 
 function announce(): void {
-  announcementCount += 1;
-  announced.value = `Message annoncé ${announcementCount} fois depuis le chargement.`;
+  if (announced.value === ANNOUNCED_MESSAGE) {
+    // Le même message : le DOM ne changerait pas, donc rien ne serait annoncé.
+    // C'est le composant qui porte la réannonce, l'appelant n'a rien à
+    // numéroter.
+    announcer.value?.reannounce();
+
+    return;
+  }
+
+  announced.value = ANNOUNCED_MESSAGE;
 }
 
 const dialogOpen = ref(false);
@@ -319,10 +328,10 @@ const frozen = ref(true);
     <h3>Annonce d'un message qui arrive</h3>
 
     <p>
-      <BaseButton variant="secondary" @click="announce">Annoncer un message</BaseButton>
+      <BaseButton variant="secondary" @click="announce">Annoncer le même message</BaseButton>
     </p>
 
-    <BaseAlert variant="success" :message="announced" />
+    <BaseAlert ref="announcer" variant="success" :message="announced" />
   </section>
 
   <section aria-labelledby="loading-title">

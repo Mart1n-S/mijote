@@ -65,9 +65,17 @@ test.describe('page de démonstration du design system', () => {
     await expect(region).toBeAttached();
     await expect(region).toHaveText('');
 
-    await page.getByRole('button', { name: 'Annoncer un message' }).click();
+    const announce = page.getByRole('button', { name: 'Annoncer le même message' });
+    await announce.click();
 
-    await expect(region).toContainText('Message annoncé 1 fois');
+    await expect(region).toContainText('La liste de courses est à jour.');
+
+    // Le même message une seconde fois : la réannonce vide la région puis
+    // repose le texte. Ce qui est vérifié ici est le retour du texte, le
+    // passage par la région vide l'étant dans BaseAlert.spec.ts.
+    await announce.click();
+
+    await expect(region).toContainText('La liste de courses est à jour.');
   });
 
   test.describe('dialogue modal', () => {

@@ -262,6 +262,24 @@ Le composant est donc fait pour cela : la région est rendue inconditionnellemen
 - ne pas l'envelopper dans un `v-if`, qui annulerait exactement la garantie ;
 - ne pas changer de variante en même temps que le message : le `role` de la région changerait alors sous le lecteur d'écran, au moment même où il doit la lire. Le noeud n'est pas recréé pour autant, Vue se contentant de mettre l'attribut à jour, mais la restitution en souffre.
 
+**Réannoncer un message identique.** Le composant expose une méthode, `reannounce()` : elle vide la région puis y repose le texte, ce qui fait les deux changements de contenu qu'une région `aria-live` demande. Reposer la même chaîne dans `message` ne change pas le DOM et n'annonce donc rien : deux tentatives de connexion rejetées par le même « Identifiants incorrects » laisseraient croire que le second envoi n'a rien produit. L'appelant garde donc son message tel quel et appelle la méthode ; il n'a pas à le numéroter pour forcer un changement.
+
+```vue
+<BaseAlert ref="announcer" variant="error" :message="error" />
+```
+
+```ts
+const announcer = useTemplateRef<InstanceType<typeof BaseAlert>>('announcer');
+
+announcer.value?.reannounce();
+```
+
+Un message **différent** n'a pas besoin de cette méthode : il change déjà le DOM. Une réannonce en cours est alors abandonnée, son texte étant périmé.
+
+Les deux changements sont séparés par 50 ms, et non par un simple `nextTick` : les deux mutations tomberaient dans la même image et plusieurs lecteurs d'écran n'en verraient qu'une. Un second appel pendant ce délai annule le premier cycle et repart de zéro ; le minuteur est nettoyé au démontage.
+
+**Ce que les tests ne disent pas.** `BaseAlert.spec.ts` vérifie que la région passe bien par un état vide puis retrouve son texte, et que c'est le même noeud. Il ne vérifie pas ce qu'un lecteur d'écran annonce : la vérification finale passe par une écoute réelle, NVDA puis VoiceOver, qu'aucun test ne remplace.
+
 La région vide est un `div` sans style, donc de hauteur nulle. Dans un conteneur `flex` avec `gap`, elle compte en revanche comme un élément : `display: contents` corrigerait cela, mais plusieurs moteurs l'ont déjà, à un moment, sortie de l'arbre d'accessibilité, ce qui est exclu sur une région `aria-live`.
 
 **L'information n'a pas de couleur à elle : elle emprunte l'accent.** C'est voulu. Un message d'information n'est pas une alarme, et lui donner une teinte propre reviendrait à inventer un quatrième état dans un spectre déjà occupé par le succès, l'avertissement et l'erreur. L'écart entre l'accent et le repère d'information est donc nul par construction, et ce qui distingue les deux est le préfixe textuel, jamais la couleur. Les trois autres états, eux, sont à plus de 32 de l'accent (voir l'ADR 0006).

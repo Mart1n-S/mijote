@@ -248,6 +248,8 @@ Un champ de saisie avec label visible, aide et erreur.
 - **Une chaîne vide n'est pas une erreur.** Une validation qui rend « rien à signaler » sous cette forme ne doit pas rendre le champ invalide, sans quoi il s'annonce invalide sans dire pourquoi. L'état passe par un calcul unique, utilisé par l'attribut, la classe et l'affichage.
 - Une erreur pose `aria-invalid`, double l'épaisseur du contour et préfixe le message par « Erreur : ». L'état se lit donc sans la couleur.
 
+**Les attributs passés au composant vont sur le champ**, pas sur son conteneur : `inheritAttrs: false` et `v-bind="$attrs"` sur l'`input`. Sans cela, `name`, `inputmode`, `maxlength` ou `pattern` atterrissaient sur le `div.field` et n'avaient aucun effet. `$attrs` est lié **avant** les attributs calculés, parce que ce qui vient après gagne : `aria-describedby` et `aria-invalid` restent donc sous le contrôle du composant, seul à savoir quels éléments il rend. Un appelant qui passerait les siens ne coupe pas le champ de son aide ni de son erreur.
+
 **Partage des rôles pour l'annonce.** Le champ n'annonce pas son erreur lui-même : il la relie. Ce qui l'annonce à l'envoi du formulaire est le résumé en tête, un `BaseAlert`, dont la région existe déjà. C'est aussi ce que demande `vue-accessibility.md` : erreur sous le champ, et résumé en haut.
 
 ### BaseAlert

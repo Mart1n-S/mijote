@@ -150,6 +150,35 @@ describe('BaseField', () => {
     });
   });
 
+  describe("attributs passés par l'appelant", () => {
+    it('les pose sur le champ et non sur le conteneur', () => {
+      // Le composant n'a qu'une racine : sans inheritAttrs: false, name,
+      // inputmode, maxlength ou pattern atterrissaient sur le div et
+      // n'avaient donc aucun effet.
+      mountField({ name: 'quantity' });
+
+      expect(inputElement().getAttribute('name')).toBe('quantity');
+      expect(fieldRoot().hasAttribute('name')).toBe(false);
+    });
+
+    it("ne laisse pas remplacer le lien vers l'aide et l'erreur", () => {
+      mountField({
+        help: 'En grammes.',
+        error: 'Indiquez un nombre.',
+        'aria-describedby': 'ailleurs',
+        'aria-invalid': 'false',
+      });
+
+      // Le composant seul sait quels éléments il rend : un aria-describedby
+      // venu de l'appelant couperait le champ de son aide et de son erreur.
+      const textes = describedElements().map((element) => element.textContent?.trim());
+
+      expect(textes[0]).toBe('En grammes.');
+      expect(textes[1]).toContain('Indiquez un nombre.');
+      expect(inputElement().getAttribute('aria-invalid')).toBe('true');
+    });
+  });
+
   it('remonte la saisie au modèle', async () => {
     const wrapper = mountField();
 

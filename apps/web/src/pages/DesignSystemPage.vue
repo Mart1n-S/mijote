@@ -66,7 +66,10 @@ const locked = ref('250');
 
 // Le message part vide pour montrer ce que garantit BaseAlert : la région
 // aria-live est déjà dans le DOM, donc le premier message est bien annoncé.
-const ANNOUNCED_MESSAGE = 'La liste de courses est à jour.';
+// Un message propre à cette démonstration : celui de la variante info est
+// affiché juste au-dessus, et la même phrase deux fois ne dit pas qu'elle
+// démontre deux choses différentes.
+const ANNOUNCED_MESSAGE = 'Les prix ont été recalculés.';
 const announced = ref('');
 const announcer = useTemplateRef<InstanceType<typeof BaseAlert>>('announcer');
 
@@ -330,10 +333,12 @@ const frozen = ref(false);
       />
     </div>
 
-    <h3>Annonce d'un message qui arrive</h3>
+    <h3>Annonce et réannonce d'un message</h3>
 
     <p>
-      <BaseButton variant="secondary" @click="announce">Annoncer le même message</BaseButton>
+      <!-- Un intitulé vrai aux deux clics : au premier, rien n'a encore été
+           annoncé, donc il n'y a pas de « même » message. -->
+      <BaseButton variant="secondary" @click="announce">Annoncer le message</BaseButton>
     </p>
 
     <BaseAlert ref="announcer" variant="success" :message="announced" />

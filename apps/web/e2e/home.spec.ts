@@ -20,8 +20,13 @@ test.describe("page d'accueil", () => {
     // porté par l'en-tête.
     await expect(page.getByRole('heading', { level: 1, name: 'Accueil' })).toBeVisible();
     await expect(page).toHaveTitle('Accueil - Mijote');
+    // La seule entrée « Accueil », et non la liste complète de la barre : la
+    // page de démonstration n'existe pas en production, et ce test n'a pas à
+    // échouer pour une raison étrangère à son sujet.
     await expect(
-      page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('link'),
-    ).toHaveText(['Accueil', 'Design system']);
+      page
+        .getByRole('navigation', { name: 'Navigation principale' })
+        .getByRole('link', { name: 'Accueil' }),
+    ).toBeVisible();
   });
 });

@@ -15,6 +15,9 @@ import { accessibilityMatrix, accessibilityViolations, horizontalOverflow } from
 
 accessibilityMatrix('/design-system');
 
+/** La région aria-live, dotée du journal des contenus qu'on lui fait observer. */
+type ObservedRegion = Element & { steps?: string[] };
+
 test.describe('page de démonstration du design system', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/design-system');
@@ -60,22 +63,51 @@ test.describe('page de démonstration du design system', () => {
   });
 
   test('annonce un message dans une région aria-live déjà présente', async ({ page }) => {
+    const MESSAGE = 'Les prix ont été recalculés.';
+
     // La région doit préexister au message, sinon il n'est pas annoncé.
     const region = page.locator('[role="status"]').last();
     await expect(region).toBeAttached();
     await expect(region).toHaveText('');
 
-    const announce = page.getByRole('button', { name: 'Annoncer le même message' });
+    const announce = page.getByRole('button', { name: 'Annoncer le message' });
     await announce.click();
 
-    await expect(region).toContainText('La liste de courses est à jour.');
+    await expect(region).toContainText(MESSAGE);
 
-    // Le même message une seconde fois : la réannonce vide la région puis
-    // repose le texte. Ce qui est vérifié ici est le retour du texte, le
-    // passage par la région vide l'étant dans BaseAlert.spec.ts.
+    /*
+      Le même message une seconde fois. Une assertion Playwright réessaie
+      jusqu'à ce qu'elle tienne : elle ne verrait donc jamais le passage par la
+      région vide, et passerait aussi bien si le second clic ne faisait rien.
+      D'où cet observateur, posé avant le clic, qui garde la suite des contenus.
+
+      Le journal est accroché à la région elle-même, qui n'est jamais recréée :
+      c'est l'autre garantie du composant.
+    */
+    await region.evaluate((element: ObservedRegion) => {
+      const steps: string[] = [];
+      element.steps = steps;
+
+      new MutationObserver(() => steps.push(element.textContent?.trim() ?? '')).observe(element, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+      });
+    });
+
     await announce.click();
 
-    await expect(region).toContainText('La liste de courses est à jour.');
+    await expect
+      .poll(async () => region.evaluate((element: ObservedRegion) => element.steps?.length ?? 0))
+      .toBeGreaterThanOrEqual(2);
+
+    const steps = await region.evaluate((element: ObservedRegion) => element.steps ?? []);
+
+    // Deux changements de contenu, dont le premier est la région vide : c'est
+    // ce qu'une région aria-live demande pour annoncer deux fois la même
+    // chose. Ce qu'elle annonce vraiment reste à écouter, aucun test ne le dit.
+    expect(steps[0]).toBe('');
+    expect(steps.at(-1)).toContain(MESSAGE);
   });
 
   test.describe('dialogue modal', () => {

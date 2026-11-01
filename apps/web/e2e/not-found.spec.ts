@@ -28,6 +28,6 @@ test.describe('page de repli', () => {
     await page.getByRole('link', { name: "Retour à l'accueil" }).click();
 
     await expect(page).toHaveURL('/');
-    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Accueil' })).toBeVisible();
   });
 });

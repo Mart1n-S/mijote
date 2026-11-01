@@ -1,7 +1,9 @@
 import { PinoLogger } from 'nestjs-pino';
 import { describe, expect, it, vi } from 'vitest';
 
-import { type DatabaseProbe, HealthService } from './health.service.js';
+import type { DatabaseProbe } from '../db/client.js';
+
+import { HealthService } from './health.service.js';
 
 /*
   Le service est instancié directement, sans conteneur NestJS (ADR 0002). La

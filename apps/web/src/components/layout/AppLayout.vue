@@ -4,6 +4,8 @@ import { RouterLink, useRouter } from 'vue-router';
 
 import { MAIN_CONTENT_ID } from '../../navigation';
 
+import ServiceStatusBanner from './ServiceStatusBanner.vue';
+
 const router = useRouter();
 
 /*
@@ -51,6 +53,13 @@ const links = computed(() =>
     </nav>
 
     <main :id="MAIN_CONTENT_ID" class="layout__main" tabindex="-1">
+      <!-- L'état du service est annoncé avant le contenu, et seulement quand
+           il est mauvais. Il vit ici et non dans une rangée de la grille :
+           la hauteur de la barre basse et la réserve qui lui répond sont
+           mesurées (voir docs/design-system.md), et une rangée de plus les
+           ferait recalculer pour un bandeau presque toujours absent. -->
+      <ServiceStatusBanner />
+
       <slot />
     </main>
 

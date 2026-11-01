@@ -67,7 +67,7 @@ async function enlargeText(page: Page): Promise<void> {
 }
 
 /** Le débordement horizontal du document, en pixels. */
-async function horizontalOverflow(page: Page): Promise<number> {
+export async function horizontalOverflow(page: Page): Promise<number> {
   return page.evaluate(() => {
     const root = document.documentElement;
 

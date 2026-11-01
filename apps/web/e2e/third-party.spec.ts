@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+import { stubHealthyApi } from './api';
+
 /*
   Aucune page ne doit appeler un service tiers. La règle vient de deux
   endroits : la police doit être hébergée par le projet (critère de l'issue
@@ -27,6 +29,11 @@ for (const page_ of PAGES) {
       }
     });
 
+    // La sonde est bouchonnée, mais la requête part quand même du
+    // navigateur : l'écouteur ci-dessus la voit, et vérifie donc bien qu'elle
+    // reste sur l'origine de l'application. Sans bouchon, elle irait jusqu'au
+    // mandataire de prévisualisation, qui n'a aucune API derrière lui.
+    await stubHealthyApi(page);
     await page.goto(page_.path);
 
     // La police ne part au téléchargement qu'au moment où du texte l'utilise :
@@ -39,6 +46,7 @@ for (const page_ of PAGES) {
 }
 
 test('la police du projet est servie par le projet et bien chargée', async ({ page }) => {
+  await stubHealthyApi(page);
   await page.goto('/design-system');
   await page.evaluate(() => document.fonts.ready);
 

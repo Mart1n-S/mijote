@@ -312,6 +312,16 @@ test.describe('page de démonstration du design system', () => {
   test.describe('copie figée des états', () => {
     test.use({ colorScheme: 'dark' });
 
+    test.beforeEach(async ({ page }) => {
+      /*
+        La case part décochée : la page ne doit pas montrer de faux anneaux de
+        focus pendant les vérifications au clavier. Sans ce geste, ces tests
+        compareraient l'état de repos à lui-même et passeraient au vert en ne
+        mesurant plus rien.
+      */
+      await page.getByLabel("Figer le survol, l'enfoncement et le focus").check();
+    });
+
     const FIELD_PROPERTIES = ['border-color', 'background-color'];
     const FOCUS_PROPERTIES = [
       'outline-color',

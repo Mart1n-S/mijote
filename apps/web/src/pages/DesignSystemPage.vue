@@ -96,8 +96,13 @@ function toggleLoading(): void {
   contrôler. Les règles correspondantes sont en bas de ce fichier : elles
   recopient celles des composants, et c'est la seule duplication acceptée ici.
   Ce qui la garde, et ce qui lui échappe, est dit juste avant ces règles.
+
+  Au repos, et non figé : c'est sur cette page que se font les vérifications au
+  clavier, et trois boutons et un champ portant en permanence un anneau
+  identique au vrai ne laissent plus distinguer le focus réel des états
+  simulés.
 */
-const frozen = ref(true);
+const frozen = ref(false);
 </script>
 
 <template>

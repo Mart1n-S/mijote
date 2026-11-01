@@ -143,6 +143,8 @@ Les titres sont resserrés par `--tracking-tight` : aux grandes tailles, l'appro
 
 Chaque contrôle doit dire dans quel état il est, **et jamais par la seule couleur**. La page de démonstration les montre tous côte à côte, avec une case qui fige le survol, l'enfoncement et le focus.
 
+**Cette case part décochée.** C'est sur cette page que se font les vérifications au clavier : trois boutons et un champ portant en permanence un anneau identique au vrai ne laissent plus distinguer le focus réel des états simulés. Les tests qui comparent la copie figée aux composants vivants cochent donc la case avant de mesurer, sans quoi ils compareraient l'état de repos à lui-même.
+
 | Composant                | Repos                     | Survol            | Focus visible            | Actif, enfoncé                       | Désactivé                              | En cours                                   | Invalide                                  |
 | ------------------------ | ------------------------- | ----------------- | ------------------------ | ------------------------------------ | -------------------------------------- | ------------------------------------------ | ----------------------------------------- |
 | **Bouton principal**     | `accent`                  | `accent-hover`    | anneau global, 2 px      | `accent-active`, descend de 1 px     | `disabled`, atténué, curseur interdit  | `aria-disabled`, `aria-busy`, témoin, texte | sans objet                                |

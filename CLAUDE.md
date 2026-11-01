@@ -67,6 +67,7 @@ Avant de proposer un commit : `pnpm lint`, `pnpm typecheck` et `pnpm test` doive
 2. **Le plus simple qui marche** : pas de code spéculatif, pas d'abstraction pour un seul usage.
 3. **Changements chirurgicaux** : ne toucher que ce qui est demandé, garder le style existant.
 4. **Objectif vérifiable** : traduire la tâche en critères testables, boucler jusqu'à ce qu'ils passent.
+5. **Proportion** : on corrige ce qui touche un utilisateur réel dans ce qui est livré. Un défaut hypothétique va dans les limites connues, avec sa mesure, et n'ouvre pas d'issue. Une suggestion de relecteur ne devient une issue que si elle est bloquante ou importante.
 
 Pour toute tâche de plus de quelques lignes : présenter le plan et attendre ma validation avant d'écrire du code.
 
@@ -77,7 +78,7 @@ Le détail est dans `.claude/rules/` : `security.md` et `writing-style.md` sont 
 - **Secrets** : ne jamais lire, afficher ni commiter un `.env` (`security.md`).
 - **Données personnelles** : jamais affichées, recopiées ni journalisées ; filtrage par liste blanche dès l'extraction (`security.md`).
 - **Sites tiers** : `robots.txt` respecté, arrêt au premier blocage, aucune collecte Intermarché (`security.md`).
-- **Accessibilité** : RGAA 4.1 niveau AA, HTML natif avant ARIA (`vue-accessibility.md`).
+- **Accessibilité** : le socle de base, et rien de plus (HTML natif avant ARIA, clavier, focus visible, labels, contrastes garantis par les jetons, axe-core en CI). Aucune conformité RGAA visée, et un point qui bloque trop peut être abandonné (ADR 0007, `vue-accessibility.md`).
 - **Erreurs** : format unique RFC 9457, jamais de trace technique renvoyée au navigateur (`api.md`).
 - **Journaux** : JSON, avec identifiant de requête, rien de sensible (`api.md`).
 - **Dépendances** : version figée, `pnpm audit` propre, accord avant toute dépendance hors stack (`security.md`).

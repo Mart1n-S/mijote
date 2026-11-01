@@ -46,15 +46,24 @@ Les numéros renvoient à l'ordre des neuf stories de `docs/backlog/lot-1.md`.
 | Story du lot 1 | Agent ajouté |
 | --- | --- |
 | 1, poser le design system et les jetons de design | `code-reviewer` (en place) |
-| 2, uniformiser les erreurs et la journalisation | `security-reviewer` (en place), `a11y-reviewer` (en place) |
+| 2, uniformiser les erreurs et la journalisation | `security-reviewer` (en place) |
 | 4, créer les comptes, la connexion et la session | `test-planner`, `test-writer` (limité aux fichiers de test par un hook) |
 | 6, inviter et inscrire un utilisateur | `code-writer`, `doc-writer`, `pr-manager` |
 | À partir de 7 | skill `/feature <issue>`, qui enchaîne le pipeline |
 
-Les deux relecteurs de la story 2 sont posés avant elle, le 31 octobre 2026 :
-le format d'erreur et la journalisation sont justement ce qu'ils doivent
-relire, donc ils doivent exister et avoir passé leur banc d'essai avant que la
-story commence. Leur banc est en section 5.
+Les deux relecteurs spécialisés ont été posés le 31 octobre 2026, avant la
+story 2 : le format d'erreur et la journalisation sont justement ce qu'ils
+doivent relire, donc ils devaient exister et avoir passé leur banc d'essai
+avant que la story commence. Leur banc est en section 5.
+
+**`a11y-reviewer` est sorti du pipeline par défaut le 1er novembre 2026.** La
+priorité du projet est passée à la sécurité et à l'UX, et l'accessibilité se
+limite au socle de base (ADR 0007). Il reste installé, le skill
+`rgaa-checklist` lui sert toujours de grille, et il ne tourne plus que quand
+Martin le demande. Le pipeline par défaut d'un changement de `apps/web` est
+donc `code-reviewer` seul, auquel `security-reviewer` s'ajoute quand le
+changement touche l'authentification, des données personnelles ou une entrée
+externe.
 
 ## 4. Limites connues
 

@@ -11,7 +11,16 @@ export type Database = NodePgDatabase<typeof schema> & { $client: Pool };
 
 /** Ouvre un pool PostgreSQL et le branche sur le schéma Drizzle. */
 export function createDatabase(connectionString: string): Database {
-  const pool = new Pool({ connectionString });
+  const pool = new Pool({
+    connectionString,
+    /*
+      Deux délais, parce que la sonde de /health doit répondre, même mal : sans
+      eux, une base qui accepte la connexion sans jamais répondre laisserait la
+      requête de santé pendante, et le client attendre.
+    */
+    connectionTimeoutMillis: 2_000,
+    query_timeout: 2_000,
+  });
 
   return drizzle(pool, { schema });
 }

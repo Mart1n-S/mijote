@@ -27,7 +27,9 @@ La cible était donc plus haute que le besoin, et elle se payait sur les deux su
 - Les contrastes viennent des jetons de design, et sont garantis par leur test.
 - axe-core tourne en CI.
 
-Ce socle n'est pas une intention : il est tenu par l'outillage, comme l'exige l'ADR 0004. Le lint (`eslint-plugin-vuejs-accessibility`), le test des couples de jetons et les passages axe-core le gardent sans qu'un relecteur ait à y penser.
+La liste complète, celle qu'on lit en écrivant un composant, est dans `.claude/rules/vue-accessibility.md`. Les cinq points ci-dessus la résument.
+
+Ce socle est tenu **pour l'essentiel** par l'outillage, dans l'esprit de l'ADR 0004 : le lint (`eslint-plugin-vuejs-accessibility`), le test des couples de jetons et les passages axe-core le gardent sans qu'un relecteur ait à y penser. Ce qui reste à la vigilance, et que rien de mécanique ne garantit sur un écran nouveau, c'est l'usage au clavier et la visibilité du focus : un passage axe-core ne les mesure pas.
 
 ### Ce qu'on arrête
 
@@ -56,7 +58,11 @@ Elle vaut au-delà de l'accessibilité, et c'est pour cela qu'elle entre dans le
 
 L'ADR 0004 reste entier, y compris son banc d'essai, qui parle du « RGAA 4.1 niveau AA non négociable » : un ADR accepté ne se modifie pas. Son exemple garde sa valeur, parce qu'un champ sans label est dans le socle et reste un défaut bloquant. C'est le cadre général qui change ici, pas son raisonnement.
 
-L'ADR 0006 non plus. Atkinson Hyperlegible Next a été choisie pour la basse vision, et elle reste : c'est un choix déjà fait, qui ne coûte plus rien à tenir.
+L'ADR 0006 non plus. Atkinson Hyperlegible Next a été choisie pour la basse vision, et elle reste : c'est un choix déjà fait, qui ne coûte plus rien à tenir. Les commentaires qui la justifiaient par « la cible RGAA du projet » disent désormais la vraie raison, la lisibilité en basse vision.
+
+### Ce qu'il remplace
+
+L'ADR 0001 dit « l'application vise le RGAA 4.1 niveau AA » et « axe-core en CI et audit manuel au lecteur d'écran restent obligatoires ». **Ces deux phrases sont remplacées par le présent ADR**, et par lui seul : axe-core en CI reste, l'audit manuel s'arrête, la cible AA tombe. L'ADR 0001 n'est pas modifié, le reste de son contenu vaut toujours.
 
 ## Quand revoir cette décision
 

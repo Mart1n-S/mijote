@@ -2,6 +2,9 @@
 paths:
   - "apps/web/**/*.vue"
   - "apps/web/**/*.css"
+  # Les tests de bout en bout : c'est là que se décide le nombre de passages
+  # axe-core d'un écran, voir la section Vérification.
+  - "apps/web/e2e/**/*.ts"
 ---
 
 # Vue et accessibilité : le socle de base
@@ -45,9 +48,9 @@ Ce socle est gardé pour l'essentiel par l'outillage : le lint `vuejs-accessibil
 
 ## Ce qui n'est plus exigé
 
-- La conformité RGAA 4.1 niveau AA, et donc la grille des 106 critères. Le skill `rgaa-checklist` reste installé, mais il ne sert qu'à l'agent `a11y-reviewer`, lancé seulement quand Martin le demande.
+- La conformité RGAA 4.1 niveau AA, et donc la grille des 106 critères. Le skill `rgaa-checklist` reste installé, mais il ne se charge plus de lui-même : il sert à l'agent `a11y-reviewer`, lancé seulement quand Martin le demande, et à citer un critère exact quand Martin en demande un.
 - L'audit manuel au lecteur d'écran.
 - Le texte agrandi à 200 %, en particulier sur une fenêtre de petite hauteur.
 - Les régions `aria-live` posées par principe : une annonce se justifie par un besoin réel, pas par la règle.
 
-Un défaut hors de ce socle se consigne dans les limites connues de `docs/design-system.md`, avec sa mesure. Il n'ouvre pas d'issue.
+La règle de proportion du `CLAUDE.md` s'applique ici comme ailleurs : on corrige ce qui touche un utilisateur réel dans ce qui est livré. Un défaut **hypothétique** se consigne dans les limites connues de `docs/design-system.md`, avec sa mesure, et n'ouvre pas d'issue. Une gêne réelle se traite sur son mérite, socle ou pas.

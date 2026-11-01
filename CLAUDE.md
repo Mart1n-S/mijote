@@ -78,7 +78,7 @@ Le détail est dans `.claude/rules/` : `security.md` et `writing-style.md` sont 
 - **Secrets** : ne jamais lire, afficher ni commiter un `.env` (`security.md`).
 - **Données personnelles** : jamais affichées, recopiées ni journalisées ; filtrage par liste blanche dès l'extraction (`security.md`).
 - **Sites tiers** : `robots.txt` respecté, arrêt au premier blocage, aucune collecte Intermarché (`security.md`).
-- **Accessibilité** : le socle de base, et rien de plus (HTML natif avant ARIA, clavier, focus visible, labels, contrastes garantis par les jetons, axe-core en CI). Aucune conformité RGAA visée, et un point qui bloque trop peut être abandonné (ADR 0007, `vue-accessibility.md`).
+- **Accessibilité** : le socle de base, et rien de plus. En résumé, HTML natif avant ARIA, clavier, focus visible, labels, contrastes garantis par les jetons, axe-core en CI ; la liste qui fait foi est celle de `vue-accessibility.md`. Aucune conformité RGAA visée, et un point qui bloque trop peut être abandonné (ADR 0007).
 - **Erreurs** : format unique RFC 9457, jamais de trace technique renvoyée au navigateur (`api.md`).
 - **Journaux** : JSON, avec identifiant de requête, rien de sensible (`api.md`).
 - **Dépendances** : version figée, `pnpm audit` propre, accord avant toute dépendance hors stack (`security.md`).

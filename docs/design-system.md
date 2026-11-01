@@ -368,6 +368,10 @@ Elles sont dans `base.css` et s'appliquent sans que personne ait à y penser :
 | Seuils de contraste, dans les deux thèmes                                     | `src/styles/tokens.spec.ts`              |
 | Attributs ARIA, refus du clic en cours, focus gardé                           | `src/components/base/*.spec.ts` (jsdom)  |
 | Titre du document et focus à la navigation                                    | `src/navigation.spec.ts`                 |
+| Réannonce d'un message identique, région vidée puis reposée                   | `src/components/base/BaseAlert.spec.ts`  |
+| Attributs relayés sur le champ, `required` et `autocomplete`                  | `src/components/base/BaseField.spec.ts`  |
+| Nom du site cliquable, haut de 44 px, et ramenant à l'accueil                 | `e2e/design-system.spec.ts`              |
+| Nom unique de l'accueil : titre de niveau 1, titre du document, navigation    | `e2e/home.spec.ts`                       |
 | Accueil, page de repli et page de démonstration sans violation axe-core, en clair, en sombre, à 320 px, à 320 px en sombre et au texte à 200 % | `e2e/accessibility.ts` |
 | Ordre de l'échelle d'empilement                                               | `src/styles/tokens.spec.ts`              |
 | Voile et dialogue au-dessus de la barre basse, à 320 px                       | `e2e/design-system.spec.ts`              |

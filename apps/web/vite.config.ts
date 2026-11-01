@@ -22,7 +22,11 @@ export default defineConfig(({ mode }) => {
     shell : sans cela, changer VITE_API_URL n'aurait eu aucun effet, ce qui est
     exactement le genre de réglage qui ment en silence.
   */
-  const target = loadEnv(mode, ENV_DIR, 'VITE_')['VITE_API_URL'] ?? DEFAULT_API_TARGET;
+  // Vide et absente se traitent pareil : .env.example apprend au lecteur
+  // qu'une variable peut être laissée vide, et une cible vide ferait échouer
+  // le mandataire au premier appel.
+  const asked = loadEnv(mode, ENV_DIR, 'VITE_')['VITE_API_URL']?.trim();
+  const target = asked === undefined || asked === '' ? DEFAULT_API_TARGET : asked;
   const proxy = {
     '/api': {
       target,

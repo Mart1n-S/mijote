@@ -56,9 +56,11 @@ export class ApiError extends Error {
   constructor(
     readonly status: number | undefined,
     readonly problem: ProblemDetails | undefined,
+    options?: ErrorOptions,
   ) {
     super(
       `appel API en échec (statut ${status?.toString() ?? 'absent'}, requête ${problem?.requestId ?? 'inconnue'})`,
+      options,
     );
 
     this.name = 'ApiError';
@@ -100,10 +102,11 @@ export async function apiRequest(path: string, init?: RequestInit): Promise<Resp
       ...init,
       signal: init?.signal ?? AbortSignal.timeout(TIMEOUT_MS),
     });
-  } catch {
+  } catch (error) {
     // Réseau coupé, service arrêté, délai dépassé : aucun statut, donc aucune
-    // information à donner de plus que « injoignable ».
-    throw new ApiError(undefined, undefined);
+    // information à donner de plus que « injoignable ». La cause est chaînée :
+    // elle seule distingue un délai dépassé d'un réseau coupé en console.
+    throw new ApiError(undefined, undefined, { cause: error });
   }
 
   if (!response.ok) {

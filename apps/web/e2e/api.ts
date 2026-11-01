@@ -8,8 +8,10 @@ import type { Page } from '@playwright/test';
   apparaîtrait partout, et les mesures de géométrie et les passages axe-core
   porteraient sur une page que personne ne verra.
 
-  D'où ces deux bouchons. Ils interceptent l'appel dans le navigateur, donc la
-  requête ne sort pas et ne touche pas le mandataire de prévisualisation.
+  D'où ces deux bouchons. La requête est bien émise par le navigateur, donc
+  `page.on('request')` la voit et le contrôle des requêtes tierces la juge comme
+  les autres ; c'est le bouchon qui y répond, sans que rien n'atteigne le réseau
+  ni le mandataire de prévisualisation.
 */
 
 /** Le chemin de la sonde, tel que le client du front l'appelle. */

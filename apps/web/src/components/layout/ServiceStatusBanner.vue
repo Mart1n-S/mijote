@@ -50,12 +50,13 @@ onMounted(() => {
 
 <style scoped>
 /*
-  L'espace sous le bandeau n'existe que quand il y a un bandeau. La classe est
-  posée sur le message et non sur la région : celle-ci reste présente et vide,
-  et une marge permanente décalerait toutes les pages pour rien.
+  L'espace sous le bandeau n'existe que quand il y a un bandeau. La classe
+  atterrit sur la racine de BaseAlert, c'est-à-dire sur la région aria-live
+  elle-même, et elle n'est posée que si le message n'est pas vide : la région
+  reste donc présente et sans marge le reste du temps, au lieu de décaler
+  toutes les pages pour rien.
 */
 .service-status--shown {
-  display: block;
   margin-bottom: var(--space-5);
 }
 </style>

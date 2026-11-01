@@ -29,10 +29,9 @@ for (const page_ of PAGES) {
       }
     });
 
-    // La sonde est bouchonnée, mais la requête part quand même du
-    // navigateur : l'écouteur ci-dessus la voit, et vérifie donc bien qu'elle
-    // reste sur l'origine de l'application. Sans bouchon, elle irait jusqu'au
-    // mandataire de prévisualisation, qui n'a aucune API derrière lui.
+    // Le bouchon répond à la sonde sans que rien n'atteigne le réseau, mais
+    // l'écouteur ci-dessus voit quand même la requête : son origine est donc
+    // bien contrôlée comme celle de n'importe quelle autre.
     await stubHealthyApi(page);
     await page.goto(page_.path);
 

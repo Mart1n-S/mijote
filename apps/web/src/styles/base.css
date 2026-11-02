@@ -121,10 +121,16 @@ a:active {
   Aucun border-radius ici : un contour suit déjà la forme de l'élément, rayon
   compris. En imposer un changerait la forme du contrôle lui-même au moment
   où il reçoit le focus.
+
+  L'épaisseur et l'écart viennent de jetons, et non de valeurs écrites ici,
+  parce qu'un second endroit dessine désormais cet anneau : la case à cocher et
+  le bouton radio, autour de leur boîte et non de leur zone cliquable. C'est la
+  seule exception à l'anneau unique, et elle est écrite dans
+  docs/design-system.md avec sa raison.
 */
 :focus-visible {
-  outline: 2px solid var(--color-focus);
-  outline-offset: 2px;
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
 }
 
 /*

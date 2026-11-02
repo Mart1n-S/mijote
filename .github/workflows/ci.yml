@@ -18,6 +18,25 @@ jobs:
   verification:
     name: lint, types et tests
     runs-on: ubuntu-24.04
+    # Mailpit, pour que le test d'envoi d'e-mail traverse vraiment SMTP ici
+    # aussi. apps/api/src/mail/mailpit.spec.ts ne se saute qu'en l'absence de
+    # la variable CI, que GitHub pose dans chaque travail : si ce service ne
+    # démarrait pas, ce test échouerait franchement au lieu de se sauter en
+    # silence. Même version que docker-compose.yml : les deux se mettent à
+    # jour ensemble.
+    #
+    # Les ports sont publiés sur toutes les interfaces de l'exécuteur, là où
+    # docker-compose.yml prend soin de ne publier que sur la boucle locale.
+    # C'est sans conséquence sur un exécuteur hébergé par GitHub, jeté après le
+    # travail. Sur un exécuteur auto-hébergé du homelab, il faudrait restreindre
+    # la publication : une boîte Mailpit sans authentification serait sinon
+    # lisible par tout le réseau local.
+    services:
+      mailpit:
+        image: axllent/mailpit:v1.33.0
+        ports:
+          - 1025:1025
+          - 8025:8025
     steps:
       # Les actions sont figées par l'empreinte complète de leur commit, et
       # l'exécuteur par une version d'image. Voir docs/adr/0003-outillage-ia.md.

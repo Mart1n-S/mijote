@@ -69,6 +69,14 @@ beforeAll(async () => {
   process.env['LOG_LEVEL'] = 'silent';
   // Port 1 : la connexion est refusée tout de suite, donc la sonde répond vite.
   process.env['DATABASE_URL'] = 'postgres://mijote:none@127.0.0.1:1/none';
+  /*
+    MailModule lit sa configuration au démarrage et refuse de démarrer sans
+    elle : l'application ne se monterait pas ici sans ces trois variables. Rien
+    n'est envoyé, aucun test de ce fichier ne passe par l'envoyeur.
+  */
+  process.env['SMTP_HOST'] = '127.0.0.1';
+  process.env['SMTP_PORT'] = '1025';
+  process.env['MAIL_FROM'] = 'Mijote <no-reply@mijote.local>';
 
   app = await NestFactory.create(TestAppModule, { logger: false });
 

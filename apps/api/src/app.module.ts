@@ -5,6 +5,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { DatabaseModule } from './db/database.module.js';
 import { ProblemDetailsFilter } from './errors/problem-details.filter.js';
 import { HealthModule } from './health/health.module.js';
+import { MailModule } from './mail/mail.module.js';
 import { buildLoggerParams } from './logging/logger-options.js';
 
 @Module({
@@ -17,6 +18,7 @@ import { buildLoggerParams } from './logging/logger-options.js';
     */
     LoggerModule.forRootAsync({ useFactory: () => buildLoggerParams(process.env) }),
     DatabaseModule,
+    MailModule,
     HealthModule,
   ],
   providers: [

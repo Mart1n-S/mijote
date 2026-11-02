@@ -35,7 +35,7 @@ function mailerWith(transport: MailTransport) {
 }
 
 const accepting: MailTransport = {
-  sendMail: () => Promise.resolve({ messageId: '<abc@mijote.local>', rejected: [] }),
+  sendMail: () => Promise.resolve({ messageId: '<abc@mijote.local>' }),
 };
 
 describe('readSmtpSettings', () => {
@@ -89,8 +89,15 @@ describe('SmtpMailer', () => {
     const { mailer, error } = mailerWith({ sendMail: () => Promise.reject(refused) });
 
     await expect(mailer.send(MESSAGE)).rejects.toBeInstanceOf(ProblemException);
-    // L'erreur d'origine n'est pas avalée : elle part au journal.
-    expect(error).toHaveBeenCalledWith({ err: refused }, "envoi d'e-mail en échec");
+    /*
+      L'erreur n'est pas avalée : ses champs partent au journal. Ni le message
+      ni la pile, parce que nodemailer y colle la réponse du serveur, qui nomme
+      le destinataire (voir describeFailure).
+    */
+    expect(error).toHaveBeenCalledWith(
+      { type: 'Error', code: 'ECONNREFUSED', responseCode: undefined, command: undefined },
+      "envoi d'e-mail en échec",
+    );
   });
 
   it('rend un 503 et un message en français, sans détail technique', async () => {
@@ -111,23 +118,60 @@ describe('SmtpMailer', () => {
     }
   });
 
-  it('traite un destinataire refusé comme un échec, en ne journalisant que le nombre', async () => {
-    const { mailer, error } = mailerWith({
-      sendMail: () =>
-        Promise.resolve({ messageId: '<def@mijote.local>', rejected: ['invitee@exemple.test'] }),
-    });
+  it("ne journalise pas l'adresse quand le serveur refuse le destinataire", async () => {
+    /*
+      La forme réelle, mesurée dans nodemailer 10.3.1 : avec un seul
+      destinataire, un refus ne rend pas un envoi partiel, il rejette la
+      promesse, et la réponse du serveur est concaténée au message de l'erreur
+      (smtp-connection/index.js:935), réponse qui cite l'adresse.
+    */
+    const rejection = Object.assign(
+      new Error(
+        "Can't send mail - all recipients were rejected: 550 5.1.1 <invitee@exemple.test>: Recipient address rejected: User unknown",
+      ),
+      { code: 'EENVELOPE', responseCode: 550, command: 'RCPT TO' },
+    );
+    const { mailer, error } = mailerWith({ sendMail: () => Promise.reject(rejection) });
 
     await expect(mailer.send(MESSAGE)).rejects.toBeInstanceOf(ProblemException);
-    expect(error).toHaveBeenCalledWith(
-      { messageId: '<def@mijote.local>', rejected: 1 },
-      'destinataire refusé par le serveur SMTP',
-    );
+
+    // La garantie demandée : aucune ligne de journal ne porte l'adresse, donc
+    // ni le message de l'erreur ni sa pile ne sont journalisés.
     expect(JSON.stringify(error.mock.calls)).not.toContain('invitee@exemple.test');
+    expect(error).toHaveBeenCalledWith(
+      { type: 'Error', code: 'EENVELOPE', responseCode: 550, command: 'RCPT TO' },
+      "envoi d'e-mail en échec",
+    );
+  });
+
+  it("refuse une adresse qui n'est pas unique, sans la recopier", async () => {
+    /*
+      nodemailer découpe `to` sur la virgule : le message, donc le lien
+      d'invitation et son jeton, partirait aux deux adresses. C'est un défaut de
+      programmation, pas une panne de service, d'où une erreur ordinaire que le
+      filtre rendra en 500 générique.
+    */
+    const { mailer } = mailerWith(accepting);
+
+    await expect(
+      mailer.send({ ...MESSAGE, to: 'invitee@exemple.test, attaquant@ailleurs.test' }),
+    ).rejects.toThrow(/adresse unique/);
+
+    // Un retour chariot dans une adresse est la forme classique de l'injection
+    // d'en-tête : nodemailer le neutralise, cet invariant le refuse avant lui.
+    await expect(
+      mailer.send({ ...MESSAGE, to: 'invitee@exemple.test\r\nBcc: x@y.z' }),
+    ).rejects.toThrow(/adresse unique/);
   });
 });
 
 describe('MemoryMailer', () => {
-  it("garde les messages sans rien envoyer, et c'est ce que les tests emploient", async () => {
+  /*
+    Aucun test ne substitue encore MemoryMailer au jeton MAILER : rien ne
+    consomme l'envoyeur dans l'application. C'est la story qui enverra la
+    première invitation qui le fera, et ce test montre ce qu'elle emploiera.
+  */
+  it('garde les messages sans rien envoyer', async () => {
     const mailer = new MemoryMailer();
 
     await mailer.send(

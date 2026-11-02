@@ -46,9 +46,12 @@ describe('BaseFieldset', () => {
     expect(mountFieldset({ required: true }).text()).toContain('(obligatoire)');
   });
 
-  it("désactive tout ce qu'il contient", () => {
-    // C'est le comportement natif d'un fieldset désactivé : chaque contrôle à
-    // l'intérieur sort de l'ordre de tabulation, sans qu'on ait à le marquer.
+  it("porte l'attribut disabled sur le fieldset", () => {
+    /*
+      C'est tout ce que ce test mesure. La propagation aux contrôles qu'il
+      contient est le comportement natif du navigateur, et jsdom ne la simule
+      pas : la vérifier demanderait une mesure en navigateur.
+    */
     expect(mountFieldset({ disabled: true }).attributes('disabled')).toBeDefined();
   });
 

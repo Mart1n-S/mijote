@@ -24,9 +24,10 @@ const props = withDefaults(
 );
 
 /*
-  L'aide et l'erreur sont reliées au groupe, pas à chacun de ses champs : le
-  lecteur d'écran les restitue à l'entrée dans le groupe, une fois, au lieu de
-  les répéter à chaque option.
+  L'aide et l'erreur sont reliées au groupe, et non répétées sur chacun de ses
+  champs. L'intention est qu'un lecteur d'écran les dise une fois, à l'entrée
+  dans le groupe, plutôt qu'à chaque option ; rien ici ne le mesure, l'audit au
+  lecteur d'écran n'étant plus pratiqué (ADR 0007).
 */
 const { helpId, errorId, hasHelp, hasError, describedBy } = useFieldAria(props);
 </script>
@@ -64,6 +65,11 @@ const { helpId, errorId, hasHelp, hasError, describedBy } = useFieldAria(props);
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+  /*
+    Un fieldset arrive avec `min-inline-size: min-content` de la feuille du
+    navigateur : sans cette surcharge, il ne rétrécit pas sous la largeur de son
+    contenu le plus large et déborde de la page sur un petit écran.
+  */
   min-width: 0;
   margin: 0;
   padding: 0;

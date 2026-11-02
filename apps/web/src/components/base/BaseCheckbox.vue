@@ -25,27 +25,18 @@ const { controlId, helpId, errorId, hasHelp, hasError, describedBy } = useFieldA
 
 <template>
   <div class="checkbox">
-    <div class="checkbox__row">
-      <ChoiceControl
-        :id="controlId"
-        type="checkbox"
-        :checked="checked"
-        :required="required"
-        :disabled="disabled"
-        :invalid="hasError"
-        :described-by="describedBy"
-        @change="checked = $event"
-      />
-
-      <label
-        class="checkbox__label"
-        :class="{ 'checkbox__label--disabled': disabled }"
-        :for="controlId"
-      >
-        {{ label }}
-        <span v-if="required" class="checkbox__required">(obligatoire)</span>
-      </label>
-    </div>
+    <ChoiceControl
+      :id="controlId"
+      type="checkbox"
+      :label="label"
+      :checked="checked"
+      :required="required"
+      :show-required="required"
+      :disabled="disabled"
+      :invalid="hasError"
+      :described-by="describedBy"
+      @change="checked = $event"
+    />
 
     <!--
       L'aide vient sous la rangée, et non entre le label et le contrôle comme
@@ -62,47 +53,5 @@ const { controlId, helpId, errorId, hasHelp, hasError, describedBy } = useFieldA
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-}
-
-.checkbox__row {
-  display: flex;
-  align-items: center;
-  /* Rien entre la case et son étiquette : la zone cliquable de 44 px déborde
-     déjà largement de la marque dessinée, et un écart les éloignerait. */
-  gap: var(--space-1);
-}
-
-/*
-  Le label remplit la hauteur de la zone cliquable et devient cliquable avec
-  elle : c'est un confort en plus des 44 px du contrôle, jamais un remplacement.
-*/
-.checkbox__label {
-  display: flex;
-  align-items: center;
-  min-height: var(--tap-min);
-  /*
-    Deux réglages pour la même raison, mesurée au texte doublé à 320 px, où
-    l'étiquette débordait de 28 px et faisait défiler la page entière.
-
-    min-width: 0 autorise l'étiquette, élément de flex, à rétrécir sous sa
-    largeur minimale de contenu. Et `anywhere` plutôt que `break-word` parce que
-    seul le premier entre dans le calcul de cette largeur minimale : avec
-    `break-word`, le mot le plus long la fixait encore, et il reste des mots
-    plus larges que la place disponible à cette taille de texte.
-  */
-  min-width: 0;
-  overflow-wrap: anywhere;
-  cursor: pointer;
-}
-
-.checkbox__label--disabled {
-  color: var(--color-text-muted);
-  cursor: not-allowed;
-}
-
-.checkbox__required {
-  margin-left: var(--space-1);
-  color: var(--color-text-muted);
-  font-size: var(--text-sm);
 }
 </style>

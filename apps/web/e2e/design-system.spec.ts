@@ -691,6 +691,104 @@ test.describe('page de démonstration du design system', () => {
   });
 
   /*
+    Trois garanties des champs de choix qui ne se mesurent qu'en navigateur :
+    la taille de la zone cliquable, l'existence de la marque dessinée, et
+    l'anneau de focus posé sur la boîte avec les jetons de base.css. jsdom ne
+    met rien en page et ne calcule aucun pseudo-élément.
+  */
+  test.describe('champs de choix', () => {
+    /** La case à cocher du réglage de notifications, cochée au chargement. */
+    function checkbox(page: Page) {
+      return page.getByLabel('Me prévenir des invitations');
+    }
+
+    test('offre une zone cliquable de 44 px, bien plus grande que sa marque', async ({ page }) => {
+      const zone = await checkbox(page).boundingBox();
+      const mark = await checkbox(page).evaluate((element) => {
+        const box = element.nextElementSibling;
+
+        return box === null ? null : box.getBoundingClientRect().width;
+      });
+
+      expect(zone?.width).toBeGreaterThanOrEqual(44);
+      expect(zone?.height).toBeGreaterThanOrEqual(44);
+      /*
+        La marque reste à la taille du texte : c'est la zone qui est grande, pas
+        le dessin. Sans cette seconde mesure, une case de 44 px de côté
+        passerait le premier contrôle.
+      */
+      expect(mark).not.toBeNull();
+      expect(mark ?? 0).toBeLessThan(30);
+    });
+
+    test('dessine une marque, et pas seulement un fond coloré', async ({ page }) => {
+      const read = async (label: string): Promise<{ content: string; height: number }> => {
+        // Par le rôle et non par le libellé : « En erreur » est aussi contenu
+        // dans « Taille, en erreur », qui est une liste déroulante.
+        const result = await page.getByRole('checkbox', { name: label }).evaluate((element) => {
+          const box = element.nextElementSibling;
+
+          if (box === null) {
+            return null;
+          }
+
+          const after = getComputedStyle(box, '::after');
+
+          return { content: after.content, height: Number.parseFloat(after.height) || 0 };
+        });
+
+        expect(result, `pas de boîte dessinée pour « ${label} »`).not.toBeNull();
+
+        return result ?? { content: 'none', height: 0 };
+      };
+
+      const checked = await read('Me prévenir des invitations');
+      const unchecked = await read('En erreur');
+
+      /*
+        L'état coché porte une forme, pas seulement la couleur d'accent : c'est
+        ce qui le rend lisible sur un écran monochrome et avec un daltonisme.
+      */
+      expect(checked.content).not.toBe('none');
+      expect(checked.height).toBeGreaterThan(0);
+      expect(unchecked.content).toBe('none');
+    });
+
+    test("pose l'anneau de focus sur la boîte, avec les jetons de base.css", async ({ page }) => {
+      await checkbox(page).focus();
+
+      const measure = await checkbox(page).evaluate((element) => {
+        const box = element.nextElementSibling;
+        const root = getComputedStyle(document.documentElement);
+        const drawn = box === null ? null : getComputedStyle(box);
+
+        return {
+          // L'anneau a quitté la zone cliquable pour la boîte : c'est
+          // l'exception à l'anneau unique, voir docs/design-system.md.
+          onZone: getComputedStyle(element).outlineStyle,
+          onBox: drawn?.outlineStyle,
+          width: drawn?.outlineWidth,
+          offset: drawn?.outlineOffset,
+          color: drawn?.outlineColor,
+          tokenWidth: root.getPropertyValue('--focus-ring-width').trim(),
+          tokenOffset: root.getPropertyValue('--focus-ring-offset').trim(),
+        };
+      });
+
+      expect(measure.onZone).toBe('none');
+      expect(measure.onBox).toBe('solid');
+      /*
+        Les valeurs viennent des jetons et de rien d'autre : c'est la condition
+        à laquelle l'exception a été acceptée. Comparer aux jetons plutôt qu'à
+        « 2px » écrit ici fait suivre ce test si les jetons changent.
+      */
+      expect(measure.width).toBe(measure.tokenWidth);
+      expect(measure.offset).toBe(measure.tokenOffset);
+      expect(measure.color).not.toBe('rgba(0, 0, 0, 0)');
+    });
+  });
+
+  /*
     RGAA 10.4 : le texte doit pouvoir doubler sans perte de contenu ni de
     fonction. Doubler la taille de base du document est exactement ce que fait
     l'agrandissement de texte d'un navigateur sur des tailles en rem, ce que

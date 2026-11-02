@@ -18,6 +18,18 @@ jobs:
   verification:
     name: lint, types et tests
     runs-on: ubuntu-24.04
+    # Mailpit, pour que le test d'envoi d'e-mail traverse vraiment SMTP ici
+    # aussi. Sans ce service, apps/api/src/mail/mailpit.spec.ts se saute
+    # (c'est ce qui permet un `pnpm test` local sans `docker compose up`), et
+    # la seule garantie de bout en bout de l'envoi ne serait jamais exercée.
+    # Même version que docker-compose.yml : les deux se mettent à jour
+    # ensemble.
+    services:
+      mailpit:
+        image: axllent/mailpit:v1.33.0
+        ports:
+          - 1025:1025
+          - 8025:8025
     steps:
       # Les actions sont figées par l'empreinte complète de leur commit, et
       # l'exécuteur par une version d'image. Voir docs/adr/0003-outillage-ia.md.

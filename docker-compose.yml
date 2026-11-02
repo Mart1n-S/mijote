@@ -1,5 +1,5 @@
-# PostgreSQL de développement. La production tourne sur le homelab et ne se
-# configure pas ici.
+# Services de développement : PostgreSQL et Mailpit. La production tourne sur le
+# homelab et ne se configure pas ici.
 services:
   postgres:
     image: postgres:18.6-alpine
@@ -48,6 +48,35 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+
+  # Mailpit capture tous les e-mails du développement et n'en envoie aucun :
+  # rien ne sort du poste, et aucune adresse réelle ne peut être écrite par
+  # erreur à un destinataire réel.
+  mailpit:
+    image: axllent/mailpit:v1.33.0
+    container_name: mijote-mailpit
+    restart: unless-stopped
+    environment:
+      # Les messages vivent en mémoire, sans MP_DATABASE : ils disparaissent à
+      # l'arrêt du conteneur, donc aucune adresse e-mail n'est conservée sur le
+      # disque (security.md, données personnelles).
+      MP_MAX_MESSAGES: 500
+    # Adresses nommées, comme pour PostgreSQL ci-dessus et pour la même raison :
+    # la forme courte '1025:1025' publierait sur toutes les interfaces, et les
+    # e-mails de développement seraient lisibles par n'importe quel voisin de
+    # réseau. 1025 est le SMTP, 8025 l'interface web.
+    ports:
+      - '127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025'
+      - '[::1]:${MAILPIT_SMTP_PORT:-1025}:1025'
+      - '127.0.0.1:${MAILPIT_WEB_PORT:-8025}:8025'
+      - '[::1]:${MAILPIT_WEB_PORT:-8025}:8025'
+    healthcheck:
+      # Sous-commande de l'image elle-même : elle ne dépend ni de curl ni de
+      # wget, que l'image n'a pas à fournir.
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   postgres-data:

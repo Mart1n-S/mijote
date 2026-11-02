@@ -26,6 +26,7 @@ Objectif (section 13 du cahier des charges) : design system, comptes sur invitat
 | Tests      | Vitest (unitaires et intégration), Playwright (bout en bout), axe-core (accessibilité)             |
 | Validation | zod, schémas partagés dans `packages/shared` (ADR 0008)                                            |
 | Journaux   | pino par nestjs-pino, au format JSON (ADR 0008)                                                    |
+| E-mails    | nodemailer, Mailpit en développement (ADR 0009)                                                    |
 | Conteneurs | Docker Compose en développement, homelab en production                                             |
 
 ## Structure

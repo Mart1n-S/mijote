@@ -49,10 +49,22 @@ compte GitHub.
 | Image | Version | Pourquoi | Retrait |
 | --- | --- | --- | --- |
 | `postgres` | `18.6-alpine` | base de développement | `docker compose down -v` puis `docker image rm postgres:18.6-alpine` |
+| `axllent/mailpit` | `v1.33.0` | serveur SMTP de développement, qui capture les e-mails sans jamais en envoyer | `docker compose down` puis `docker image rm axllent/mailpit:v1.33.0` |
 
 `docker compose down -v` supprime aussi le volume `postgres-data`, donc les
 données de développement. C'est voulu : rien d'irremplaçable n'y vit, la base se
 reconstruit par `pnpm db:migrate`.
+
+**Mailpit ne garde rien sur le disque.** Aucun volume ne lui est monté et
+`MP_DATABASE` n'est pas renseigné : ses messages vivent en mémoire et
+disparaissent à l'arrêt du conteneur. C'est voulu, une boîte de développement
+contenant de vraies adresses e-mail n'a pas à survivre à un redémarrage
+(`.claude/rules/security.md`, données personnelles).
+
+Son interface web est sur <http://localhost:8025>, son SMTP sur 1025, et les
+deux ne sont publiés que sur la boucle locale. La même version d'image est
+déclarée dans `.github/workflows/ci.yml`, où elle sert au test d'envoi réel :
+les deux se mettent à jour ensemble.
 
 **Le conteneur publie sur 5433, pas sur 5432.** Un PostgreSQL 16 natif, installé
 avant le projet, tourne en service Windows (`postgresql-x64-16`, démarrage

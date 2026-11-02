@@ -697,6 +697,12 @@ test.describe('page de démonstration du design system', () => {
     met rien en page et ne calcule aucun pseudo-élément.
   */
   test.describe('champs de choix', () => {
+    /*
+      La mesure porte sur la case à cocher, et vaut pour le bouton radio : les
+      deux partagent la règle de .choice__box, donc l'anneau qui est mesuré ici
+      est le même que le sien.
+    */
+
     /** La case à cocher du réglage de notifications, cochée au chargement. */
     function checkbox(page: Page) {
       return page.getByLabel('Me prévenir des invitations');
@@ -772,6 +778,20 @@ test.describe('page de démonstration du design system', () => {
           color: drawn?.outlineColor,
           tokenWidth: root.getPropertyValue('--focus-ring-width').trim(),
           tokenOffset: root.getPropertyValue('--focus-ring-offset').trim(),
+          // La couleur est lue à travers un élément jetable : un jeton
+          // s'écrit « #44367d » là où outlineColor se calcule en rgb().
+          tokenColor: (() => {
+            const probe = document.createElement('span');
+
+            probe.style.color = 'var(--color-focus)';
+            document.body.append(probe);
+
+            const value = getComputedStyle(probe).color;
+
+            probe.remove();
+
+            return value;
+          })(),
         };
       });
 
@@ -784,7 +804,7 @@ test.describe('page de démonstration du design system', () => {
       */
       expect(measure.width).toBe(measure.tokenWidth);
       expect(measure.offset).toBe(measure.tokenOffset);
-      expect(measure.color).not.toBe('rgba(0, 0, 0, 0)');
+      expect(measure.color).toBe(measure.tokenColor);
     });
   });
 

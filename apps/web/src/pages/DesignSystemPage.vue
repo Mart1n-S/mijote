@@ -129,15 +129,14 @@ const HOUSEHOLD_SIZES: readonly ChoiceOption[] = [
   { value: '4', label: '4 personnes' },
 ];
 
-const DIETS: readonly ChoiceOption[] = [
-  { value: 'quick', label: 'Repas rapides' },
-  { value: 'veggie', label: 'Sans viande' },
-];
-
 const notifications = ref(true);
+const accepted = ref(false);
 const role = ref('');
+const roleInError = ref('');
 const householdSize = ref('');
-const diet = ref('quick');
+const sizeInError = ref('');
+const quickMeals = ref(true);
+const meatFree = ref(false);
 </script>
 
 <template>
@@ -371,11 +370,7 @@ const diet = ref('quick');
       />
       <BaseCheckbox :model-value="false" label="Indisponible" disabled />
       <BaseCheckbox :model-value="true" label="Indisponible et cochée" disabled />
-      <BaseCheckbox
-        :model-value="false"
-        label="En erreur"
-        error="Il faut accepter pour continuer."
-      />
+      <BaseCheckbox v-model="accepted" label="En erreur" error="Il faut accepter pour continuer." />
     </div>
 
     <h3>Boutons radio</h3>
@@ -389,7 +384,7 @@ const diet = ref('quick');
         required
       />
       <BaseRadioGroup
-        :model-value="''"
+        v-model="roleInError"
         legend="Rôle, en erreur"
         :options="ROLE_OPTIONS"
         error="Choisissez un rôle."
@@ -414,7 +409,7 @@ const diet = ref('quick');
         required
       />
       <BaseSelect
-        :model-value="''"
+        v-model="sizeInError"
         label="Taille, en erreur"
         :options="HOUSEHOLD_SIZES"
         error="Indiquez une taille."
@@ -439,12 +434,10 @@ const diet = ref('quick');
         legend="Préférences de repas"
         help="Elles orientent les suggestions, sans rien interdire."
       >
-        <BaseCheckbox
-          v-for="option in DIETS"
-          :key="option.value"
-          :model-value="diet === option.value"
-          :label="option.label"
-        />
+        <!-- Deux cases indépendantes, et non un choix unique : c'est ce que des
+             cases à cocher veulent dire. Chacune a son propre modèle. -->
+        <BaseCheckbox v-model="quickMeals" label="Repas rapides" />
+        <BaseCheckbox v-model="meatFree" label="Sans viande" />
       </BaseFieldset>
     </div>
   </section>
@@ -728,8 +721,8 @@ p {
    l'application ne produit jamais. */
 .is-frozen .row-focus :deep(.button),
 .is-frozen .row-focus :deep(.field__input) {
-  outline: 2px solid var(--color-focus);
-  outline-offset: 2px;
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
 }
 
 .is-frozen .row-hover :deep(.field__input) {

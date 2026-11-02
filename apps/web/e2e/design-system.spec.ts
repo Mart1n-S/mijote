@@ -16,6 +16,50 @@ import { stubHealthyApi } from './api';
 
 accessibilityMatrix('/design-system');
 
+/** La case à cocher du réglage de notifications, cochée au chargement. */
+function notificationsCheckbox(page: Page) {
+  return page.getByLabel('Me prévenir des invitations');
+}
+
+/**
+ * Exige que la zone cliquable d'un choix tienne ses 44 px et ne soit pas
+ * écrasée, et que la marque dessinée reste nettement plus petite qu'elle.
+ *
+ * Mesuré dans deux contextes : au gabarit par défaut, et à 320 px au texte
+ * doublé, où la place manque et où un élément de flex se fait écraser. La
+ * comparaison est proportionnelle et non en pixels écrits ici, parce que la
+ * zone comme la marque suivent la taille du texte.
+ */
+async function expectChoiceZoneHolds(page: Page, context: string): Promise<void> {
+  const zone = await notificationsCheckbox(page).boundingBox();
+  const control = await notificationsCheckbox(page).evaluate((element) => {
+    const box = element.nextElementSibling;
+    const row = element.parentElement;
+
+    return row === null || box === null
+      ? null
+      : {
+          mark: box.getBoundingClientRect().width,
+          // Le contrôle ne doit jamais rétrécir : c'est ce que flex: none
+          // garantit, et c'est la valeur calculée qui le dit.
+          shrink: getComputedStyle(row).flexShrink,
+        };
+  });
+
+  expect(control, `${context} : la boîte doit être dessinée`).not.toBeNull();
+  expect(zone?.width, `${context} : largeur de la zone cliquable`).toBeGreaterThanOrEqual(44);
+  expect(zone?.height, `${context} : hauteur de la zone cliquable`).toBeGreaterThanOrEqual(44);
+  expect(control?.shrink, `${context} : le contrôle est écrasable`).toBe('0');
+  /*
+    La marque reste à la taille du texte : c'est la zone qui est grande, pas le
+    dessin. Sans cette seconde mesure, une case de 44 px de côté passerait le
+    premier contrôle.
+  */
+  expect(control?.mark ?? 0, `${context} : la marque occupe toute la zone`).toBeLessThan(
+    (zone?.width ?? 0) * 0.7,
+  );
+}
+
 /** La région aria-live, dotée du journal des contenus qu'on lui fait observer. */
 type ObservedRegion = Element & { steps?: string[] };
 
@@ -691,6 +735,104 @@ test.describe('page de démonstration du design system', () => {
   });
 
   /*
+    Trois garanties des champs de choix qui ne se mesurent qu'en navigateur :
+    la taille de la zone cliquable, l'existence de la marque dessinée, et
+    l'anneau de focus posé sur la boîte avec les jetons de base.css. jsdom ne
+    met rien en page et ne calcule aucun pseudo-élément.
+  */
+  test.describe('champs de choix', () => {
+    /*
+      La mesure porte sur la case à cocher, et vaut pour le bouton radio : les
+      deux partagent la règle de .choice__box, donc l'anneau qui est mesuré ici
+      est le même que le sien.
+    */
+
+    test('offre une zone cliquable de 44 px, bien plus grande que sa marque', async ({ page }) => {
+      await expectChoiceZoneHolds(page, 'gabarit par défaut');
+    });
+
+    test('dessine une marque, et pas seulement un fond coloré', async ({ page }) => {
+      const read = async (label: string): Promise<{ content: string; height: number }> => {
+        // Par le rôle et non par le libellé : « En erreur » est aussi contenu
+        // dans « Taille, en erreur », qui est une liste déroulante.
+        const result = await page.getByRole('checkbox', { name: label }).evaluate((element) => {
+          const box = element.nextElementSibling;
+
+          if (box === null) {
+            return null;
+          }
+
+          const after = getComputedStyle(box, '::after');
+
+          return { content: after.content, height: Number.parseFloat(after.height) || 0 };
+        });
+
+        expect(result, `pas de boîte dessinée pour « ${label} »`).not.toBeNull();
+
+        return result ?? { content: 'none', height: 0 };
+      };
+
+      const checked = await read('Me prévenir des invitations');
+      const unchecked = await read('En erreur');
+
+      /*
+        L'état coché porte une forme, pas seulement la couleur d'accent : c'est
+        ce qui le rend lisible sur un écran monochrome et avec un daltonisme.
+      */
+      expect(checked.content).not.toBe('none');
+      expect(checked.height).toBeGreaterThan(0);
+      expect(unchecked.content).toBe('none');
+    });
+
+    test("pose l'anneau de focus sur la boîte, avec les jetons de base.css", async ({ page }) => {
+      await notificationsCheckbox(page).focus();
+
+      const measure = await notificationsCheckbox(page).evaluate((element) => {
+        const box = element.nextElementSibling;
+        const root = getComputedStyle(document.documentElement);
+        const drawn = box === null ? null : getComputedStyle(box);
+
+        return {
+          // L'anneau a quitté la zone cliquable pour la boîte : c'est
+          // l'exception à l'anneau unique, voir docs/design-system.md.
+          onZone: getComputedStyle(element).outlineStyle,
+          onBox: drawn?.outlineStyle,
+          width: drawn?.outlineWidth,
+          offset: drawn?.outlineOffset,
+          color: drawn?.outlineColor,
+          tokenWidth: root.getPropertyValue('--focus-ring-width').trim(),
+          tokenOffset: root.getPropertyValue('--focus-ring-offset').trim(),
+          // La couleur est lue à travers un élément jetable : un jeton
+          // s'écrit « #44367d » là où outlineColor se calcule en rgb().
+          tokenColor: (() => {
+            const probe = document.createElement('span');
+
+            probe.style.color = 'var(--color-focus)';
+            document.body.append(probe);
+
+            const value = getComputedStyle(probe).color;
+
+            probe.remove();
+
+            return value;
+          })(),
+        };
+      });
+
+      expect(measure.onZone).toBe('none');
+      expect(measure.onBox).toBe('solid');
+      /*
+        Les valeurs viennent des jetons et de rien d'autre : c'est la condition
+        à laquelle l'exception a été acceptée. Comparer aux jetons plutôt qu'à
+        « 2px » écrit ici fait suivre ce test si les jetons changent.
+      */
+      expect(measure.width).toBe(measure.tokenWidth);
+      expect(measure.offset).toBe(measure.tokenOffset);
+      expect(measure.color).toBe(measure.tokenColor);
+    });
+  });
+
+  /*
     RGAA 10.4 : le texte doit pouvoir doubler sans perte de contenu ni de
     fonction. Doubler la taille de base du document est exactement ce que fait
     l'agrandissement de texte d'un navigateur sur des tailles en rem, ce que
@@ -730,6 +872,20 @@ test.describe('page de démonstration du design system', () => {
       // 44 px de zone tactile doublés, la marge de l'anneau de focus doublée
       // de chaque côté, plus le liseré, qui ne suit pas le texte : 88 + 16 + 1.
       expect(mesure?.hauteurBarre).toBe(105);
+    });
+
+    test('garde la zone cliquable des champs de choix', async ({ page }) => {
+      await page.evaluate(() => {
+        document.documentElement.style.fontSize = '32px';
+      });
+
+      /*
+        C'est dans ce contexte que le débordement horizontal est apparu, donc
+        celui où un contrôle risque de se faire écraser par son étiquette : la
+        zone de 44 px et la marque sont mesurées ici en plus du gabarit par
+        défaut, et la valeur calculée de flex-shrink est lue avec elles.
+      */
+      await expectChoiceZoneHolds(page, '320 px au texte doublé');
     });
 
     /*

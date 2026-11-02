@@ -154,21 +154,39 @@
 
   --duration-fast: 150ms;
 
+  /*
+    L'anneau de focus, en deux jetons plutôt qu'en valeurs écrites dans
+    base.css. La raison est qu'un second endroit le dessine désormais : la case
+    à cocher et le bouton radio l'entourent autour de leur boîte et non autour
+    de leur zone cliquable, qui fait 44 px (voir docs/design-system.md,
+    l'exception à l'anneau unique). Ces deux-là réutilisent donc les mêmes
+    jetons, et l'anneau ne peut pas diverger d'un composant à l'autre.
+
+    En pixels, et non en rem : l'anneau garde la même épaisseur quelle que soit
+    la taille du texte, comme n'importe quel contour d'interface.
+  */
+  --focus-ring-width: 2px;
+  /* L'écart laisse voir le fond entre le contrôle et l'anneau, donc l'anneau
+     reste visible même sur un bouton rempli de la couleur d'accent. */
+  --focus-ring-offset: 2px;
+
   /* Liseré du haut de la barre de navigation basse. Il compte dans sa hauteur,
      donc dans la place réservée sous le contenu. */
   --nav-border-width: 1px;
   /*
-    Place que l'anneau de focus demande autour d'une entrée de la barre : 2 px
-    d'épaisseur posés à 2 px d'écart, soit 4 px (voir base.css). La barre rogne
-    ce qui dépasse d'elle, parce que son overflow-x: auto en fait un conteneur
-    de défilement : sans cette place, l'anneau de ses entrées est coupé.
+    Place que l'anneau de focus demande autour d'une entrée de la barre : son
+    épaisseur plus son écart. La barre rogne ce qui dépasse d'elle, parce que
+    son overflow-x: auto en fait un conteneur de défilement : sans cette place,
+    l'anneau de ses entrées est coupé.
 
-    Un plancher en pixels, parce que l'anneau lui-même est en pixels. Avec une
-    taille de police par défaut inférieure à 16 px, --space-1 vaut moins de
-    4 px et l'anneau serait de nouveau rogné. Au-delà, c'est --space-1 qui
+    Le plancher vient des deux jetons de l'anneau, et n'est plus le 4 px écrit
+    à la main qu'ils remplacent : les deux ne peuvent donc plus diverger. Un
+    plancher en pixels, parce que l'anneau lui-même est en pixels. Avec une
+    taille de police par défaut inférieure à 16 px, --space-1 vaut moins que
+    l'anneau et celui-ci serait de nouveau rogné. Au-delà, c'est --space-1 qui
     gagne : au texte agrandi, la marge grandit avec le reste.
   */
-  --nav-focus-room: max(4px, var(--space-1));
+  --nav-focus-room: max(calc(var(--focus-ring-width) + var(--focus-ring-offset)), var(--space-1));
   /*
     Hauteur de la barre de navigation basse, hors encoche : la zone tactile
     d'une entrée, la place de l'anneau de chaque côté, et le liseré du haut.

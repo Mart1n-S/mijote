@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { computed, useId } from 'vue';
+import FieldError from './FieldError.vue';
+import FieldHelp from './FieldHelp.vue';
+import { useFieldAria } from './useFieldAria';
 
 const props = withDefaults(
   defineProps<{
@@ -34,47 +36,23 @@ defineOptions({ inheritAttrs: false });
 
 const value = defineModel<string>({ default: '' });
 
-// Un identifiant stable par instance, et unique même si deux champs portent le
-// même label : sans lui, label et aide pointeraient sur le mauvais champ.
-const uid = useId();
-const inputId = `${uid}-input`;
-const helpId = `${uid}-help`;
-const errorId = `${uid}-error`;
-
 /*
-  Une chaîne vide n'est pas une erreur : une validation qui rend « rien à
-  signaler » sous cette forme ne doit pas rendre le champ invalide. Sans ce
-  calcul unique, l'attribut aria-invalid et l'affichage du message pouvaient
-  se contredire, et le champ s'annonçait invalide sans dire pourquoi.
-
-  Tout ce qui dépend de l'état du champ passe donc par ces deux valeurs, et
-  jamais par une relecture directe des propriétés.
+  Identifiants et liens ARIA : la même logique pour les cinq champs de base,
+  donc elle vit dans useFieldAria et non ici. C'est elle qui garantit qu'une
+  chaîne vide n'est pas une erreur, et qu'aucun aria-describedby ne pointe vers
+  un élément non rendu.
 */
-const hasHelp = computed(() => (props.help ?? '') !== '');
-const hasError = computed(() => (props.error ?? '') !== '');
-
-/*
-  L'aide et l'erreur sont reliées au champ dans cet ordre : le lecteur d'écran
-  restitue d'abord la consigne, puis ce qui cloche. Un identifiant n'est listé
-  que si l'élément correspondant est rendu, sinon la référence est cassée.
-*/
-const describedBy = computed<string | undefined>(() => {
-  const ids = [hasHelp.value ? helpId : undefined, hasError.value ? errorId : undefined].filter(
-    (id): id is string => id !== undefined,
-  );
-
-  return ids.length > 0 ? ids.join(' ') : undefined;
-});
+const { controlId, helpId, errorId, hasHelp, hasError, describedBy } = useFieldAria(props);
 </script>
 
 <template>
   <div class="field">
-    <label class="field__label" :for="inputId">
+    <label class="field__label" :for="controlId">
       {{ label }}
       <span v-if="required" class="field__required">(obligatoire)</span>
     </label>
 
-    <p v-if="hasHelp" :id="helpId" class="field__help">{{ help }}</p>
+    <FieldHelp v-if="hasHelp" :id="helpId" :text="help ?? ''" />
 
     <!-- $attrs en premier, et l'ordre compte : ce qui vient après gagne. Un
          appelant qui passerait son propre aria-describedby ou aria-invalid ne
@@ -82,7 +60,7 @@ const describedBy = computed<string | undefined>(() => {
          seul sait tenir. -->
     <input
       v-bind="$attrs"
-      :id="inputId"
+      :id="controlId"
       v-model="value"
       class="field__input"
       :class="{ 'field__input--invalid': hasError }"
@@ -94,13 +72,7 @@ const describedBy = computed<string | undefined>(() => {
       :aria-invalid="hasError ? 'true' : undefined"
     />
 
-    <!-- L'erreur ne se signale jamais par la seule couleur : elle porte un
-         préfixe textuel et un repère visuel. Son annonce à l'envoi du
-         formulaire est le rôle du résumé en tête, un BaseAlert. -->
-    <p v-if="hasError" :id="errorId" class="field__error">
-      <span class="field__error-mark" aria-hidden="true">!</span>
-      <span>Erreur : {{ error }}</span>
-    </p>
+    <FieldError v-if="hasError" :id="errorId" :text="error ?? ''" />
   </div>
 </template>
 
@@ -118,11 +90,6 @@ const describedBy = computed<string | undefined>(() => {
 .field__required {
   color: var(--color-text-muted);
   font-weight: var(--weight-normal);
-  font-size: var(--text-sm);
-}
-
-.field__help {
-  color: var(--color-text-muted);
   font-size: var(--text-sm);
 }
 
@@ -168,26 +135,5 @@ const describedBy = computed<string | undefined>(() => {
      couleur, pour un daltonisme ou un écran monochrome. */
   border-width: 2px;
   border-color: var(--color-danger);
-}
-
-.field__error {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--color-text);
-  font-size: var(--text-sm);
-}
-
-.field__error-mark {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  width: 1.25rem;
-  height: 1.25rem;
-  background-color: var(--color-danger);
-  border-radius: var(--radius-full);
-  color: var(--color-on-danger);
-  font-weight: var(--weight-bold);
 }
 </style>

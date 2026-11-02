@@ -5,8 +5,13 @@ import type { AlertVariant } from '../components/base/BaseAlert.vue';
 import BaseAlert from '../components/base/BaseAlert.vue';
 import type { ButtonVariant } from '../components/base/BaseButton.vue';
 import BaseButton from '../components/base/BaseButton.vue';
+import BaseCheckbox from '../components/base/BaseCheckbox.vue';
 import BaseDialog from '../components/base/BaseDialog.vue';
 import BaseField from '../components/base/BaseField.vue';
+import BaseFieldset from '../components/base/BaseFieldset.vue';
+import BaseRadioGroup from '../components/base/BaseRadioGroup.vue';
+import BaseSelect from '../components/base/BaseSelect.vue';
+import type { ChoiceOption } from '../components/base/choice';
 
 /*
   Page de démonstration du design system. Elle n'est pas une page de
@@ -106,6 +111,32 @@ function toggleLoading(): void {
   simulés.
 */
 const frozen = ref(false);
+
+/*
+  Les champs de choix de la section « Champs de choix ». Les options sont celles
+  des stories qui les emploieront, pour que la démonstration montre un cas réel
+  plutôt qu'un « option 1, option 2 ».
+*/
+const ROLE_OPTIONS: readonly ChoiceOption[] = [
+  { value: 'member', label: 'Membre' },
+  { value: 'admin', label: 'Administrateur' },
+  { value: 'guest', label: 'Invité (bientôt)', disabled: true },
+];
+
+const HOUSEHOLD_SIZES: readonly ChoiceOption[] = [
+  { value: '1', label: '1 personne' },
+  { value: '2', label: '2 personnes' },
+  { value: '4', label: '4 personnes' },
+];
+
+const notifications = ref(true);
+const accepted = ref(false);
+const role = ref('');
+const roleInError = ref('');
+const householdSize = ref('');
+const sizeInError = ref('');
+const quickMeals = ref(true);
+const meatFree = ref(false);
 </script>
 
 <template>
@@ -183,12 +214,9 @@ const frozen = ref(false);
       pour les comparer.
     </p>
 
-    <p class="freeze">
-      <label>
-        <input v-model="frozen" type="checkbox" />
-        Figer le survol, l'enfoncement et le focus
-      </label>
-    </p>
+    <div class="freeze">
+      <BaseCheckbox v-model="frozen" label="Figer le survol, l'enfoncement et le focus" />
+    </div>
 
     <h3>Bouton</h3>
 
@@ -318,6 +346,99 @@ const frozen = ref(false);
         autocomplete="email"
         required
       />
+    </div>
+  </section>
+
+  <section aria-labelledby="choices-title">
+    <h2 id="choices-title">Champs de choix</h2>
+
+    <p>
+      Quatre champs bâtis sur l'élément natif correspondant : une case à cocher, un groupe de
+      boutons radio, une liste déroulante et un regroupement. La case et le bouton radio ont leur
+      rendu remplacé, pas teinté, parce que celui du navigateur ignore les jetons du projet. Leur
+      zone cliquable fait 44 px, bien plus que la marque dessinée, et c'est le contrôle qui la
+      porte, pas son étiquette.
+    </p>
+
+    <h3>Case à cocher</h3>
+
+    <div class="stack">
+      <BaseCheckbox
+        v-model="notifications"
+        label="Me prévenir des invitations"
+        help="Un e-mail par invitation, jamais de publicité."
+      />
+      <BaseCheckbox :model-value="false" label="Indisponible" disabled />
+      <BaseCheckbox :model-value="true" label="Indisponible et cochée" disabled />
+      <BaseCheckbox v-model="accepted" label="En erreur" error="Il faut accepter pour continuer." />
+    </div>
+
+    <h3>Boutons radio</h3>
+
+    <div class="stack">
+      <BaseRadioGroup
+        v-model="role"
+        legend="Rôle dans le foyer"
+        :options="ROLE_OPTIONS"
+        help="Un administrateur peut inviter et retirer des membres."
+        required
+      />
+      <BaseRadioGroup
+        v-model="roleInError"
+        legend="Rôle, en erreur"
+        :options="ROLE_OPTIONS"
+        error="Choisissez un rôle."
+      />
+      <BaseRadioGroup
+        :model-value="'member'"
+        legend="Rôle, indisponible"
+        :options="ROLE_OPTIONS"
+        disabled
+      />
+    </div>
+
+    <h3>Liste déroulante</h3>
+
+    <div class="stack">
+      <BaseSelect
+        v-model="householdSize"
+        label="Taille du foyer"
+        :options="HOUSEHOLD_SIZES"
+        placeholder="Nombre de personnes"
+        help="De 1 à 35 personnes."
+        required
+      />
+      <BaseSelect
+        v-model="sizeInError"
+        label="Taille, en erreur"
+        :options="HOUSEHOLD_SIZES"
+        error="Indiquez une taille."
+      />
+      <BaseSelect
+        :model-value="'2'"
+        label="Taille, indisponible"
+        :options="HOUSEHOLD_SIZES"
+        disabled
+      />
+    </div>
+
+    <h3>Regroupement</h3>
+
+    <p class="note">
+      Le regroupement sert à relier des champs de même nature à un intitulé commun. C'est lui que le
+      groupe de boutons radio emploie, et un formulaire peut s'en servir directement.
+    </p>
+
+    <div class="stack">
+      <BaseFieldset
+        legend="Préférences de repas"
+        help="Elles orientent les suggestions, sans rien interdire."
+      >
+        <!-- Deux cases indépendantes, et non un choix unique : c'est ce que des
+             cases à cocher veulent dire. Chacune a son propre modèle. -->
+        <BaseCheckbox v-model="quickMeals" label="Repas rapides" />
+        <BaseCheckbox v-model="meatFree" label="Sans viande" />
+      </BaseFieldset>
     </div>
   </section>
 
@@ -497,13 +618,6 @@ p {
   border-radius: var(--radius-md);
 }
 
-.freeze label {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: var(--tap-min);
-}
-
 .scroller {
   /*
     position: relative n'est pas décoratif ici. Les boutons « en cours »
@@ -607,8 +721,8 @@ p {
    l'application ne produit jamais. */
 .is-frozen .row-focus :deep(.button),
 .is-frozen .row-focus :deep(.field__input) {
-  outline: 2px solid var(--color-focus);
-  outline-offset: 2px;
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
 }
 
 .is-frozen .row-hover :deep(.field__input) {

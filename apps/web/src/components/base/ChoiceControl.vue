@@ -103,6 +103,13 @@ function onChange(event: Event): void {
 .choice__control {
   position: relative;
   display: inline-flex;
+  /*
+    `flex: none`, donc `flex-shrink: 0` : le contrôle n'est jamais écrasé par
+    son étiquette, même quand la place manque. C'est ce qui tient la zone
+    tactile à 320 px au texte doublé, où l'étiquette réclame plusieurs lignes,
+    et e2e/design-system.spec.ts lit cette valeur calculée dans les deux
+    contextes plutôt que de supposer le raccourci.
+  */
   flex: none;
   /*
     Zone tactile de 44 px, portée par le contrôle lui-même et non par son

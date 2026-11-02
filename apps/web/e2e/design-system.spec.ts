@@ -16,6 +16,50 @@ import { stubHealthyApi } from './api';
 
 accessibilityMatrix('/design-system');
 
+/** La case à cocher du réglage de notifications, cochée au chargement. */
+function notificationsCheckbox(page: Page) {
+  return page.getByLabel('Me prévenir des invitations');
+}
+
+/**
+ * Exige que la zone cliquable d'un choix tienne ses 44 px et ne soit pas
+ * écrasée, et que la marque dessinée reste nettement plus petite qu'elle.
+ *
+ * Mesuré dans deux contextes : au gabarit par défaut, et à 320 px au texte
+ * doublé, où la place manque et où un élément de flex se fait écraser. La
+ * comparaison est proportionnelle et non en pixels écrits ici, parce que la
+ * zone comme la marque suivent la taille du texte.
+ */
+async function expectChoiceZoneHolds(page: Page, context: string): Promise<void> {
+  const zone = await notificationsCheckbox(page).boundingBox();
+  const control = await notificationsCheckbox(page).evaluate((element) => {
+    const box = element.nextElementSibling;
+    const row = element.parentElement;
+
+    return row === null || box === null
+      ? null
+      : {
+          mark: box.getBoundingClientRect().width,
+          // Le contrôle ne doit jamais rétrécir : c'est ce que flex: none
+          // garantit, et c'est la valeur calculée qui le dit.
+          shrink: getComputedStyle(row).flexShrink,
+        };
+  });
+
+  expect(control, `${context} : la boîte doit être dessinée`).not.toBeNull();
+  expect(zone?.width, `${context} : largeur de la zone cliquable`).toBeGreaterThanOrEqual(44);
+  expect(zone?.height, `${context} : hauteur de la zone cliquable`).toBeGreaterThanOrEqual(44);
+  expect(control?.shrink, `${context} : le contrôle est écrasable`).toBe('0');
+  /*
+    La marque reste à la taille du texte : c'est la zone qui est grande, pas le
+    dessin. Sans cette seconde mesure, une case de 44 px de côté passerait le
+    premier contrôle.
+  */
+  expect(control?.mark ?? 0, `${context} : la marque occupe toute la zone`).toBeLessThan(
+    (zone?.width ?? 0) * 0.7,
+  );
+}
+
 /** La région aria-live, dotée du journal des contenus qu'on lui fait observer. */
 type ObservedRegion = Element & { steps?: string[] };
 
@@ -703,28 +747,8 @@ test.describe('page de démonstration du design system', () => {
       est le même que le sien.
     */
 
-    /** La case à cocher du réglage de notifications, cochée au chargement. */
-    function checkbox(page: Page) {
-      return page.getByLabel('Me prévenir des invitations');
-    }
-
     test('offre une zone cliquable de 44 px, bien plus grande que sa marque', async ({ page }) => {
-      const zone = await checkbox(page).boundingBox();
-      const mark = await checkbox(page).evaluate((element) => {
-        const box = element.nextElementSibling;
-
-        return box === null ? null : box.getBoundingClientRect().width;
-      });
-
-      expect(zone?.width).toBeGreaterThanOrEqual(44);
-      expect(zone?.height).toBeGreaterThanOrEqual(44);
-      /*
-        La marque reste à la taille du texte : c'est la zone qui est grande, pas
-        le dessin. Sans cette seconde mesure, une case de 44 px de côté
-        passerait le premier contrôle.
-      */
-      expect(mark).not.toBeNull();
-      expect(mark ?? 0).toBeLessThan(30);
+      await expectChoiceZoneHolds(page, 'gabarit par défaut');
     });
 
     test('dessine une marque, et pas seulement un fond coloré', async ({ page }) => {
@@ -761,9 +785,9 @@ test.describe('page de démonstration du design system', () => {
     });
 
     test("pose l'anneau de focus sur la boîte, avec les jetons de base.css", async ({ page }) => {
-      await checkbox(page).focus();
+      await notificationsCheckbox(page).focus();
 
-      const measure = await checkbox(page).evaluate((element) => {
+      const measure = await notificationsCheckbox(page).evaluate((element) => {
         const box = element.nextElementSibling;
         const root = getComputedStyle(document.documentElement);
         const drawn = box === null ? null : getComputedStyle(box);
@@ -848,6 +872,20 @@ test.describe('page de démonstration du design system', () => {
       // 44 px de zone tactile doublés, la marge de l'anneau de focus doublée
       // de chaque côté, plus le liseré, qui ne suit pas le texte : 88 + 16 + 1.
       expect(mesure?.hauteurBarre).toBe(105);
+    });
+
+    test('garde la zone cliquable des champs de choix', async ({ page }) => {
+      await page.evaluate(() => {
+        document.documentElement.style.fontSize = '32px';
+      });
+
+      /*
+        C'est dans ce contexte que le débordement horizontal est apparu, donc
+        celui où un contrôle risque de se faire écraser par son étiquette : la
+        zone de 44 px et la marque sont mesurées ici en plus du gabarit par
+        défaut, et la valeur calculée de flex-shrink est lue avec elles.
+      */
+      await expectChoiceZoneHolds(page, '320 px au texte doublé');
     });
 
     /*

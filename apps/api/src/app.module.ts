@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
 
+import { AuthModule } from './auth/auth.module.js';
 import { DatabaseModule } from './db/database.module.js';
 import { ProblemDetailsFilter } from './errors/problem-details.filter.js';
 import { HealthModule } from './health/health.module.js';
@@ -18,6 +19,11 @@ import { MailModule } from './mail/mail.module.js';
     */
     LoggerModule.forRootAsync({ useFactory: () => buildLoggerParams(process.env) }),
     DatabaseModule,
+    /*
+      AuthModule pose trois gardes globales : à partir d'ici, toute route de
+      l'application demande une session, sauf celles qui portent `@Public()`.
+    */
+    AuthModule,
     MailModule,
     HealthModule,
   ],

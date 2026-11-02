@@ -1,4 +1,4 @@
-import { Body, Controller, Get, type INestApplication, Module, Post } from '@nestjs/common';
+import { Controller, Get, type INestApplication, Module } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import {
   PROBLEM_DETAILS_MEDIA_TYPE,
@@ -7,10 +7,9 @@ import {
   type ProblemDetails,
 } from '@mijote/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { z } from 'zod';
 
 import { AppModule } from './app.module.js';
-import { ZodValidationPipe } from './errors/zod-validation.pipe.js';
+import { Public } from './auth/public.decorator.js';
 
 /*
   Le format d'erreur se mesure ici, à travers l'application réelle, et non sur
@@ -26,8 +25,18 @@ import { ZodValidationPipe } from './errors/zod-validation.pipe.js';
   où la base répond vit dans health.controller.spec.ts.
 */
 
-const householdSchema = z.object({ size: z.number().int().positive() });
+/*
+  Ouvertes par @Public() : depuis la story #10, les gardes d'AuthModule sont
+  globales et toute route demande une session. Ces deux-là ne mesurent que le
+  format d'erreur, et n'ont rien à voir avec l'authentification.
 
+  Deux lectures, et aucune écriture : une route qui modifie l'état sans session
+  ne peut pas passer la garde CSRF, par construction (voir csrf.guard.ts). Les
+  corps mal formés et refusés par la validation sont donc envoyés à
+  /auth/login, la seule route de ce genre, ce qui mesure le format d'erreur là
+  où il sert vraiment.
+*/
+@Public()
 @Controller('test-errors')
 class TestErrorsController {
   @Get('boom')
@@ -36,11 +45,9 @@ class TestErrorsController {
     throw new Error('echec interne : select * from accounts where email = $1');
   }
 
-  @Post('household')
-  household(
-    @Body(new ZodValidationPipe(householdSchema)) body: z.infer<typeof householdSchema>,
-  ): z.infer<typeof householdSchema> {
-    return body;
+  @Get('ok')
+  ok(): { status: 'ok' } {
+    return { status: 'ok' };
   }
 }
 
@@ -77,6 +84,9 @@ beforeAll(async () => {
   process.env['SMTP_HOST'] = '127.0.0.1';
   process.env['SMTP_PORT'] = '1025';
   process.env['MAIL_FROM'] = 'Mijote <no-reply@mijote.local>';
+  // Un poivre de test, fait de zéros : AuthModule refuse de démarrer sans lui,
+  // et il ne protège rien ici.
+  process.env['SECURITY_PEPPER'] = Buffer.alloc(32).toString('base64');
 
   app = await NestFactory.create(TestAppModule, { logger: false });
 
@@ -115,9 +125,9 @@ describe("les erreurs de l'API", () => {
   });
 
   it('refuse un corps illisible en français, sans le recopier', async () => {
-    const { response, problem } = await problemAt('/test-errors/household', {
+    const { response, problem } = await problemAt('/auth/login', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', origin: baseUrl },
       body: '<html>12 rue des Lilas</html>',
     });
 
@@ -150,28 +160,24 @@ describe("les erreurs de l'API", () => {
   });
 
   it('renvoie la liste des champs en erreur, en français', async () => {
-    const { response, problem } = await problemAt('/test-errors/household', {
+    const { response, problem } = await problemAt('/auth/login', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ size: -1 }),
+      headers: { 'content-type': 'application/json', origin: baseUrl },
+      body: JSON.stringify({ email: 'pas une adresse', password: '' }),
     });
 
     expect(response.status).toBe(400);
     expect(problem.title).toBe('Requête invalide');
-    expect(problem.errors).toHaveLength(1);
-    expect(problem.errors?.[0]?.field).toBe('size');
-    expect(problem.errors?.[0]?.message).not.toBe('');
+    expect(problem.errors?.map((error) => error.field)).toEqual(['email', 'password']);
+    // La locale française du pipe zod s'applique bien à travers le réseau.
+    expect(problem.errors?.[0]?.message).toMatch(/[éèà]|adresse|caractère/i);
   });
 
-  it('accepte un corps valide', async () => {
-    const response = await fetch(`${baseUrl}/test-errors/household`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ size: 3 }),
-    });
+  it('laisse passer une requête valide', async () => {
+    const response = await fetch(`${baseUrl}/test-errors/ok`);
 
-    expect(response.status).toBe(201);
-    expect(await response.json()).toEqual({ size: 3 });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ status: 'ok' });
   });
 
   it('renvoie un 503 quand la base ne répond pas', async () => {
@@ -202,12 +208,8 @@ describe("l'identifiant de requête", () => {
 
   it("est posé aussi sur une réponse qui n'est pas une erreur", async () => {
     // L'en-tête est posé à l'arrivée de la requête, pas à la sortie de la
-    // réponse : il est donc là sur un 201 comme sur une erreur.
-    const response = await fetch(`${baseUrl}/test-errors/household`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ size: 1 }),
-    });
+    // réponse : il est donc là sur un 200 comme sur une erreur.
+    const response = await fetch(`${baseUrl}/test-errors/ok`);
 
     expect(response.headers.get(REQUEST_ID_HEADER)).toMatch(/^[0-9a-f-]{36}$/);
   });

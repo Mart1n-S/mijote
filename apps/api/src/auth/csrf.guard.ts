@@ -1,0 +1,109 @@
+import { CSRF_HEADER } from '@mijote/shared';
+import { type CanActivate, type ExecutionContext, HttpStatus, Injectable } from '@nestjs/common';
+
+import { ProblemException } from '../errors/problem.exception.js';
+import { isSameOrigin } from '../security/origin.js';
+import { hashesMatch } from '../security/tokens.js';
+
+import {
+  readAuthenticated,
+  readHeader,
+  readMethod,
+  readOrigin,
+  readPath,
+} from './request-context.js';
+
+/*
+  La protection CSRF, en trois barrières (ADR 0010).
+
+  1. Le type de média : toute requête qui modifie l'état doit être du JSON. Un
+     formulaire d'un autre site ne peut envoyer que trois types, dont aucun
+     n'est `application/json` ; et une requête `fetch` qui le déclarerait
+     demanderait d'abord la permission par une requête préalable, à laquelle
+     l'API ne répond pas, faute de CORS ouvert.
+  2. L'origine : `Origin` est écrit par le navigateur, une page ne peut pas le
+     choisir. Elle se compare entière, schéma, hôte et port.
+  3. Le jeton : le cookie lisible porte le secret CSRF de la session, et le
+     front le renvoie en en-tête. Une page d'un autre site ne peut lire ni
+     l'un ni écrire l'autre.
+
+  Les deux premières ne tiennent **que** parce qu'aucun CORS n'est ouvert sur
+  cette API : une origine autorisée ferait sauter la requête préalable, donc la
+  première barrière. C'est écrit dans l'ADR 0010, et c'est la condition à
+  relire en traitant l'issue #31.
+*/
+
+/** Ces méthodes ne modifient rien : elles passent sans jeton. */
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+const JSON_MEDIA_TYPE = 'application/json';
+
+/*
+  Les routes dispensées de l'en-tête CSRF, et elles seules.
+
+  La connexion y est forcée : la session n'existe pas encore, donc il n'y a
+  aucun secret à renvoyer. Elle garde les deux premières barrières, et la
+  limitation des tentatives par-dessus.
+
+  Cette liste est la plus courte possible, et un test l'énumère : elle ne
+  s'allonge pas sans que quelqu'un s'en aperçoive.
+*/
+export const CSRF_EXEMPT_ROUTES: readonly { method: string; path: string }[] = [
+  { method: 'POST', path: '/auth/login' },
+];
+
+const WRONG_MEDIA_TYPE = 'Le type de média doit être application/json.';
+const WRONG_ORIGIN = "Cette requête ne vient pas de l'application.";
+const MISSING_TOKEN = 'Jeton de protection manquant ou invalide.';
+
+/** L'en-tête, en minuscules : Node normalise les noms d'en-têtes reçus. */
+const CSRF_HEADER_NAME = CSRF_HEADER.toLowerCase();
+
+@Injectable()
+export class CsrfGuard implements CanActivate {
+  canActivate(context: ExecutionContext): boolean {
+    const request = context.switchToHttp().getRequest<unknown>();
+
+    if (SAFE_METHODS.has(readMethod(request).toUpperCase())) {
+      return true;
+    }
+
+    /*
+      Le type de média est contrôlé avant l'origine, et c'est voulu : c'est la
+      barrière qui tient sans aucun en-tête de navigateur, et un `text/plain`
+      dont le corps serait du JSON valide doit être refusé pour ce qu'il est.
+    */
+    if (!readHeader(request, 'content-type')?.toLowerCase().startsWith(JSON_MEDIA_TYPE)) {
+      throw new ProblemException(HttpStatus.UNSUPPORTED_MEDIA_TYPE, WRONG_MEDIA_TYPE);
+    }
+
+    if (!isSameOrigin(readOrigin(request))) {
+      throw new ProblemException(HttpStatus.FORBIDDEN, WRONG_ORIGIN);
+    }
+
+    if (isExempt(request)) {
+      return true;
+    }
+
+    const expected = readAuthenticated(request)?.session.csrfSecret;
+    const presented = readHeader(request, CSRF_HEADER_NAME);
+
+    /*
+      Pas de session, pas de jeton attendu, donc pas de passage : une route qui
+      modifie l'état sans session ne peut être que la connexion, et elle est
+      dans la liste ci-dessus.
+    */
+    if (expected === undefined || presented === undefined || !hashesMatch(expected, presented)) {
+      throw new ProblemException(HttpStatus.FORBIDDEN, MISSING_TOKEN);
+    }
+
+    return true;
+  }
+}
+
+function isExempt(request: unknown): boolean {
+  const method = readMethod(request).toUpperCase();
+  const path = readPath(request);
+
+  return CSRF_EXEMPT_ROUTES.some((route) => route.method === method && route.path === path);
+}

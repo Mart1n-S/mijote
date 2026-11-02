@@ -1,5 +1,6 @@
 import { Controller, Get, HttpStatus, Inject } from '@nestjs/common';
 
+import { Public } from '../auth/public.decorator.js';
 import { ProblemException } from '../errors/problem.exception.js';
 
 import { HealthService } from './health.service.js';
@@ -18,6 +19,12 @@ export interface HealthProbe {
   isDatabaseReachable(): Promise<boolean>;
 }
 
+/*
+  La sonde est ouverte : le front l'appelle avant toute connexion, pour savoir
+  s'il doit montrer le bandeau de service. C'est la seule route de lecture
+  publique de l'API, et elle ne dit rien d'autre que « ok ».
+*/
+@Public()
 @Controller('health')
 export class HealthController {
   constructor(@Inject(HealthService) private readonly health: HealthProbe) {}

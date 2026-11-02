@@ -47,7 +47,7 @@ describe('invitationEmail', () => {
     expect(message.html).toContain('O&#39;Neil');
   });
 
-  it("échappe aussi l'adresse du lien, qui est une attribut HTML", () => {
+  it("échappe aussi l'adresse du lien, qui est un attribut HTML", () => {
     const message = invitation({ invitationUrl: 'https://mijote.local/i?a=1&b="2"' });
 
     expect(message.html).toContain('href="https://mijote.local/i?a=1&amp;b=&quot;2&quot;"');
@@ -79,6 +79,16 @@ describe('invitationEmail', () => {
     // Le seul lien http est celui de l'invitation, que l'utilisateur ouvre
     // lui-même.
     expect(message.html.match(/https?:\/\//g)).toEqual(['https://']);
+  });
+
+  it("refuse un lien qui n'est pas http ou https", () => {
+    /*
+      L'échappement ne dit rien du schéma : « javascript:alert(1) » ne contient
+      aucun des cinq caractères et ressortirait intact dans le href. Un client
+      de messagerie ne l'exécuterait pas, un aperçu HTML le ferait.
+    */
+    expect(() => invitation({ invitationUrl: 'javascript:alert(1)' })).toThrow(/http ou https/);
+    expect(() => invitation({ invitationUrl: 'pas une adresse' })).toThrow(/http ou https/);
   });
 
   it("garde l'adresse du destinataire dans l'enveloppe, et nulle part ailleurs", () => {

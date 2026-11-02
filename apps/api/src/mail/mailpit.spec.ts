@@ -9,18 +9,23 @@ import { invitationEmail } from './templates/invitation.js';
   nodemailer, le protocole SMTP et Mailpit, puis va relire le message par son
   API. Tout le reste est mesuré avec un faux transport.
 
-  Il se saute quand Mailpit n'est pas joignable, pour qu'un `pnpm test` sans
-  `docker compose up` reste vert. En CI, le service est déclaré dans
-  .github/workflows/ci.yml, donc il tourne pour de bon.
+  Hors CI, il se saute quand Mailpit n'est pas joignable, pour qu'un
+  `pnpm test` sans `docker compose up` reste vert. **En CI, il ne se saute
+  jamais** : le service est déclaré dans .github/workflows/ci.yml, et s'il
+  manquait, un saut silencieux laisserait le travail au vert en n'ayant rien
+  mesuré. D'où l'échec franc plus bas.
 */
 
-const WEB_URL = process.env['MAILPIT_WEB_URL'] ?? 'http://127.0.0.1:8025';
+const HOST = process.env['SMTP_HOST'] ?? '127.0.0.1';
 const SMTP_PORT = Number(process.env['MAILPIT_SMTP_PORT'] ?? '1025');
+const WEB_URL = `http://${HOST}:${process.env['MAILPIT_WEB_PORT'] ?? '8025'}`;
 
 /** Une adresse en .test : ce domaine est réservé et n'existe nulle part. */
 const RECIPIENT = 'invitee@exemple.test';
 
 const HOUSEHOLD = 'Foyer <Simon> & fils';
+
+const FROM = 'Mijote <no-reply@mijote.local>';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -51,31 +56,49 @@ function readPart(value: unknown, key: 'HTML' | 'Text'): string {
   return '';
 }
 
-async function mailpitReachable(): Promise<boolean> {
-  try {
-    const response = await fetch(`${WEB_URL}/readyz`, { signal: AbortSignal.timeout(1_000) });
-
-    return response.ok;
-  } catch {
-    // Mailpit n'est pas lancé : les tests de ce fichier se sautent.
-    return false;
-  }
-}
-
-async function deleteAllMessages(): Promise<void> {
-  await fetch(`${WEB_URL}/api/v1/messages`, { method: 'DELETE' });
-}
-
 function wait(milliseconds: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, milliseconds);
   });
 }
 
+/** Mailpit répond-il ? Plusieurs tentatives, le conteneur pouvant démarrer. */
+async function mailpitReachable(): Promise<boolean> {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    try {
+      const response = await fetch(`${WEB_URL}/readyz`, { signal: AbortSignal.timeout(1_000) });
+
+      if (response.ok) {
+        return true;
+      }
+    } catch {
+      // Pas encore prêt, ou pas lancé du tout : on retente.
+    }
+
+    await wait(300);
+  }
+
+  return false;
+}
+
+/**
+ * Ne supprime que les messages de ce test.
+ *
+ * Un `DELETE /api/v1/messages` viderait la boîte entière, donc les messages de
+ * développement que Martin est peut-être en train de lire.
+ */
+async function deleteTestMessages(): Promise<void> {
+  await fetch(`${WEB_URL}/api/v1/search?query=${encodeURIComponent(`to:${RECIPIENT}`)}`, {
+    method: 'DELETE',
+  });
+}
+
 /** Attend qu'un message arrive : Mailpit ne le range pas forcément aussitôt. */
 async function waitForMessage(): Promise<{ id: string; subject: string }> {
   for (let attempt = 0; attempt < 20; attempt += 1) {
-    const response = await fetch(`${WEB_URL}/api/v1/messages?limit=5`);
+    const response = await fetch(
+      `${WEB_URL}/api/v1/search?query=${encodeURIComponent(`to:${RECIPIENT}`)}`,
+    );
     const body: unknown = await response.json();
     const messages = isRecord(body) ? body['messages'] : undefined;
     const summary = Array.isArray(messages) ? readSummary(messages[0]) : undefined;
@@ -92,23 +115,28 @@ async function waitForMessage(): Promise<{ id: string; subject: string }> {
 
 const reachable = await mailpitReachable();
 
+if (!reachable && process.env['CI'] === 'true') {
+  throw new Error(
+    `Mailpit est injoignable sur ${WEB_URL} alors que CI est posée : le service déclaré dans .github/workflows/ci.yml n'a pas démarré, et ce test ne doit pas se sauter en CI.`,
+  );
+}
+
 describe.skipIf(!reachable)('envoi réel vers Mailpit', () => {
-  beforeAll(deleteAllMessages);
-  afterAll(deleteAllMessages);
+  beforeAll(deleteTestMessages);
+  afterAll(deleteTestMessages);
 
   it('livre une invitation, avec ses deux versions et son nom de foyer échappé', async () => {
     const logger = new PinoLogger({ pinoHttp: { level: 'silent' } });
-    const from = 'Mijote <no-reply@mijote.local>';
     const mailer = new SmtpMailer(
       createMailTransport({
-        host: '127.0.0.1',
+        host: HOST,
         port: SMTP_PORT,
         secure: false,
         user: undefined,
         password: undefined,
-        from,
+        from: FROM,
       }),
-      from,
+      FROM,
       logger,
     );
 

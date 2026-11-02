@@ -2,6 +2,27 @@ import type { MailMessage } from '../mailer.js';
 
 import { emailLayout, escapeHtml } from './html.js';
 
+/*
+  L'échappement HTML ne dit rien du schéma d'une adresse : « javascript:alert(1) »
+  ne contient aucun des cinq caractères échappés et ressortirait intact dans le
+  href. Les clients de messagerie n'exécutent pas ce schéma, mais un aperçu HTML
+  le ferait, Mailpit compris.
+
+  Le commentaire de `invitationUrl` dit que l'adresse est construite par
+  l'application : ceci en fait une garantie au lieu d'une convention, pour
+  l'appelant d'aujourd'hui comme pour celui de la story #12.
+*/
+function isWebUrl(value: string): boolean {
+  try {
+    const { protocol } = new URL(value);
+
+    return protocol === 'https:' || protocol === 'http:';
+  } catch {
+    // Une adresse qu'un navigateur ne saurait pas lire davantage.
+    return false;
+  }
+}
+
 /** Ce qu'une invitation a besoin de dire. */
 export interface InvitationEmail {
   /** L'adresse invitée. Elle ne sort d'ici que dans l'enveloppe du message. */
@@ -22,6 +43,10 @@ export interface InvitationEmail {
  * texte, où une entité HTML s'afficherait littéralement.
  */
 export function invitationEmail(data: InvitationEmail): MailMessage {
+  if (!isWebUrl(data.invitationUrl)) {
+    throw new Error("le lien d'invitation doit être une adresse http ou https");
+  }
+
   const subject = `Invitation à rejoindre le foyer ${data.householdName} sur Mijote`;
 
   const text = `Bonjour,

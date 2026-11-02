@@ -1,6 +1,6 @@
 /*
   Les gabarits sont des fonctions TypeScript, pas un moteur de gabarits : le lot
-  1 en compte deux, et un moteur serait deux dépendances de plus (ADR 0009).
+  1 en compte un seul, et un moteur en amènerait trois de plus (ADR 0009).
 
   Le prix de ce choix est ici : un moteur échappe les valeurs tout seul, nos
   fonctions doivent le faire explicitement. D'où `escapeHtml`, et d'où la règle
@@ -20,8 +20,9 @@ const ENTITIES: Record<string, string> = {
 /**
  * Échappe les cinq caractères qui changent le sens d'un fragment HTML.
  *
- * L'esperluette d'abord, par construction du remplacement en une passe : la
- * traiter après les autres réécrirait les entités qu'elles viennent de poser.
+ * Un seul passage, et c'est ce qui compte : aucun remplacement ne peut réécrire
+ * une entité posée par un autre, donc jamais de « &amp;amp; ». Un échappement
+ * fait en plusieurs passes aurait ce défaut.
  */
 export function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (character) => ENTITIES[character] ?? character);

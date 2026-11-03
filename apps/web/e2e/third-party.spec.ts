@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { stubHealthyApi } from './api';
+import { stubAnonymousApi, stubHealthyApi } from './api';
 
 /*
   Aucune page ne doit appeler un service tiers. La règle vient de deux
@@ -14,8 +14,9 @@ import { stubHealthyApi } from './api';
 
 /** Toutes les pages servies, y compris celles qui n'existent qu'en démo. */
 const PAGES = [
-  { path: '/', name: "page d'accueil" },
-  { path: '/design-system', name: 'page de démonstration' },
+  { path: '/', name: "page d'accueil", anonymous: false },
+  { path: '/connexion', name: 'page de connexion', anonymous: true },
+  { path: '/design-system', name: 'page de démonstration', anonymous: false },
 ];
 
 for (const page_ of PAGES) {
@@ -32,7 +33,16 @@ for (const page_ of PAGES) {
     // Le bouchon répond à la sonde sans que rien n'atteigne le réseau, mais
     // l'écouteur ci-dessus voit quand même la requête : son origine est donc
     // bien contrôlée comme celle de n'importe quelle autre.
-    await stubHealthyApi(page);
+    /*
+      La page de connexion n'est atteignable que sans session : connecté, la
+      garde renvoie à l'accueil.
+    */
+    if (page_.anonymous) {
+      await stubAnonymousApi(page);
+    } else {
+      await stubHealthyApi(page);
+    }
+
     await page.goto(page_.path);
 
     // La police ne part au téléchargement qu'au moment où du texte l'utilise :

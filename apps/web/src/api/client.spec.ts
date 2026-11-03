@@ -1,4 +1,8 @@
-import { PROBLEM_DETAILS_MEDIA_TYPE } from '@mijote/shared';
+// @vitest-environment jsdom
+// L'environnement jsdom pour document.cookie : c'est là que le serveur pose le
+// jeton CSRF, et le client doit le renvoyer en en-tête.
+
+import { CSRF_HEADER, PROBLEM_DETAILS_MEDIA_TYPE } from '@mijote/shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError, apiRequest } from './client';
@@ -35,7 +39,34 @@ function problemBody(overrides: Record<string, unknown> = {}): string {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  document.cookie = 'mijote_csrf=; Max-Age=0';
 });
+
+/*
+  Les options passées à fetch sont capturées par le bouchon lui-même : les
+  relire dans le registre de vitest les rendrait de type incertain, et il
+  faudrait une assertion de type pour les en sortir.
+*/
+let sent: RequestInit | undefined;
+
+function captureRequest(): void {
+  sent = undefined;
+
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((_path: unknown, init?: RequestInit) => {
+      sent = init;
+
+      return Promise.resolve(
+        new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } }),
+      );
+    }),
+  );
+}
+
+function sentHeaders(): Headers {
+  return new Headers(sent?.headers);
+}
 
 describe('apiRequest', () => {
   it("préfixe l'appel par /api, sur la même origine", async () => {
@@ -136,5 +167,60 @@ describe('apiRequest', () => {
       expect(error instanceof ApiError ? error.status : 0).toBeUndefined();
       expect(error instanceof ApiError ? error.userMessage : '').toContain('injoignable');
     }
+  });
+});
+
+describe('le jeton CSRF', () => {
+  it("part en en-tête sur une requête qui modifie l'état, avec le type JSON", async () => {
+    document.cookie = 'mijote_csrf=jeton-de-session';
+    captureRequest();
+
+    await apiRequest('/auth/logout', { method: 'POST' });
+
+    expect(sentHeaders().get(CSRF_HEADER)).toBe('jeton-de-session');
+    /*
+      Le type de média est posé par le client et non par chaque appel : l'API
+      refuse en 415 tout ce qui n'est pas du JSON, parce qu'un formulaire d'un
+      autre site ne peut pas déclarer ce type.
+    */
+    expect(sentHeaders().get('content-type')).toBe('application/json');
+  });
+
+  it('ne part pas sur une lecture, qui ne modifie rien', async () => {
+    document.cookie = 'mijote_csrf=jeton-de-session';
+    captureRequest();
+
+    await apiRequest('/health');
+
+    // Aucun en-tête posé par le client : une lecture n'a rien à prouver.
+    expect(sentHeaders().has(CSRF_HEADER)).toBe(false);
+    expect(sentHeaders().has('content-type')).toBe(false);
+  });
+
+  it('se tait quand le cookie est absent', async () => {
+    captureRequest();
+
+    await apiRequest('/auth/logout', { method: 'POST' });
+
+    // Pas de jeton inventé : la requête part sans, et le serveur la refuse.
+    expect(sentHeaders().has(CSRF_HEADER)).toBe(false);
+  });
+
+  it('laisse un appelant choisir un autre type de média', async () => {
+    captureRequest();
+
+    await apiRequest('/import', { method: 'POST', headers: { 'content-type': 'text/csv' } });
+
+    expect(sentHeaders().get('content-type')).toBe('text/csv');
+  });
+
+  it('trouve le jeton parmi plusieurs cookies', async () => {
+    document.cookie = 'autre=1';
+    document.cookie = 'mijote_csrf=jeton-de-session';
+    captureRequest();
+
+    await apiRequest('/auth/logout', { method: 'POST' });
+
+    expect(sentHeaders().get(CSRF_HEADER)).toBe('jeton-de-session');
   });
 });

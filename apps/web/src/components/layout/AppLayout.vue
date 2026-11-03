@@ -1,12 +1,32 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 
 import { MAIN_CONTENT_ID } from '../../navigation';
+import { currentAccount, isAuthenticated, logOut } from '../../session/session';
+import BaseButton from '../base/BaseButton.vue';
 
 import ServiceStatusBanner from './ServiceStatusBanner.vue';
 
 const router = useRouter();
+
+const leaving = ref(false);
+
+/*
+  La déconnexion ramène à la page de connexion quoi qu'il arrive : l'état local
+  est vidé même si l'appel échoue (voir session.ts), et laisser l'écran d'une
+  session fermée serait pire que de revenir au formulaire.
+*/
+async function leave(): Promise<void> {
+  leaving.value = true;
+
+  try {
+    await logOut();
+  } finally {
+    leaving.value = false;
+    await router.push({ name: 'login' });
+  }
+}
 
 /*
   La navigation se déduit des routes qui déclarent un libellé de navigation,
@@ -35,6 +55,23 @@ const links = computed(() =>
            aria-current que sur l'entrée de navigation, voir
            docs/design-system.md. -->
       <RouterLink class="layout__brand" :to="{ name: 'home' }">Mijote</RouterLink>
+
+      <!-- Le compte connecté et sa sortie n'ont de sens qu'une fois connecté.
+           L'adresse est montrée à la personne qui vient de la saisir, et à
+           elle seule : un foyer partage plusieurs comptes, et savoir lequel
+           est ouvert évite de ranger ses courses dans celui de l'autre. -->
+      <div v-if="isAuthenticated" class="layout__account">
+        <span class="layout__account-email">{{ currentAccount?.email }}</span>
+
+        <BaseButton
+          variant="secondary"
+          :loading="leaving"
+          loading-label="déconnexion en cours"
+          @click="leave"
+        >
+          Se déconnecter
+        </BaseButton>
+      </div>
     </header>
 
     <!--
@@ -42,7 +79,9 @@ const links = computed(() =>
       basse sous 640 px et une colonne latérale au-delà. Deux nav, un par
       largeur, dupliqueraient le repère de navigation et l'ordre de tabulation.
     -->
-    <nav class="layout__nav" aria-label="Navigation principale">
+    <!-- Sans session, il n'y a nulle part où aller : la barre disparaît
+         plutôt que de proposer des pages que la garde refuserait. -->
+    <nav v-if="isAuthenticated" class="layout__nav" aria-label="Navigation principale">
       <ul class="list-reset layout__nav-list">
         <li v-for="link in links" :key="String(link.name)">
           <RouterLink class="layout__nav-link" :to="{ name: link.name }">
@@ -116,9 +155,31 @@ const links = computed(() =>
 }
 
 .layout__header {
+  display: flex;
   grid-area: header;
+  align-items: center;
+  justify-content: space-between;
+  /* Le compte passe sous le nom du site quand la place manque, plutôt que de
+     comprimer le bouton de déconnexion. */
+  flex-wrap: wrap;
   padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--color-border);
+  gap: var(--space-3);
+}
+
+.layout__account {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.layout__account-email {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  /* Une adresse longue se coupe plutôt que d'élargir la page : seul
+     `anywhere` entre dans le calcul de la largeur minimale du contenu. */
+  overflow-wrap: anywhere;
 }
 
 /*

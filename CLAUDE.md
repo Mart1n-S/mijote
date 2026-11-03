@@ -59,6 +59,7 @@ pnpm typecheck        # vérification des types, tous les paquets
 pnpm test             # Vitest
 pnpm test:e2e         # Playwright, avec axe-core
 pnpm db:migrate       # migrations Drizzle
+pnpm admin:create     # crée le premier administrateur, dans un terminal
 ```
 
 Avant de proposer un commit : `pnpm lint`, `pnpm typecheck` et `pnpm test` doivent passer.
@@ -88,6 +89,7 @@ Le détail est dans `.claude/rules/` : `security.md` et `writing-style.md` sont 
 ## Conventions
 
 - **Langue** : documentation, commentaires, commits et rapports en français. Noms dans le code (variables, fonctions, classes, fichiers, tables, colonnes) en anglais.
+- **Adresses** : celles que l'utilisateur voit sont en français (`/connexion`), paramètres de requête compris (`?suivant=`). Les routes de l'API restent en anglais (`/auth/login`), comme le reste du code.
 - **Ponctuation** : jamais de tiret long (—) ni de tiret moyen (–) ; utiliser deux-points, virgules ou parenthèses.
 - **Commits** : Conventional Commits en français, à l'impératif présent, en minuscules : `type(portée): description`. Types : `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `perf`, `build`, `ci`. Portées : `api`, `web`, `shared`, `db`, `ci`, `docs`, `ia` (tout ce qui touche `.claude/` : agents, rules, réglages).
 - **Branches** : une branche par story, `<type>/<numéro d'issue>-<description-courte>`, créée depuis `main`.

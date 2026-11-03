@@ -32,6 +32,22 @@ pnpm dev
 L'API écoute sur le port `API_PORT` (3000 par défaut) et expose `GET /health`.
 La PWA est servie par Vite sur le port 5173.
 
+## Premier administrateur
+
+L'application est privée et l'inscription passe par invitation : il faut donc
+créer le premier compte à la main. La commande demande le nom du foyer,
+l'adresse e-mail et le mot de passe, qui se saisit sans écho :
+
+```bash
+pnpm admin:create
+```
+
+Elle doit tourner dans un terminal : le mot de passe ne se passe ni en
+argument, ni par un tube, pour qu'il ne reste ni dans l'historique du shell ni
+dans la liste des processus. Il fait au moins 12 caractères.
+
+Une fois le compte créé, la connexion se fait sur `/connexion`.
+
 ## Commandes
 
 ```bash
@@ -41,6 +57,7 @@ pnpm typecheck        # vérification des types, tous les paquets
 pnpm test             # Vitest
 pnpm test:e2e         # Playwright, avec axe-core
 pnpm db:migrate       # migrations Drizzle
+pnpm admin:create     # crée le premier administrateur, dans un terminal
 ```
 
 `pnpm lint`, `pnpm typecheck` et `pnpm test` doivent passer avant tout commit.

@@ -13,10 +13,19 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../app.module.js';
 import { createDatabase, type Database } from '../db/client.js';
-import { account, household, loginAttempt, rememberToken, session } from '../db/schema.js';
+import {
+  account,
+  accountTwoFactor,
+  household,
+  loginAttempt,
+  rememberToken,
+  session,
+} from '../db/schema.js';
 import { loadEnvFile } from '../env.js';
+import { encrypt, readEncryptionKey } from '../security/encryption.js';
 import { hashPassword } from '../security/passwords.js';
 import { fingerprint, readPepper } from '../security/pepper.js';
+import { createTotpSecret, stepAt, totpCode } from '../security/totp.js';
 import { resolveTrustProxy } from '../security/trust-proxy.js';
 
 import { Roles } from './roles.decorator.js';
@@ -80,6 +89,11 @@ let app: NestExpressApplication;
 let baseUrl: string;
 let householdId: string;
 let accountId: string;
+let adminId: string;
+
+/** Un administrateur avec son second facteur, et un sans. */
+const ADMIN_EMAIL = `admin-${randomUUID()}@exemple.test`;
+const ADMIN_SECRET = createTotpSecret();
 
 /** Les routes qui n'existent que pour ce test. */
 @Controller('test-session')
@@ -179,6 +193,29 @@ describe.skipIf(!reachable)('la connexion, contre une vraie base', () => {
       .returning({ id: account.id });
 
     accountId = createdAccount?.id ?? '';
+
+    const [createdAdmin] = await database
+      .insert(account)
+      .values({
+        householdId,
+        email: ADMIN_EMAIL,
+        passwordHash: await hashPassword(PASSWORD),
+        role: 'admin',
+      })
+      .returning({ id: account.id });
+
+    adminId = createdAdmin?.id ?? '';
+
+    /*
+      Le secret est écrit comme l'API l'écrirait : chiffré, avec la même clé et
+      le même compte en donnée associée. C'est ce qui permet au test de calculer
+      les codes que l'application d'authentification afficherait.
+    */
+    await database.insert(accountTwoFactor).values({
+      accountId: adminId,
+      secretCipher: encrypt(readEncryptionKey(process.env), adminId, ADMIN_SECRET),
+      activatedAt: new Date(),
+    });
 
     app = await NestFactory.create<NestExpressApplication>(TestAppModule, { logger: false });
     app.set('trust proxy', resolveTrustProxy(process.env));
@@ -382,6 +419,175 @@ describe.skipIf(!reachable)('la connexion, contre une vraie base', () => {
     const other = await login({ email: EMAIL, password: PASSWORD }, ip);
 
     expect(other.status).toBe(200);
+  });
+
+  it('demande un code à un administrateur, et ouvre la session après lui', async () => {
+    const started = await login({ email: ADMIN_EMAIL, password: PASSWORD });
+
+    expect(started.status).toBe(200);
+    expect(await started.json()).toEqual({ twoFactorRequired: true });
+
+    // Aucune session ouverte au mot de passe : seulement l'attente.
+    const pendingToken = cookieValue(started, 'mijote_pending');
+    const pendingCsrf = cookieValue(started, CSRF_COOKIE);
+
+    expect(pendingToken).toBeDefined();
+    expect(cookieValue(started, 'mijote_session')).toBeUndefined();
+
+    const cookie = cookieHeader({
+      mijote_pending: pendingToken,
+      [CSRF_COOKIE]: pendingCsrf ?? '',
+    });
+
+    /*
+      La soumission du code garde les trois barrières : sans l'en-tête CSRF,
+      elle est refusée, parce que l'attente porte son propre secret et n'est pas
+      dans la liste des routes exemptées.
+    */
+    const withoutToken = await fetch(`${baseUrl}/auth/two-factor`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin: baseUrl, cookie },
+      body: JSON.stringify({ code: totpCode(ADMIN_SECRET, stepAt(new Date())) }),
+    });
+
+    expect(withoutToken.status).toBe(403);
+
+    // Les deux autres barrières s'observent ici, l'attente étant valide : le
+    // type de média, puis l'origine.
+    const wrongMediaType = await fetch(`${baseUrl}/auth/two-factor`, {
+      method: 'POST',
+      headers: { 'content-type': 'text/plain', origin: baseUrl, cookie },
+      body: JSON.stringify({ code: totpCode(ADMIN_SECRET, stepAt(new Date())) }),
+    });
+
+    expect(wrongMediaType.status).toBe(415);
+
+    const wrongOrigin = await fetch(`${baseUrl}/auth/two-factor`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        origin: 'https://ailleurs.example',
+        cookie,
+        [CSRF_HEADER]: pendingCsrf ?? '',
+      },
+      body: JSON.stringify({ code: totpCode(ADMIN_SECRET, stepAt(new Date())) }),
+    });
+
+    expect(wrongOrigin.status).toBe(403);
+
+    const verified = await fetch(`${baseUrl}/auth/two-factor`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        origin: baseUrl,
+        cookie,
+        [CSRF_HEADER]: pendingCsrf ?? '',
+      },
+      body: JSON.stringify({ code: totpCode(ADMIN_SECRET, stepAt(new Date())) }),
+    });
+
+    expect(verified.status).toBe(200);
+
+    const body = sessionResponseSchema.parse(await verified.json());
+
+    expect(body.account.id).toBe(adminId);
+    expect(body.twoFactor).toEqual({ active: true });
+
+    const sessionToken = cookieValue(verified, 'mijote_session');
+    const sessionCsrf = cookieValue(verified, CSRF_COOKIE);
+
+    expect(sessionToken).toBeDefined();
+
+    // La route d'administration accepte cette session : rôle, second facteur
+    // actif, et code validé dans cette session.
+    const allowed = await fetch(`${baseUrl}/test-session/administration`, {
+      headers: { cookie: cookieHeader({ mijote_session: sessionToken }) },
+    });
+
+    expect(allowed.status).toBe(200);
+    expect(sessionCsrf).toBeDefined();
+  });
+
+  it('refuse un code faux, puis le même code deux fois', async () => {
+    const started = await login({ email: ADMIN_EMAIL, password: PASSWORD });
+    const cookie = cookieHeader({
+      mijote_pending: cookieValue(started, 'mijote_pending'),
+      [CSRF_COOKIE]: cookieValue(started, CSRF_COOKIE) ?? '',
+    });
+    const csrf = cookieValue(started, CSRF_COOKIE) ?? '';
+
+    async function submit(code: string): Promise<Response> {
+      return fetch(`${baseUrl}/auth/two-factor`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          origin: baseUrl,
+          cookie,
+          [CSRF_HEADER]: csrf,
+        },
+        body: JSON.stringify({ code }),
+      });
+    }
+
+    const wrong = await submit('000000');
+
+    expect(wrong.status).toBe(401);
+    expect(JSON.stringify(await wrong.json())).toContain('Code incorrect ou expiré.');
+
+    /*
+      La fenêtre suivante, et non celle du moment : le test précédent vient de
+      consommer le code courant, et le rejeu est fermé pour toute la fenêtre.
+      C'est la tolérance d'un pas qui rend celui-ci acceptable.
+    */
+    const code = totpCode(ADMIN_SECRET, stepAt(new Date()) + 1);
+
+    expect((await submit(code)).status).toBe(200);
+
+    // Le rejeu, contre le vrai SQL : le pas accepté est retenu.
+    const replayed = await login({ email: ADMIN_EMAIL, password: PASSWORD });
+    const replayedCsrf = cookieValue(replayed, CSRF_COOKIE) ?? '';
+    const again = await fetch(`${baseUrl}/auth/two-factor`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        origin: baseUrl,
+        cookie: cookieHeader({
+          mijote_pending: cookieValue(replayed, 'mijote_pending'),
+          [CSRF_COOKIE]: replayedCsrf,
+        }),
+        [CSRF_HEADER]: replayedCsrf,
+      },
+      body: JSON.stringify({ code }),
+    });
+
+    expect(again.status).toBe(401);
+  });
+
+  it("conduit à l'activation un administrateur qui n'en a pas", async () => {
+    /*
+      Le second facteur est obligatoire pour ce rôle : la session existe, mais
+      aucune route d'administration ne l'accepte, et le message dit quoi faire.
+    */
+    const [other] = await database
+      .insert(account)
+      .values({
+        householdId,
+        email: `admin-sans-${randomUUID()}@exemple.test`,
+        passwordHash: await hashPassword(PASSWORD),
+        role: 'admin',
+      })
+      .returning({ id: account.id, email: account.email });
+
+    const opened = await login({ email: other?.email ?? '', password: PASSWORD });
+
+    expect(opened.status).toBe(200);
+
+    const refused = await fetch(`${baseUrl}/test-session/administration`, {
+      headers: { cookie: cookieHeader({ mijote_session: cookieValue(opened, 'mijote_session') }) },
+    });
+
+    expect(refused.status).toBe(403);
+    expect(JSON.stringify(await refused.json())).toContain('Activez-la');
   });
 
   it("n'écrit que des empreintes dans la table des tentatives", async () => {

@@ -15,6 +15,13 @@
       "when": 1793657851329,
       "tag": "0001_comptes_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794060040043,
+      "tag": "0002_double_authentification",
+      "breakpoints": true
     }
   ]
 }

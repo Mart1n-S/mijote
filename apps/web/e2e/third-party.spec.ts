@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { stubAnonymousApi, stubHealthyApi } from './api';
+import { stubAdminWithoutTwoFactor, stubAnonymousApi, stubHealthyApi } from './api';
 
 /*
   Aucune page ne doit appeler un service tiers. La règle vient de deux
@@ -14,10 +14,19 @@ import { stubAnonymousApi, stubHealthyApi } from './api';
 
 /** Toutes les pages servies, y compris celles qui n'existent qu'en démo. */
 const PAGES = [
-  { path: '/', name: "page d'accueil", anonymous: false },
-  { path: '/connexion', name: 'page de connexion', anonymous: true },
-  { path: '/design-system', name: 'page de démonstration', anonymous: false },
-];
+  { path: '/', name: "page d'accueil", session: 'connecte' },
+  { path: '/connexion', name: 'page de connexion', session: 'anonyme' },
+  /*
+    La page d'activation dessine un QR code : c'est l'écran où une requête
+    tierce coûterait le plus cher, puisque l'URI du QR contient le secret.
+  */
+  {
+    path: '/securite/double-authentification',
+    name: 'page de double authentification',
+    session: 'admin',
+  },
+  { path: '/design-system', name: 'page de démonstration', session: 'connecte' },
+] as const;
 
 for (const page_ of PAGES) {
   test(`${page_.name} : aucune requête vers un service tiers`, async ({ page, baseURL }) => {
@@ -35,10 +44,13 @@ for (const page_ of PAGES) {
     // bien contrôlée comme celle de n'importe quelle autre.
     /*
       La page de connexion n'est atteignable que sans session : connecté, la
-      garde renvoie à l'accueil.
+      garde renvoie à l'accueil. Celle de la double authentification demande un
+      administrateur qui ne l'a pas encore activée.
     */
-    if (page_.anonymous) {
+    if (page_.session === 'anonyme') {
       await stubAnonymousApi(page);
+    } else if (page_.session === 'admin') {
+      await stubAdminWithoutTwoFactor(page);
     } else {
       await stubHealthyApi(page);
     }

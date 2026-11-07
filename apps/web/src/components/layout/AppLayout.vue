@@ -3,7 +3,12 @@ import { computed, ref } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 
 import { MAIN_CONTENT_ID } from '../../navigation';
-import { currentAccount, isAuthenticated, logOut } from '../../session/session';
+import {
+  currentAccount,
+  isAuthenticated,
+  logOut,
+  mustActivateTwoFactor,
+} from '../../session/session';
 import BaseButton from '../base/BaseButton.vue';
 
 import ServiceStatusBanner from './ServiceStatusBanner.vue';
@@ -69,6 +74,17 @@ const links = computed(() =>
            elle seule : un foyer partage plusieurs comptes, et savoir lequel
            est ouvert évite de ranger ses courses dans celui de l'autre. -->
       <div v-if="isAuthenticated" class="layout__account">
+        <!-- Le second facteur est obligatoire pour l'administrateur : tant
+             qu'il manque, aucune route d'administration ne l'accepte, et c'est
+             ici qu'il est conduit a l'activer. -->
+        <RouterLink
+          v-if="mustActivateTwoFactor"
+          class="layout__two-factor"
+          :to="{ name: 'two-factor' }"
+        >
+          Activer la double authentification
+        </RouterLink>
+
         <span class="layout__account-email">{{ currentAccount?.email }}</span>
 
         <BaseButton
@@ -180,6 +196,22 @@ const links = computed(() =>
   align-items: center;
   flex-wrap: wrap;
   gap: var(--space-3);
+}
+
+/*
+  C'est un lien, et il garde la couleur des liens : `--color-accent` est le seul
+  jeton dont le contraste est mesuré comme texte sur chacun des fonds
+  (tokens.spec.ts). `--color-warning` ne l'est que comme repère, à 3:1, et le
+  prendre ici aurait introduit un couple que rien ne garantit. L'urgence est
+  portée par les mots, pas par la couleur.
+*/
+.layout__two-factor {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap-min);
+  padding: 0 var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
 }
 
 .layout__account-email {

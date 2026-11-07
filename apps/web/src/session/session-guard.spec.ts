@@ -26,7 +26,7 @@ function respondAs(connected: boolean): void {
     vi.fn(() =>
       Promise.resolve(
         connected
-          ? new Response(JSON.stringify({ account: ACCOUNT }), {
+          ? new Response(JSON.stringify({ account: ACCOUNT, twoFactor: { active: false } }), {
               status: 200,
               headers: { 'content-type': 'application/json' },
             })

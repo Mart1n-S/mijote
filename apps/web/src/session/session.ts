@@ -1,4 +1,9 @@
-import { type LoginInput, type SessionAccount, sessionResponseSchema } from '@mijote/shared';
+import {
+  loginResponseSchema,
+  sessionResponseSchema,
+  type LoginInput,
+  type SessionAccount,
+} from '@mijote/shared';
 import { computed, type ComputedRef, ref } from 'vue';
 
 import { ApiError, apiRequest } from '../api/client';
@@ -13,6 +18,9 @@ import { ApiError, apiRequest } from '../api/client';
 
 const account = ref<SessionAccount | undefined>(undefined);
 
+/** La double authentification du compte connecté, telle que l'API la dit. */
+const twoFactorActive = ref(false);
+
 /** L'appel en cours, pour que plusieurs navigations ne le lancent qu'une fois. */
 let pending: Promise<void> | undefined;
 let loaded = false;
@@ -23,11 +31,33 @@ export const currentAccount: ComputedRef<SessionAccount | undefined> = computed(
 
 export const isAuthenticated: ComputedRef<boolean> = computed(() => account.value !== undefined);
 
+/** Le second facteur est-il inscrit et confirmé sur ce compte ? */
+export const isTwoFactorActive: ComputedRef<boolean> = computed(() => twoFactorActive.value);
+
+/**
+ * Un administrateur sans second facteur : il garde l'application, mais aucune
+ * route d'administration ne l'accepte, et l'interface le conduit à l'activer.
+ */
+export const mustActivateTwoFactor: ComputedRef<boolean> = computed(
+  () => account.value?.role === 'admin' && !twoFactorActive.value,
+);
+
+function remember(session: { account: SessionAccount; twoFactor: { active: boolean } }): void {
+  account.value = session.account;
+  twoFactorActive.value = session.twoFactor.active;
+  loaded = true;
+}
+
+function forget(): void {
+  account.value = undefined;
+  twoFactorActive.value = false;
+}
+
 async function load(): Promise<void> {
   try {
     const response = await apiRequest('/auth/session');
 
-    account.value = sessionResponseSchema.parse(await response.json()).account;
+    remember(sessionResponseSchema.parse(await response.json()));
   } catch (error) {
     /*
       Un 401 veut dire « personne n'est connecté » : c'est une réponse, pas une
@@ -39,7 +69,7 @@ async function load(): Promise<void> {
       erreur qui ne serait pas une ApiError ne peut venir que d'un défaut du
       client ou du schéma, que la console montrera.
     */
-    account.value = undefined;
+    forget();
 
     if (!(error instanceof ApiError)) {
       console.error('lecture de la session impossible', error);
@@ -66,14 +96,40 @@ export async function ensureSessionLoaded(): Promise<void> {
   await pending;
 }
 
-export async function logIn(input: LoginInput): Promise<void> {
+/**
+ * Ce que la connexion a donné.
+ *
+ * `two-factor` veut dire que le mot de passe est bon et qu'un code est
+ * attendu : aucune session n'est ouverte à ce moment-là (ADR 0012).
+ */
+export type LogInOutcome = 'session' | 'two-factor';
+
+export async function logIn(input: LoginInput): Promise<LogInOutcome> {
   const response = await apiRequest('/auth/login', {
     method: 'POST',
     body: JSON.stringify(input),
   });
+  const body = loginResponseSchema.parse(await response.json());
 
-  account.value = sessionResponseSchema.parse(await response.json()).account;
-  loaded = true;
+  if ('twoFactorRequired' in body) {
+    // Rien à retenir : il n'y a pas de session, seulement une attente côté
+    // serveur, que son cookie porte.
+    return 'two-factor';
+  }
+
+  remember(body);
+
+  return 'session';
+}
+
+/** Soumet le code du second facteur, et ouvre la session s'il est bon. */
+export async function submitTwoFactorCode(code: string): Promise<void> {
+  const response = await apiRequest('/auth/two-factor', {
+    method: 'POST',
+    body: JSON.stringify({ code }),
+  });
+
+  remember(sessionResponseSchema.parse(await response.json()));
 }
 
 /**
@@ -87,14 +143,14 @@ export async function logOut(): Promise<void> {
   try {
     await apiRequest('/auth/logout', { method: 'POST' });
   } finally {
-    account.value = undefined;
+    forget();
     loaded = true;
   }
 }
 
 /** Remet l'état à zéro. Réservé aux tests, qui partagent ce module. */
 export function resetSessionForTests(): void {
-  account.value = undefined;
+  forget();
   pending = undefined;
   loaded = false;
 }

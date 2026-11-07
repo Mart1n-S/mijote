@@ -563,6 +563,99 @@ describe.skipIf(!reachable)('la connexion, contre une vraie base', () => {
     expect(again.status).toBe(401);
   });
 
+  it("rouvre l'application par la mémorisation, mais pas l'administration", async () => {
+    /*
+      L'arbitrage de l'ADR 0012, mesuré de bout en bout : un cookie de
+      mémorisation volé donne l'application, jamais l'administration. La
+      session reprise naît sans droits, et c'est un code qui les ouvre.
+
+      Son propre compte, avec son propre secret : le pas accepté ne redescend
+      jamais, donc deux tests qui partageraient un compte se marcheraient sur
+      les pieds au bout d'une minute.
+    */
+    const secret = createTotpSecret();
+    const email = `admin-memorise-${randomUUID()}@exemple.test`;
+    const [owner] = await database
+      .insert(account)
+      .values({ householdId, email, passwordHash: await hashPassword(PASSWORD), role: 'admin' })
+      .returning({ id: account.id });
+
+    await database.insert(accountTwoFactor).values({
+      accountId: owner?.id ?? '',
+      secretCipher: encrypt(readEncryptionKey(process.env), owner?.id ?? '', secret),
+      activatedAt: new Date(),
+    });
+
+    const started = await login({ email, password: PASSWORD, remember: true });
+    const pendingCsrf = cookieValue(started, CSRF_COOKIE) ?? '';
+    const verified = await fetch(`${baseUrl}/auth/two-factor`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        origin: baseUrl,
+        cookie: cookieHeader({
+          mijote_pending: cookieValue(started, 'mijote_pending'),
+          [CSRF_COOKIE]: pendingCsrf,
+        }),
+        [CSRF_HEADER]: pendingCsrf,
+      },
+      body: JSON.stringify({ code: totpCode(secret, stepAt(new Date())) }),
+    });
+
+    expect(verified.status).toBe(200);
+
+    const remembered = cookieValue(verified, 'mijote_remember');
+
+    expect(remembered).toBeDefined();
+
+    // Le navigateur a été fermé : il ne reste que le cookie de mémorisation.
+    const resumed = await fetch(`${baseUrl}/auth/session`, {
+      headers: { cookie: cookieHeader({ mijote_remember: remembered }) },
+    });
+
+    expect(resumed.status).toBe(200);
+
+    const resumedCsrf = cookieValue(resumed, CSRF_COOKIE) ?? '';
+    const resumedCookie = cookieHeader({
+      mijote_session: cookieValue(resumed, 'mijote_session'),
+      [CSRF_COOKIE]: resumedCsrf,
+    });
+
+    // L'application répond, l'administration non.
+    expect(
+      (await fetch(`${baseUrl}/test-session/mienne`, { headers: { cookie: resumedCookie } }))
+        .status,
+    ).toBe(200);
+
+    const refused = await fetch(`${baseUrl}/test-session/administration`, {
+      headers: { cookie: resumedCookie },
+    });
+
+    expect(refused.status).toBe(403);
+    expect(JSON.stringify(await refused.json())).toContain('demande un code');
+
+    // Un code de la fenêtre suivante, celui du moment ayant servi plus haut.
+    const unlocked = await fetch(`${baseUrl}/auth/two-factor/unlock`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        origin: baseUrl,
+        cookie: resumedCookie,
+        [CSRF_HEADER]: resumedCsrf,
+      },
+      body: JSON.stringify({ code: totpCode(secret, stepAt(new Date()) + 1) }),
+    });
+
+    expect(unlocked.status).toBe(204);
+    expect(
+      (
+        await fetch(`${baseUrl}/test-session/administration`, {
+          headers: { cookie: resumedCookie },
+        })
+      ).status,
+    ).toBe(200);
+  });
+
   it("conduit à l'activation un administrateur qui n'en a pas", async () => {
     /*
       Le second facteur est obligatoire pour ce rôle : la session existe, mais

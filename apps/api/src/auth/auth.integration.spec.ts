@@ -207,6 +207,12 @@ describe.skipIf(!reachable)('la connexion, contre une vraie base', () => {
     const response = await login({ email: EMAIL, password: PASSWORD });
 
     expect(response.status).toBe(200);
+    /*
+      Cette réponse porte un Set-Cookie, donc le jeton de session, et l'adresse
+      du compte : ni le disque du poste ni un intermédiaire n'ont à en garder
+      une copie après la session.
+    */
+    expect(response.headers.get('cache-control')).toBe('no-store');
 
     const body = sessionResponseSchema.parse(await response.json());
 
@@ -311,6 +317,18 @@ describe.skipIf(!reachable)('la connexion, contre une vraie base', () => {
     expect(rotated).toBeDefined();
     expect(rotated).not.toBe(remember);
     expect(cookieValue(resumed, 'mijote_session')).toBeDefined();
+
+    /*
+      L'ancien cookie, présenté aussitôt : il est dans le délai de grâce, donc
+      accepté, et aucun cookie de mémorisation n'est reposé. C'est le cas des
+      deux onglets qui se chargent en même temps, mesuré ici contre le vrai SQL.
+    */
+    const inGrace = await fetch(`${baseUrl}/auth/session`, {
+      headers: { cookie: cookieHeader({ mijote_remember: remember }) },
+    });
+
+    expect(inGrace.status).toBe(200);
+    expect(cookieValue(inGrace, 'mijote_remember')).toBeUndefined();
 
     /*
       Le rejeu, hors délai de grâce : la rotation est vieillie en base, puis

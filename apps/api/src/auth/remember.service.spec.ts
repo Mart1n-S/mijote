@@ -44,14 +44,21 @@ class MemoryFamilies implements RememberStore {
   rotateRememberSecret(
     family: string,
     change: { secretHash: string; previousSecretHash: string; rotatedAt: Date },
-  ): Promise<void> {
+  ): Promise<boolean> {
     const row = this.rows.get(family);
 
-    if (row !== undefined) {
-      this.rows.set(family, { ...row, ...change });
+    /*
+      La condition du vrai dépôt : la rotation ne modifie la ligne que si son
+      secret est bien celui qu'on avait lu. C'est ce qui rend ce faux fidèle
+      pour le cas des deux requêtes simultanées.
+    */
+    if (row === undefined || row.secretHash !== change.previousSecretHash) {
+      return Promise.resolve(false);
     }
 
-    return Promise.resolve();
+    this.rows.set(family, { ...row, ...change });
+
+    return Promise.resolve(true);
   }
 
   deleteRememberFamily(family: string): Promise<void> {
@@ -159,6 +166,31 @@ describe('consume', () => {
       requête, et lui en poser un ancien le défairait.
     */
     expect(parallel?.refreshed).toBeUndefined();
+    expect(store.deleted).toEqual([]);
+    expect(log.lines).toEqual([]);
+  });
+
+  it('laisse une requête sœur gagner la rotation, sans révoquer la famille', async () => {
+    /*
+      Deux requêtes vraiment simultanées, et non l'une après l'autre : les deux
+      lisent le même secret avant qu'aucune n'écrive. C'est le cas que le délai
+      de grâce ne couvre pas, puisqu'il compare au secret **précédent**, qui
+      n'existe pas encore ici.
+
+      Sans la rotation conditionnelle, les deux écriraient, le navigateur ne
+      garderait qu'un seul des deux cookies, et le suivant passerait pour un
+      vol : la famille serait révoquée et la personne déconnectée, sans qu'il y
+      ait eu le moindre vol.
+    */
+    const cookie = await service.issue(ACCOUNT_ID);
+    const [first, second] = await Promise.all([service.consume(cookie), service.consume(cookie)]);
+
+    expect(first?.accountId).toBe(ACCOUNT_ID);
+    expect(second?.accountId).toBe(ACCOUNT_ID);
+    // Une seule rotation, donc un seul cookie reposé.
+    expect(
+      [first?.refreshed, second?.refreshed].filter((value) => value !== undefined),
+    ).toHaveLength(1);
     expect(store.deleted).toEqual([]);
     expect(log.lines).toEqual([]);
   });

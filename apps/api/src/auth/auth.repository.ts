@@ -13,7 +13,7 @@ import { account, loginAttempt, rememberToken, session } from '../db/schema.js';
   dépôt qui les implémente. C'est le même procédé que `DatabaseProbe` pour la
   sonde de santé : les tests de la logique tournent sur une mémoire de quelques
   lignes, sans PostgreSQL, et le SQL se mesure une fois, dans
-  auth.repository.spec.ts, contre une vraie base.
+  auth.integration.spec.ts, contre une vraie base.
 */
 
 /** Un compte, tel que la connexion a besoin de le lire. */
@@ -171,11 +171,32 @@ export class AuthRepository {
     return row;
   }
 
+  /**
+   * Fait tourner le secret, à condition que ce soit bien celui qu'on a lu.
+   *
+   * La condition sur `secret_hash` est ce qui rend la rotation sûre entre deux
+   * requêtes vraiment simultanées : la seconde ne trouve aucune ligne à
+   * modifier, et le sait. Sans elle, les deux écriraient, et le cookie que le
+   * navigateur garde pourrait ne correspondre à aucune des deux.
+   *
+   * Rend vrai si la ligne a été modifiée.
+   */
   async rotateRememberSecret(
     family: string,
     change: { secretHash: string; previousSecretHash: string; rotatedAt: Date },
-  ): Promise<void> {
-    await this.database.update(rememberToken).set(change).where(eq(rememberToken.family, family));
+  ): Promise<boolean> {
+    const rotated = await this.database
+      .update(rememberToken)
+      .set(change)
+      .where(
+        and(
+          eq(rememberToken.family, family),
+          eq(rememberToken.secretHash, change.previousSecretHash),
+        ),
+      )
+      .returning({ family: rememberToken.family });
+
+    return rotated.length > 0;
   }
 
   async deleteRememberFamily(family: string): Promise<void> {

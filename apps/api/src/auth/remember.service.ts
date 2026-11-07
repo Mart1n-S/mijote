@@ -40,10 +40,11 @@ export interface RememberStore {
     expiresAt: Date;
   }): Promise<string>;
   findRememberFamily(family: string): Promise<RememberRecord | undefined>;
+  /** Rend vrai si la ligne a été modifiée, faux si le secret avait changé. */
   rotateRememberSecret(
     family: string,
     change: { secretHash: string; previousSecretHash: string; rotatedAt: Date },
-  ): Promise<void>;
+  ): Promise<boolean>;
   deleteRememberFamily(family: string): Promise<void>;
 }
 
@@ -104,7 +105,7 @@ export class RememberService {
     const secretHash = hashSecret(presented.secret);
 
     if (hashesMatch(record.secretHash, secretHash)) {
-      return { accountId: record.accountId, refreshed: await this.rotate(record) };
+      return this.rotate(record);
     }
 
     if (this.isWithinGrace(record, secretHash)) {
@@ -149,16 +150,35 @@ export class RememberService {
     }
   }
 
-  private async rotate(record: RememberRecord): Promise<string> {
+  /**
+   * Fait tourner le secret, ou constate qu'une requête sœur l'a déjà fait.
+   *
+   * La rotation est conditionnée au secret qu'on vient de lire. Si elle ne
+   * modifie aucune ligne, c'est qu'une autre requête du même navigateur est
+   * passée entre la lecture et l'écriture : deux onglets qui se chargent en
+   * même temps présentent le même cookie. Le navigateur ne garde qu'un seul
+   * `Set-Cookie`, donc celle-ci n'en repose aucun et laisse la sœur gagner.
+   *
+   * La famille est relue avant de l'admettre : disparue entre-temps, elle a été
+   * révoquée ou purgée, et il n'y a plus de session à reprendre.
+   */
+  private async rotate(record: RememberRecord): Promise<ResumedFamily | undefined> {
     const secret = createSecret();
-
-    await this.store.rotateRememberSecret(record.family, {
+    const rotated = await this.store.rotateRememberSecret(record.family, {
       secretHash: hashSecret(secret),
       previousSecretHash: record.secretHash,
       rotatedAt: new Date(),
     });
 
-    return `${record.family}${SEPARATOR}${secret}`;
+    if (rotated) {
+      return { accountId: record.accountId, refreshed: `${record.family}${SEPARATOR}${secret}` };
+    }
+
+    const current = await this.store.findRememberFamily(record.family);
+
+    return current === undefined
+      ? undefined
+      : { accountId: current.accountId, refreshed: undefined };
   }
 
   private isWithinGrace(record: RememberRecord, secretHash: string): boolean {

@@ -34,7 +34,9 @@ La dernière activité n'est réécrite qu'au-delà d'une minute : sans ce seuil
 
 Le cookie porte deux choses, séparées par un point : la famille, en clair, qui retrouve la ligne, et un secret, dont seule l'empreinte est stockée. Le secret est **remplacé à chaque usage**, et l'ancien reste accepté pendant **30 secondes** après la rotation.
 
-Ce délai de grâce n'est pas une facilité : deux onglets qui se chargent en même temps présentent le même cookie, et sans lui le second passerait pour un vol et déconnecterait l'appareil. La requête qui arrive dans la grâce ne repose **aucun** cookie, le navigateur ayant déjà reçu le nouveau.
+Ce délai de grâce n'est pas une facilité : deux onglets qui se chargent en même temps présentent le même cookie, et sans lui le second passerait pour un vol et déconnecterait l'appareil. La requête qui arrive dans la grâce ouvre bien sa session, mais **ne repose pas le cookie de mémorisation** : le navigateur a déjà reçu le nouveau, et lui en poser un ancien le défairait.
+
+La grâce ne couvre que l'enchaînement, une requête lisant après que l'autre a écrit. Deux requêtes **vraiment simultanées** lisent le même secret avant qu'aucune n'écrive, et la grâce ne les voit pas, puisqu'elle compare au secret précédent, qui n'existe pas encore. D'où la seconde protection : **la rotation est conditionnée au secret qu'on vient de lire** (`update ... where family = ? and secret_hash = ?`). La requête qui ne modifie aucune ligne sait qu'une sœur est passée avant elle, et elle la laisse gagner, sans reposer de cookie et sans crier au vol. Sans cette condition, les deux écrivaient, le navigateur ne gardait qu'un cookie, et le suivant déclenchait la révocation de la famille : une alerte de vol fausse déconnecte, et apprend à ne plus croire l'alerte.
 
 Un secret qui ne correspond plus, hors grâce, ne peut venir que d'une copie du cookie : toute la famille est révoquée et un avertissement est journalisé, avec la famille et le compte, jamais le secret. Sans les familles, un vol ne se verrait jamais.
 
@@ -76,7 +78,18 @@ Adresse inconnue ou mot de passe faux : le même 401 et le même détail, « Adr
 
 Trois gardes, dans cet ordre : session, CSRF, rôle. Une route nouvelle demande une session sans que personne ait à y penser, et c'est `@Public()` qui l'ouvre. Oublier ce décorateur ferme une route ; l'oubli inverse l'ouvrirait.
 
-Le réglage `trust proxy` d'Express est **explicite** et refuse `true` au démarrage : derrière le mandataire du homelab, `X-Forwarded-For` dit la vérité, mais seulement quand c'est bien le mandataire qui parle. Avec une confiance aveugle, n'importe qui écrirait l'en-tête lui-même et se donnerait une IP neuve à chaque essai.
+Le réglage `trust proxy` d'Express est **explicite** : derrière le mandataire du homelab, `X-Forwarded-For` dit la vérité, mais seulement quand c'est bien le mandataire qui parle. Avec une confiance aveugle, n'importe qui écrirait l'en-tête lui-même et se donnerait une IP neuve à chaque essai.
+
+Trois écritures sont donc refusées au démarrage, parce qu'elles reviennent toutes au même : `true`, un préfixe qui couvre tout l'espace d'adresses (`0.0.0.0/0`, `::/0`, `*`), et un nombre de sauts invraisemblable (plus de dix). Le contrôle s'arrête là : un `/8` trop large passe, et c'est au déploiement de nommer le mandataire. Il attrape l'erreur évidente, pas une plage mal choisie.
+
+### Ce qui n'est pas haché, et pourquoi
+
+`session.csrf_secret` est la seule valeur de ces tables gardée en clair. Elle n'est pas un authentifiant à elle seule : le serveur ne la compare qu'au secret de **la** session déjà résolue par un jeton, lui haché. Une fuite de la table ne donne donc aucune session utilisable, et la hacher n'ajouterait rien, la comparaison se faisant de serveur à serveur.
+
+### Deux durcissements écartés pour l'instant
+
+- **Le préfixe `__Host-` sur les trois cookies.** Les attributs posés le permettraient sans autre changement, et il empêcherait un service voisin d'un sous-domaine de poser un cookie homonyme. Il est écarté de cette story faute d'avoir mesuré ce que Chromium en fait sur `http://localhost`, que la prévisualisation des tests de bout en bout sert en clair. `readCookie` garde déjà le premier cookie, comme les navigateurs, et le serveur ne croit jamais le jeton CSRF venu du cookie : la portée se limite à une connexion forcée. À reprendre avec l'issue #31.
+- **La dérivation du secret CSRF** par HMAC du poivre et de l'identifiant de session, qui éviterait de le stocker. Elle ne change rien à ce qu'un attaquant peut faire, et elle couple la session au poivre, dont le changement invaliderait toutes les sessions ouvertes.
 
 ## Conséquences
 
@@ -85,11 +98,14 @@ Le réglage `trust proxy` d'Express est **explicite** et refuse `true` au démar
 - La CI gagne un service PostgreSQL et une étape de migration : `auth.integration.spec.ts` et `admin-account.spec.ts` sont les seuls tests qui mesurent le SQL et le parcours complet, et comme `mailpit.spec.ts`, ils ne se sautent jamais en CI.
 - Le front appelle `GET /auth/session` au démarrage, dans la garde de navigation. **Un échec qui n'est pas un 401 laisse l'application anonyme** : sans réponse du serveur, on ne peut pas affirmer qu'une session existe, donc on montre la page de connexion, et c'est le bandeau de service qui explique la panne.
 - Le client HTTP du front pose lui-même le type `application/json` et l'en-tête `X-CSRF-Token` sur toute requête qui modifie l'état : ce sont des barrières de sécurité, pas des détails d'appel, et elles n'ont pas à être répétées à chaque usage.
-- Les adresses visibles par l'utilisateur sont en français : la connexion est sur `/connexion`, et le paramètre de retour s'appelle `suivant`. Ce paramètre n'accepte qu'un chemin de l'application, pour que l'adresse de connexion ne puisse pas servir de redirection ouverte.
+- Les adresses visibles par l'utilisateur sont en français : la connexion est sur `/connexion`, et le paramètre de retour s'appelle `suivant`. Ce paramètre n'accepte qu'un chemin de l'application, pour que l'adresse de connexion ne puisse pas servir de redirection ouverte. Il recopie le chemin demandé avec sa chaîne de requête, donc **aucun écran ne doit porter de donnée personnelle en paramètre de route** : l'adresse saisie pour trouver un magasin, en particulier, se passe dans un corps de requête et non dans une URL.
+- Les réponses des trois routes d'authentification portent `Cache-Control: no-store`. Elles portent un `Set-Cookie`, donc le jeton de session, et l'adresse du compte : ni le disque du poste ni un intermédiaire n'ont à en garder une copie après la session. Les autres en-têtes de sécurité restent le sujet de l'issue #31.
+- **Se connecter ferme la session que le navigateur présentait.** Sans cela, la précédente restait valable jusqu'à sa limite, et se reconnecter en soupçonnant un vol ne fermait rien. Les autres appareils, eux, gardent la leur : c'est le périmètre de la story.
+- Les paramètres d'une requête SQL ne doivent jamais entrer dans un journal : depuis cette story, ce sont des adresses e-mail. Le sérialiseur d'erreurs de `logging/logger-options.ts` traite donc l'erreur de requête de Drizzle à part, et ne garde que la requête paramétrée, le code de PostgreSQL et les lignes d'appel de la pile. La commande `admin:create` fait de même sur sa sortie.
 
 ## Quand revoir cette décision
 
-- **Si une origine différente doit appeler l'API** (application mobile, sous-domaine séparé) : les deux premières barrières du CSRF tombent, et il faut alors reprendre cette décision entièrement, à l'occasion de l'issue #31.
+- **Si une origine différente doit appeler l'API** (application mobile, sous-domaine séparé) : les deux premières barrières du CSRF tombent, et il faut alors reprendre cette décision entièrement, à l'occasion de l'issue #31. **Cette relecture n'est pas hypothétique** : l'issue #31, du même lot, demande aujourd'hui « le CORS restreint à une liste blanche d'origines lue dans une variable d'environnement, avec `credentials` activé ». Or la PWA et l'API partagent la même origine, et un commentaire de cette issue note déjà que le mandataire `/api` rend le CORS inutile. L'un des deux textes est à ajuster en traitant #31, et c'est à Martin de dire lequel.
 - Si l'API tourne sur plusieurs instances : la session en base tient déjà, mais la purge opportuniste serait à revoir.
 - À l'arrivée de la double authentification des routes d'administration, que `security.md` exige et que la story #10 laisse hors périmètre.
 - Si la révocation de tous les appareils est demandée : elle ajoute une route et une colonne, pas une décision.

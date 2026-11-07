@@ -65,7 +65,11 @@ export class AuthService {
     this.logger.setContext(AuthService.name);
   }
 
-  async login(input: LoginInput, clientIp: string): Promise<AuthenticatedResponse> {
+  async login(
+    input: LoginInput,
+    clientIp: string,
+    presentedSession?: string,
+  ): Promise<AuthenticatedResponse> {
     const keys = this.attempts.keysFor(input.email, clientIp);
 
     if (await this.attempts.isBlocked(keys)) {
@@ -89,12 +93,21 @@ export class AuthService {
 
     if (account === undefined || !correct) {
       await this.attempts.record(keys, 'failed');
-      this.logger.info({ ...keys, accountFound: account !== undefined }, 'échec de connexion');
+      /*
+        Les empreintes et rien d'autre. Dire si le compte existe serait, pour
+        qui lit les journaux et détient le poivre, le moyen de confirmer qu'une
+        adresse devinée a un compte ici.
+      */
+      this.logger.info(keys, 'échec de connexion');
 
       throw new ProblemException(HttpStatus.UNAUTHORIZED, INVALID_CREDENTIALS);
     }
 
     await this.attempts.record(keys, 'succeeded');
+
+    if (presentedSession !== undefined) {
+      await this.sessions.closePresented(presentedSession);
+    }
 
     const cookies = await this.openSession(account.id, input.remember);
 

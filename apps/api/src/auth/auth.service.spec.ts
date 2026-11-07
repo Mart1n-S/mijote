@@ -134,14 +134,21 @@ class MemoryFamilies implements RememberStore {
   rotateRememberSecret(
     family: string,
     change: { secretHash: string; previousSecretHash: string; rotatedAt: Date },
-  ): Promise<void> {
+  ): Promise<boolean> {
     const row = this.rows.get(family);
 
-    if (row !== undefined) {
-      this.rows.set(family, { ...row, ...change });
+    /*
+      La condition du vrai dépôt : la rotation ne modifie la ligne que si son
+      secret est bien celui qu'on avait lu. C'est ce qui rend ce faux fidèle
+      pour le cas des deux requêtes simultanées.
+    */
+    if (row === undefined || row.secretHash !== change.previousSecretHash) {
+      return Promise.resolve(false);
     }
 
-    return Promise.resolve();
+    this.rows.set(family, { ...row, ...change });
+
+    return Promise.resolve(true);
   }
 
   deleteRememberFamily(family: string): Promise<void> {
@@ -325,7 +332,7 @@ describe('login', () => {
     expect(attempts.rows.map((row) => row.outcome)).toEqual(['failed', 'failed']);
   });
 
-  it("met autant de temps à refuser une adresse inconnue qu'un mot de passe faux", async () => {
+  it("paie le coût d'Argon2 même sur une adresse inconnue", async () => {
     /*
       Le message identique ne suffit pas : sans l'empreinte leurre, une adresse
       inconnue répondrait sans payer le coût d'Argon2, et le temps de réponse
@@ -383,6 +390,22 @@ describe('login', () => {
     // Les lignes utiles sont bien là, elles.
     expect(log.lines.map((line) => line.message)).toContain('connexion réussie');
     expect(log.lines.map((line) => line.message)).toContain('échec de connexion');
+  });
+
+  it('ferme la session que ce navigateur présentait', async () => {
+    /*
+      Sans cela, la session précédente resterait valable jusqu'à sa limite : se
+      reconnecter en soupçonnant un vol ne fermerait rien, alors que c'est le
+      premier réflexe.
+    */
+    const first = await service.login({ email: EMAIL, password: PASSWORD, remember: false }, IP);
+    const token = cookie(first.cookies, 'mijote_session')?.split(';')[0]?.split('=')[1];
+
+    await service.login({ email: EMAIL, password: PASSWORD, remember: false }, IP, token);
+
+    // Une seule session ouverte : la nouvelle.
+    expect(sessions.rows.size).toBe(1);
+    expect(await new SessionService(sessions).resolve(token ?? '')).toBeUndefined();
   });
 
   it('purge les lignes périmées à la connexion réussie, pas aux échecs', async () => {

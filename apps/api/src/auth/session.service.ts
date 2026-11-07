@@ -99,4 +99,19 @@ export class SessionService {
   async close(sessionId: string): Promise<void> {
     await this.store.deleteSession(sessionId);
   }
+
+  /**
+   * Ferme la session que ce jeton désigne, s'il en désigne une.
+   *
+   * Appelée à la connexion : sans elle, la session précédente du même
+   * navigateur resterait valable jusqu'à sa limite, et se reconnecter en
+   * soupçonnant un vol ne fermerait rien.
+   */
+  async closePresented(token: string): Promise<void> {
+    const found = await this.store.findSessionByTokenHash(hashSecret(token));
+
+    if (found !== undefined) {
+      await this.store.deleteSession(found.session.id);
+    }
+  }
 }

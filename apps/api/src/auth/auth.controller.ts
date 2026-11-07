@@ -17,7 +17,19 @@ import { AUTH_REQUIRED } from './session.guard.js';
  * elle dit exactement ce que le contrôleur se permet de faire.
  */
 export interface CookieSink {
-  setHeader(name: string, value: string[]): void;
+  setHeader(name: string, value: string | string[]): void;
+}
+
+/**
+ * Pose les cookies, et interdit toute copie de la réponse.
+ *
+ * `no-store` parce que ces réponses portent un `Set-Cookie`, donc le jeton de
+ * session, et l'adresse du compte connecté : ni le disque du poste ni un
+ * intermédiaire n'ont à en garder une copie après la session.
+ */
+function writeSession(response: CookieSink, cookies: string[]): void {
+  response.setHeader('Cache-Control', 'no-store');
+  response.setHeader('Set-Cookie', cookies);
 }
 
 @Controller('auth')
@@ -38,9 +50,18 @@ export class AuthController {
     @Req() request: unknown,
     @Res({ passthrough: true }) response: CookieSink,
   ): Promise<SessionResponse> {
-    const { account, cookies } = await this.auth.login(body, readClientIp(request));
+    const { account, cookies } = await this.auth.login(
+      body,
+      readClientIp(request),
+      /*
+        La session présentée, s'il y en a une : se reconnecter ferme celle de ce
+        navigateur plutôt que de la laisser valable jusqu'à sa limite. Quelqu'un
+        qui se reconnecte en soupçonnant un vol ferme ainsi quelque chose.
+      */
+      readRequestCookie(request, SESSION_COOKIE),
+    );
 
-    response.setHeader('Set-Cookie', cookies);
+    writeSession(response, cookies);
 
     return { account };
   }
@@ -70,7 +91,7 @@ export class AuthController {
       throw new ProblemException(HttpStatus.UNAUTHORIZED, AUTH_REQUIRED);
     }
 
-    response.setHeader('Set-Cookie', resolved.cookies);
+    writeSession(response, resolved.cookies);
 
     return { account: resolved.account };
   }
@@ -87,6 +108,6 @@ export class AuthController {
       readRequestCookie(request, REMEMBER_COOKIE),
     );
 
-    response.setHeader('Set-Cookie', cookies);
+    writeSession(response, cookies);
   }
 }

@@ -50,11 +50,9 @@ export async function createAdminAccount(
     );
   }
 
-  const existing = await database
-    .select({ id: account.id })
-    .from(account)
-    .where(eq(account.email, email.data))
-    .limit(1);
+  const existing = await withSafeFailure(() =>
+    database.select({ id: account.id }).from(account).where(eq(account.email, email.data)).limit(1),
+  );
 
   if (existing.length > 0) {
     throw new Error('un compte existe déjà pour cette adresse');
@@ -64,6 +62,54 @@ export async function createAdminAccount(
   // qui n'ont rien à faire dans une transaction ouverte.
   const passwordHash = await hashPassword(input.password);
 
+  return withSafeFailure(() => createRows(database, email.data, householdName, passwordHash));
+}
+
+/**
+ * Ce qu'on peut dire d'une erreur de base sans recopier ce qu'on lui a passé.
+ *
+ * Drizzle place la requête **et ses paramètres** dans le message de ses
+ * erreurs, et cette commande reçoit une adresse e-mail et une empreinte de mot
+ * de passe. Sa sortie se retrouvant dans un historique de terminal, elle ne
+ * garde que le code de PostgreSQL, qui dit quoi corriger sans rien recopier.
+ */
+export function databaseFailure(error: unknown): Error {
+  const code = readPostgresCode(error);
+
+  return new Error(
+    `l'écriture en base a échoué${code === undefined ? '' : ` (code ${code})`}, voir les journaux de PostgreSQL`,
+  );
+}
+
+function readPostgresCode(error: unknown): string | undefined {
+  if (!(error instanceof Error)) {
+    return undefined;
+  }
+
+  // Sur une erreur de requête de Drizzle, le code vit sur la cause.
+  for (const candidate of [error, error.cause]) {
+    if (candidate instanceof Error && 'code' in candidate && typeof candidate.code === 'string') {
+      return candidate.code;
+    }
+  }
+
+  return undefined;
+}
+
+async function withSafeFailure<Result>(run: () => Promise<Result>): Promise<Result> {
+  try {
+    return await run();
+  } catch (error) {
+    throw databaseFailure(error);
+  }
+}
+
+function createRows(
+  database: Database,
+  email: string,
+  householdName: string,
+  passwordHash: string,
+): Promise<CreatedAdmin> {
   return database.transaction(async (transaction) => {
     const [createdHousehold] = await transaction
       .insert(household)
@@ -78,7 +124,7 @@ export async function createAdminAccount(
       .insert(account)
       .values({
         householdId: createdHousehold.id,
-        email: email.data,
+        email,
         passwordHash,
         role: 'admin',
       })

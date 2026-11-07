@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { eq, sql } from 'drizzle-orm';
+import { DrizzleQueryError, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createDatabase, type Database } from '../db/client.js';
@@ -7,7 +7,7 @@ import { account, household } from '../db/schema.js';
 import { loadEnvFile } from '../env.js';
 import { verifyPassword } from '../security/passwords.js';
 
-import { createAdminAccount } from './admin-account.js';
+import { createAdminAccount, databaseFailure } from './admin-account.js';
 
 /*
   La commande de création d'administrateur, contre une vraie base.
@@ -43,6 +43,40 @@ if (!reachable && process.env['CI'] === 'true') {
     'PostgreSQL est injoignable, ou les migrations ne sont pas passées, alors que CI est posée : ce test ne doit pas se sauter en CI.',
   );
 }
+
+describe('databaseFailure', () => {
+  it('ne recopie ni les paramètres de la requête, ni le mot de passe haché', () => {
+    /*
+      La vraie classe de drizzle-orm : c'est elle qui place la requête et ses
+      paramètres dans son message. Cette commande passe à l'INSERT une adresse
+      e-mail et une empreinte Argon2, et sa sortie se retrouve dans un
+      historique de terminal.
+    */
+    const cause = Object.assign(new Error('duplicate key value violates unique constraint'), {
+      code: '23505',
+    });
+    const failure = new DrizzleQueryError(
+      'insert into "account" ("email", "password_hash") values ($1, $2)',
+      ['victime@exemple.fr', '$argon2id$v=19$m=65536,t=3,p=1$sel$empreinte'],
+      cause,
+    );
+
+    const safe = databaseFailure(failure);
+
+    expect(safe.message).not.toContain('victime@exemple.fr');
+    expect(safe.message).not.toContain('argon2');
+    expect(safe.message).not.toContain('insert into');
+    // Le code de PostgreSQL reste, lui : il dit quoi corriger.
+    expect(safe.message).toContain('23505');
+  });
+
+  it("se passe de code quand l'erreur n'en porte pas", () => {
+    expect(databaseFailure(new Error('réseau coupé')).message).toBe(
+      "l'écriture en base a échoué, voir les journaux de PostgreSQL",
+    );
+    expect(databaseFailure('pas une erreur').message).toContain('a échoué');
+  });
+});
 
 describe.skipIf(!reachable)('createAdminAccount', () => {
   let database: Database;

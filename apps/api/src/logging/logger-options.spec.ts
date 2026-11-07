@@ -2,6 +2,7 @@ import { IncomingMessage, ServerResponse } from 'node:http';
 import { Socket } from 'node:net';
 
 import { REQUEST_ID_HEADER } from '@mijote/shared';
+import { DrizzleQueryError } from 'drizzle-orm';
 import { pino } from 'pino';
 import { pinoHttp } from 'pino-http';
 import { describe, expect, it } from 'vitest';
@@ -150,6 +151,53 @@ describe('buildPinoHttpOptions', () => {
     expect(lines.join('')).not.toContain('qui@exemple.fr');
     expect(lines.join('')).not.toContain('motdepasse');
     expect(lines.join('')).not.toContain('already exists');
+  });
+
+  it("ne journalise pas les paramètres d'une requête en échec", () => {
+    /*
+      La vraie classe de drizzle-orm, construite avec les vrais arguments :
+      c'est elle qui place la requête et ses paramètres dans son message, donc
+      dans la première ligne de sa pile. Mesuré le 7 novembre 2026 contre la
+      base de développement, sur `select 1 from table_inexistante where
+      email = $1` : message, pile et `params` portaient tous l'adresse soumise.
+
+      Depuis la story #10, ces paramètres sont des adresses e-mail, et une
+      panne de base suffirait à les écrire dans les journaux.
+    */
+    const lines: string[] = [];
+    const cause = Object.assign(new Error('relation "account" does not exist'), { code: '42P01' });
+    const failure = new DrizzleQueryError(
+      'select "email" from "account" where "account"."email" = $1',
+      ['victime@exemple.fr'],
+      cause,
+    );
+
+    loggerWritingTo(lines).error({ err: failure }, 'requête en échec');
+
+    const logged = lastLine(lines);
+
+    expect(lines.join('')).not.toContain('victime@exemple.fr');
+    expect(lines.join('')).not.toContain('params');
+    expect(logged['err']).toMatchObject({
+      message: 'requête SQL en échec',
+      // La requête est paramétrée : elle dit quoi sans dire avec quelle valeur.
+      query: 'select "email" from "account" where "account"."email" = $1',
+      cause: { code: '42P01', message: 'relation "account" does not exist' },
+    });
+  });
+
+  it("ne garde d'une requête en échec que les lignes d'appel de sa pile", () => {
+    // V8 commence une pile par le message de l'erreur, que celui-ci vient de
+    // perdre : la garder telle quelle y remettrait les paramètres.
+    const lines: string[] = [];
+    const failure = new DrizzleQueryError('select 1 where x = $1', ['victime@exemple.fr']);
+
+    loggerWritingTo(lines).error({ err: failure }, 'requête en échec');
+
+    const stack = lastLine(lines)['err'];
+
+    expect(JSON.stringify(stack)).not.toContain('Failed query');
+    expect(JSON.stringify(stack)).toContain('    at ');
   });
 
   it('garde la cause sur un seul niveau', () => {

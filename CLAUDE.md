@@ -93,6 +93,7 @@ Le détail est dans `.claude/rules/` : `security.md` et `writing-style.md` sont 
 - **Adresses** : celles que l'utilisateur voit sont en français (`/connexion`), paramètres de requête compris (`?suivant=`). Les routes de l'API restent en anglais (`/auth/login`), comme le reste du code.
 - **Ponctuation** : jamais de tiret long (—) ni de tiret moyen (–) ; utiliser deux-points, virgules ou parenthèses.
 - **Commits** : Conventional Commits en français, à l'impératif présent, en minuscules : `type(portée): description`. Types : `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `perf`, `build`, `ci`. Portées : `api`, `web`, `shared`, `db`, `ci`, `docs`, `ia` (tout ce qui touche `.claude/` : agents, rules, réglages).
+- **Fermeture d'issue** : une description de PR écrit `Closes #<numéro>`, **en anglais, seule exception au français**. GitHub ne reconnaît que ses propres mots-clés (`close`, `closes`, `closed`, `fix`, `fixes`, `fixed`, `resolve`, `resolves`, `resolved`) : « Ferme #23 », dans la PR #24, n'a rien fermé, et l'issue a dû l'être à la main.
 - **Branches** : une branche par story, `<type>/<numéro d'issue>-<description-courte>`, créée depuis `main`.
 - **Commentaires** : expliquer le pourquoi, pas le quoi ; commenter ce qui n'est pas évident.
 - **Git** : proposer les commits ; ne jamais faire `git push` sans demande, jamais `git push --force`, jamais de fusion de PR (c'est moi qui fusionne).

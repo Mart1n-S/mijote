@@ -17,6 +17,24 @@ describe('resolveTrustProxy', () => {
     expect(() => resolveTrustProxy({ TRUST_PROXY: 'true' })).toThrow(/loopback.*\.env\.example/s);
   });
 
+  it('refuse la même confiance aveugle écrite autrement', () => {
+    /*
+      `true` n'est pas la seule façon de croire tout le monde : un préfixe qui
+      couvre tout l'espace d'adresses, ou un nombre de sauts invraisemblable,
+      laissent le client choisir l'adresse qu'on comptera.
+    */
+    expect(() => resolveTrustProxy({ TRUST_PROXY: '0.0.0.0/0' })).toThrow(/couvre tout/);
+    expect(() => resolveTrustProxy({ TRUST_PROXY: '::/0' })).toThrow(/couvre tout/);
+    expect(() => resolveTrustProxy({ TRUST_PROXY: '10.0.0.4, ::/0' })).toThrow(/couvre tout/);
+    expect(() => resolveTrustProxy({ TRUST_PROXY: '42' })).toThrow(/intermédiaires/);
+  });
+
+  it('laisse passer une plage trop large, et ne prétend pas le contraire', () => {
+    // Le contrôle attrape l'erreur évidente, pas une plage mal choisie : c'est
+    // au déploiement de nommer le mandataire.
+    expect(resolveTrustProxy({ TRUST_PROXY: '10.0.0.0/8' })).toBe('10.0.0.0/8');
+  });
+
   it('accepte une adresse, un nombre de sauts, ou aucune confiance', () => {
     expect(resolveTrustProxy({ TRUST_PROXY: '10.0.0.4' })).toBe('10.0.0.4');
     expect(resolveTrustProxy({ TRUST_PROXY: 'uniquelocal' })).toBe('uniquelocal');

@@ -33,9 +33,6 @@ const PARAMS = {
   parallelism: 1,
 } as const;
 
-/** Douze caractères, comme l'exige l'issue #10. */
-export const MIN_PASSWORD_LENGTH = 12;
-
 export async function hashPassword(password: string): Promise<string> {
   return hash(password, PARAMS);
 }

@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  decoyPasswordDigest,
-  hashPassword,
-  MIN_PASSWORD_LENGTH,
-  verifyPassword,
-} from './passwords.js';
+import { decoyPasswordDigest, hashPassword, verifyPassword } from './passwords.js';
 
 const PASSWORD = 'un mot de passe assez long';
 
@@ -24,9 +19,11 @@ describe('hashPassword', () => {
     expect(await hashPassword(PASSWORD)).not.toBe(await hashPassword(PASSWORD));
   });
 
-  it('exige douze caractères', () => {
-    expect(MIN_PASSWORD_LENGTH).toBe(12);
-  });
+  /*
+    La longueur minimale, elle, vit dans packages/shared : c'est le schéma que
+    le front et l'API partagent. Elle est mesurée là où elle s'applique, dans
+    cli/admin-account.spec.ts.
+  */
 });
 
 describe('verifyPassword', () => {

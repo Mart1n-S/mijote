@@ -27,10 +27,18 @@ import {
      front le renvoie en en-tête. Une page d'un autre site ne peut lire ni
      l'un ni écrire l'autre.
 
-  Les deux premières ne tiennent **que** parce qu'aucun CORS n'est ouvert sur
-  cette API : une origine autorisée ferait sauter la requête préalable, donc la
-  première barrière. C'est écrit dans l'ADR 0010, et c'est la condition à
-  relire en traitant l'issue #31.
+  La première ne tient **que** parce qu'aucun CORS n'est ouvert sur cette API :
+  une origine autorisée, avec `content-type` dans sa liste permise, ferait
+  approuver la requête préalable, et un autre site pourrait alors envoyer du
+  JSON. Les deux autres ne dépendent pas du CORS : l'origine est comparée à
+  celle de la requête reçue, sans consulter aucune liste permise, et le cookie
+  du jeton n'est lisible que par une page de cette origine.
+
+  À noter, parce que c'est contre-intuitif : l'absence de CORS n'empêche pas
+  une requête d'arriver, elle empêche l'autre site de **lire la réponse**. Une
+  requête simple en `text/plain` est donc bien reçue et exécutée, d'où l'ordre
+  ci-dessous. Voir l'ADR 0010, et la condition à relire en traitant l'issue
+  #31.
 */
 
 /** Ces méthodes ne modifient rien : elles passent sans jeton. */

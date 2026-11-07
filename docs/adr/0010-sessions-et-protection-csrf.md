@@ -9,7 +9,7 @@ La story #10 ouvre la connexion : il faut décider où vit une session, ce que �
 
 Le cahier des charges et `.claude/rules/security.md` posaient déjà le cadre : cookie `HttpOnly`, `Secure`, `SameSite=Lax` au minimum, aucun jeton dans le `localStorage`, protection CSRF sur toute requête qui modifie l'état, limitation des tentatives de connexion. L'issue elle-même notait que le mode de stockage des sessions méritait un ADR.
 
-L'API est servie sous `/api` sur la même origine que la PWA, par le mandataire de `vite.config.ts` en développement et par le serveur frontal du homelab en production. Il n'y a donc aucune requête entre origines, et **aucun CORS n'est ouvert**. Ce point n'est pas un détail de déploiement : deux des trois barrières ci-dessous en dépendent.
+L'API est servie sous `/api` sur la même origine que la PWA, par le mandataire de `vite.config.ts` en développement et par le serveur frontal du homelab en production. Il n'y a donc aucune requête entre origines, et **aucun CORS n'est ouvert**. Ce point n'est pas un détail de déploiement : la première des trois barrières ci-dessous en dépend.
 
 ## Décision
 
@@ -50,7 +50,11 @@ La déconnexion ne ferme que l'appareil courant : sa session et sa famille. Rév
 2. **L'origine.** `Origin` est un en-tête interdit : une page ne peut pas le choisir, seul le navigateur l'écrit. La comparaison porte sur l'origine **complète**, schéma, hôte et port. En repli, quand `Origin` manque, seul `Sec-Fetch-Site: same-origin` est accepté, jamais `same-site` : un autre service sur un sous-domaine voisin passerait. Les deux en-têtes absents, la requête est refusée.
 3. **Le jeton.** Le cookie `mijote_csrf`, le seul lisible par le script, porte le secret CSRF de la session ; le front le relit et le renvoie en en-tête `X-CSRF-Token`, et le serveur compare les deux à temps constant. Une page d'un autre site ne peut ni lire ce cookie, ni écrire cet en-tête.
 
-**Les deux premières barrières supposent qu'aucun CORS n'est ouvert sur l'API.** Une origine autorisée ferait sauter la requête préalable, donc la première ; une origine de confiance mal choisie ferait sauter la seconde. C'est la condition à relire en traitant l'issue #31, qui réunira les en-têtes de sécurité : si une origine doit être ouverte un jour, cette décision est à reprendre, pas à contourner.
+**La barrière du type de média, et elle seule, suppose qu'aucun CORS n'est ouvert sur l'API.** Une origine autorisée, avec l'en-tête `content-type` dans sa liste permise, ferait approuver la requête préalable : un autre site pourrait alors envoyer du `application/json`, et cette barrière cesserait d'en être une. C'est la condition à relire en traitant l'issue #31 : si une origine doit être ouverte un jour, cette décision est à reprendre, pas à contourner.
+
+Les deux autres ne dépendent pas du CORS. La comparaison d'origine porte sur l'en-tête `Origin` de la requête reçue, que le navigateur écrit de lui-même sur toute requête inter-origines, et elle ne consulte aucune liste d'origines permises : elle tient avec ou sans CORS. Le jeton, lui, n'est lisible que par une page de cette origine.
+
+Et il faut dire ce que l'absence de CORS ne fait pas : elle n'empêche pas une requête de **partir**, ni le serveur de l'exécuter. Le navigateur n'y cache que la lecture de la réponse. Une requête simple d'un autre site, en `text/plain`, arrive donc bien jusqu'ici : c'est exactement ce que la barrière du type de média refuse, et la raison pour laquelle elle est la première.
 
 **La connexion est la seule route exemptée de l'en-tête**, parce qu'aucune session n'existe encore pour porter un secret. Elle garde les deux premières barrières et la limitation des tentatives. La liste `CSRF_EXEMPT_ROUTES` est énumérée par un test : elle ne s'allonge pas sans que quelqu'un s'en aperçoive.
 
@@ -105,7 +109,7 @@ Trois écritures sont donc refusées au démarrage, parce qu'elles reviennent to
 
 ## Quand revoir cette décision
 
-- **Si une origine différente doit appeler l'API** (application mobile, sous-domaine séparé) : les deux premières barrières du CSRF tombent, et il faut alors reprendre cette décision entièrement, à l'occasion de l'issue #31. **Cette relecture n'est pas hypothétique** : l'issue #31, du même lot, demande aujourd'hui « le CORS restreint à une liste blanche d'origines lue dans une variable d'environnement, avec `credentials` activé ». Or la PWA et l'API partagent la même origine, et un commentaire de cette issue note déjà que le mandataire `/api` rend le CORS inutile. L'un des deux textes est à ajuster en traitant #31, et c'est à Martin de dire lequel.
+- **Si une origine différente doit appeler l'API** (application mobile, sous-domaine séparé) : la barrière du type de média tombe, et il faut alors reprendre cette décision, à l'occasion de l'issue #31. Les deux autres barrières survivraient, mais une protection CSRF à deux étages n'est pas celle qui est écrite ici. **Tranché le 7 novembre 2026, par Martin : pas de CORS, la PWA partage l'origine de l'API.** L'issue #31, qui demandait une liste blanche d'origines, a été corrigée en conséquence et renvoie désormais à cet ADR.
 - Si l'API tourne sur plusieurs instances : la session en base tient déjà, mais la purge opportuniste serait à revoir.
 - À l'arrivée de la double authentification des routes d'administration, que `security.md` exige et que la story #10 laisse hors périmètre.
 - Si la révocation de tous les appareils est demandée : elle ajoute une route et une colonne, pas une décision.

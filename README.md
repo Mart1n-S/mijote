@@ -48,6 +48,11 @@ dans la liste des processus. Il fait au moins 12 caractères.
 
 Une fois le compte créé, la connexion se fait sur `/connexion`.
 
+L'administrateur doit ensuite activer la double authentification sur
+`/securite/double-authentification` : elle est obligatoire pour ce rôle, et
+aucune route d'administration ne répond avant. L'écran donne un QR code et la
+clé en texte, puis dix codes de secours affichés une seule fois.
+
 ## Commandes
 
 ```bash

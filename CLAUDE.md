@@ -25,6 +25,7 @@ Objectif (section 13 du cahier des charges) : design system, comptes sur invitat
 | Composants | Reka UI (comportement et ARIA), styles maison à partir de jetons de design (CSS custom properties) |
 | Tests      | Vitest (unitaires et intégration), Playwright (bout en bout), axe-core (accessibilité)             |
 | Validation | zod, schémas partagés dans `packages/shared` (ADR 0008)                                            |
+| Hachage    | Argon2id par `@node-rs/argon2`, paramètres mesurés (ADR 0011)                                      |
 | Journaux   | pino par nestjs-pino, au format JSON (ADR 0008)                                                    |
 | E-mails    | nodemailer, Mailpit en développement (ADR 0009)                                                    |
 | Conteneurs | Docker Compose en développement, homelab en production                                             |

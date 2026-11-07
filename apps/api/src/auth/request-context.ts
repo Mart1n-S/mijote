@@ -31,9 +31,14 @@ function readStringProperty(request: unknown, key: string): string | undefined {
 /**
  * Un en-tête de la requête.
  *
- * Un en-tête reçu deux fois arrive en tableau : il est alors ignoré plutôt que
- * replié. Aucun des en-têtes lus ici ne se répète légitimement, et en choisir
- * un des deux serait une décision prise à l'aveugle sur le chemin du CSRF.
+ * Mesuré le 7 novembre 2026 sur Node 24 : un en-tête reçu deux fois arrive
+ * **replié en une chaîne**, `aaa, bbb`, sauf `content-type` dont le premier
+ * gagne et `set-cookie` qui seul arrive en tableau. Un doublon est donc refusé
+ * de lui-même sur le chemin du CSRF, une valeur repliée n'égalant ni l'origine
+ * attendue ni le secret de la session.
+ *
+ * Le contrôle de type ci-dessous ne protège donc de rien ici : il est ce qui
+ * permet de lire une requête arrivée en `unknown` sans assertion de type.
  */
 export function readHeader(request: unknown, name: string): string | undefined {
   if (isRecord(request)) {

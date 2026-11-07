@@ -56,7 +56,11 @@ Le code porte **son numéro en clair** : `7-KMXQ-PTBV-ZRDC`. Ce n'est pas un sec
 | | Espace | Coût par essai | Temps pour l'espace entier |
 | --- | --- | --- | --- |
 | HMAC-SHA256, clé fuitée | 24^12 ≈ 3,6 × 10^16 | ~10^-10 s sur une carte graphique récente | ~3,6 × 10^6 s, soit de l'ordre de **mille heures** (quelques dizaines de jours) |
-| Argon2id (64 MiB, 3 passes) | 24^12 ≈ 3,6 × 10^16 | 0,11 s mesurée (ADR 0011) | ~4 × 10^15 s, soit **plus de cent millions d'années** |
+| Argon2id (64 MiB, 3 passes) | 24^12 ≈ 3,6 × 10^16 | 0,11 s mesurée (ADR 0011) | ~4 × 10^15 s, soit **plus de cent millions d'années sur un seul cœur** |
+
+Les deux chiffres ne portent pas sur la même chose, et il faut le dire. Celui du HMAC est déjà parallèle : une carte graphique calcule par milliers de fils, et les 10^10 par seconde en tiennent compte. Celui d'Argon2id est **par cœur**, et un attaquant parallélise lui aussi.
+
+Ce qui borne ce parallélisme, c'est précisément la mémoire : chaque hachage réserve 64 Mio, donc une machine de 64 Gio en mène environ mille à la fois, quel que soit son nombre de cœurs. Divisé par mille, l'espace entier demande encore de l'ordre de **cent mille ans**. C'est le rôle du paramètre de mémoire de l'ADR 0011, et c'est ce qu'un HMAC, qui ne coûte rien en mémoire, ne borne pas du tout.
 
 Le HMAC seul déplacerait donc la protection du secret vers la clé. Or cette clé vivrait dans le même `.env` que les sauvegardes côtoient : une fuite complète donnerait les codes de secours en quelques dizaines de jours, c'est-à-dire ce qui reste quand le téléphone est perdu, le dernier verrou de l'administration. Avec Argon2id, elle ne les donne pas.
 

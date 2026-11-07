@@ -22,6 +22,14 @@ async function leave(): Promise<void> {
 
   try {
     await logOut();
+  } catch (error) {
+    /*
+      L'état local est déjà vidé par `logOut`, qui relance ensuite pour ne pas
+      avaler la panne. Elle s'arrête ici : sans ce `catch`, le rejet remonterait
+      au gestionnaire d'événement de Vue, et l'utilisateur verrait le bon écran
+      avec une erreur non traitée en console.
+    */
+    console.error('déconnexion côté serveur impossible', error);
   } finally {
     leaving.value = false;
     await router.push({ name: 'login' });

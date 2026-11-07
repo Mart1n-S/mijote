@@ -21,6 +21,11 @@ export const NEXT_QUERY = 'suivant';
  * Seul un chemin de cette application est accepté : une valeur qui commence par
  * deux barres obliques, ou par un schéma, désigne un autre site, et renvoyer
  * l'utilisateur dessus après sa connexion serait une redirection ouverte.
+ *
+ * La forme est contrôlée, pas le contenu : le chemin demandé est recopié avec
+ * sa chaîne de requête, donc **aucun écran ne doit porter de donnée personnelle
+ * en paramètre de route**, sous peine de la voir arriver dans l'historique du
+ * navigateur par l'adresse de connexion (voir l'ADR 0010).
  */
 export function safeNextPath(value: unknown): string {
   return typeof value === 'string' && /^\/(?![/\\])/.test(value) ? value : '/';

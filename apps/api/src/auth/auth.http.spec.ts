@@ -87,6 +87,7 @@ beforeAll(async () => {
   process.env['MAIL_FROM'] = 'Mijote <no-reply@mijote.local>';
   // Un poivre de test, fait de zéros : il ne protège rien ici.
   process.env['SECURITY_PEPPER'] = Buffer.alloc(32).toString('base64');
+  process.env['SECURITY_TOTP_KEY'] = Buffer.alloc(32).toString('base64');
   delete process.env['TRUST_PROXY'];
 
   app = await NestFactory.create<NestExpressApplication>(TestAppModule, { logger: false });

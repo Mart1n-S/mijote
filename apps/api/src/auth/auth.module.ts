@@ -8,10 +8,12 @@ import { AuthController } from './auth.controller.js';
 import { AuthRepository } from './auth.repository.js';
 import { AuthService } from './auth.service.js';
 import { CsrfGuard } from './csrf.guard.js';
+import { PendingLoginService } from './pending-login.service.js';
 import { RememberService } from './remember.service.js';
 import { RolesGuard } from './roles.guard.js';
 import { SessionGuard } from './session.guard.js';
 import { SessionService } from './session.service.js';
+import { TwoFactorService } from './two-factor.service.js';
 
 @Module({
   imports: [DatabaseModule],
@@ -21,6 +23,8 @@ import { SessionService } from './session.service.js';
     AttemptsService,
     SessionService,
     RememberService,
+    PendingLoginService,
+    TwoFactorService,
     AuthService,
     /*
       Les trois gardes sont globales, dans cet ordre, qui est celui de leur

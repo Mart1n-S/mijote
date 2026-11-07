@@ -87,6 +87,9 @@ beforeAll(async () => {
   // Un poivre de test, fait de zéros : AuthModule refuse de démarrer sans lui,
   // et il ne protège rien ici.
   process.env['SECURITY_PEPPER'] = Buffer.alloc(32).toString('base64');
+  // Et la cle de chiffrement du secret TOTP, sans laquelle AuthModule refuse
+  // de demarrer. Faite de zeros : elle ne protege rien ici.
+  process.env['SECURITY_TOTP_KEY'] = Buffer.alloc(32).toString('base64');
 
   app = await NestFactory.create(TestAppModule, { logger: false });
 

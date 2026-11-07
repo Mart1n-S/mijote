@@ -24,6 +24,7 @@ class MemorySessions implements SessionStore {
     accountId: string;
     tokenHash: string;
     csrfSecret: string;
+    adminUnlockedAt?: Date;
     expiresAt: Date;
   }): Promise<SessionRecord> {
     const row: SessionRecord = {
@@ -32,6 +33,7 @@ class MemorySessions implements SessionStore {
       csrfSecret: input.csrfSecret,
       lastSeenAt: new Date(),
       expiresAt: input.expiresAt,
+      adminUnlockedAt: input.adminUnlockedAt ?? null,
     };
 
     this.rows.set(input.tokenHash, row);
@@ -55,6 +57,16 @@ class MemorySessions implements SessionStore {
 
   deleteSession(id: string): Promise<void> {
     this.deleted.push(id);
+
+    return Promise.resolve();
+  }
+
+  unlockSession(id: string, at: Date): Promise<void> {
+    for (const [hash, row] of this.rows) {
+      if (row.id === id) {
+        this.rows.set(hash, { ...row, adminUnlockedAt: at });
+      }
+    }
 
     return Promise.resolve();
   }
@@ -144,6 +156,35 @@ describe('resolve', () => {
 
     expect(store.touched).toHaveLength(1);
     expect(store.touched[0]?.id).toBe('session-0');
+  });
+});
+
+describe("les droits d'administration", () => {
+  it('ne les ouvre pas de lui-même', async () => {
+    /*
+      Une session ouverte sans second facteur validé vaut pour l'application, et
+      aucune route d'administration ne l'accepte : c'est ce qui permet au cookie
+      de mémorisation de rouvrir l'une sans rouvrir l'autre (ADR 0012).
+    */
+    const { token } = await service.open(ACCOUNT.id);
+
+    expect((await service.resolve(token))?.session.adminUnlockedAt).toBeNull();
+  });
+
+  it("les ouvre quand un code vient d'être validé", async () => {
+    const unlockedAt = new Date();
+    const { token } = await service.open(ACCOUNT.id, unlockedAt);
+
+    expect((await service.resolve(token))?.session.adminUnlockedAt).toEqual(unlockedAt);
+  });
+
+  it('les ouvre aussi sur une session déjà ouverte', async () => {
+    const { token } = await service.open(ACCOUNT.id);
+    const opened = await service.resolve(token);
+
+    await service.unlockAdmin(opened?.session.id ?? '');
+
+    expect((await service.resolve(token))?.session.adminUnlockedAt).toBeInstanceOf(Date);
   });
 });
 

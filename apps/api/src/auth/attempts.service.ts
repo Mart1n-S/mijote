@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import { fingerprint, readPepper } from '../security/pepper.js';
 
-import { AuthRepository, type LoginOutcome } from './auth.repository.js';
+import { AuthRepository, type LoginOutcome, type LoginPurpose } from './auth.repository.js';
 
 /*
   La limitation des tentatives de connexion.
@@ -36,11 +36,13 @@ export interface AttemptStore {
     emailFingerprint: string;
     ipFingerprint: string;
     since: Date;
+    purpose: LoginPurpose;
   }): Promise<{ byEmail: number; byIp: number }>;
   recordAttempt(input: {
     emailFingerprint: string;
     ipFingerprint: string;
     outcome: LoginOutcome;
+    purpose: LoginPurpose;
   }): Promise<void>;
   purgeExpired(now: Date, attemptRetention: Date): Promise<void>;
 }
@@ -65,26 +67,34 @@ export class AttemptsService {
   /**
    * Les empreintes d'une tentative.
    *
-   * L'empreinte porte sur l'adresse **soumise**, et non sur un compte trouvé :
-   * sinon une adresse inconnue ne serait pas comptée, et un 429 qui n'arrive
-   * que sur les comptes existants dirait lesquels existent.
+   * Au stade du mot de passe, le sujet est l'adresse **soumise**, et non un
+   * compte trouvé : sinon une adresse inconnue ne serait pas comptée, et un 429
+   * qui n'arrive que sur les comptes existants dirait lesquels existent.
+   *
+   * Au stade du code, le compte est déjà connu, et c'est son identifiant qui
+   * est compté. Les deux comptages restent séparés par `purpose` : un code mal
+   * tapé ne doit pas rapprocher du blocage de la connexion elle-même.
    */
-  keysFor(email: string, ip: string): AttemptKeys {
+  keysFor(subject: string, ip: string): AttemptKeys {
     return {
-      emailFingerprint: fingerprint(this.pepper, email),
+      emailFingerprint: fingerprint(this.pepper, subject),
       ipFingerprint: fingerprint(this.pepper, ip),
     };
   }
 
-  async isBlocked(keys: AttemptKeys): Promise<boolean> {
+  async isBlocked(keys: AttemptKeys, purpose: LoginPurpose = 'password'): Promise<boolean> {
     const since = new Date(Date.now() - WINDOW_MS);
-    const failures = await this.store.countFailures({ ...keys, since });
+    const failures = await this.store.countFailures({ ...keys, since, purpose });
 
     return failures.byEmail >= MAX_FAILURES_PER_EMAIL || failures.byIp >= MAX_FAILURES_PER_IP;
   }
 
-  async record(keys: AttemptKeys, outcome: LoginOutcome): Promise<void> {
-    await this.store.recordAttempt({ ...keys, outcome });
+  async record(
+    keys: AttemptKeys,
+    outcome: LoginOutcome,
+    purpose: LoginPurpose = 'password',
+  ): Promise<void> {
+    await this.store.recordAttempt({ ...keys, outcome, purpose });
   }
 
   /**

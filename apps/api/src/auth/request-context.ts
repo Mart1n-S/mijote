@@ -1,6 +1,7 @@
 import type { RequestOrigin } from '../security/origin.js';
 import { readCookie } from '../security/cookies.js';
 
+import type { PendingLogin } from './pending-login.service.js';
 import type { Authenticated } from './session.service.js';
 
 /*
@@ -116,6 +117,13 @@ export function readClientIp(request: unknown): string {
 */
 const sessions = new WeakMap<object, Authenticated>();
 
+/*
+  L'attente de connexion vit dans sa propre table : elle a donc sa propre
+  table faible ici, et non la même que les sessions. Rien ne peut la confondre
+  avec une session résolue.
+*/
+const pendingLogins = new WeakMap<object, PendingLogin>();
+
 export function attachAuthenticated(request: unknown, value: Authenticated): void {
   if (!isRecord(request)) {
     throw new Error("la requête n'est pas un objet : session impossible à attacher");
@@ -126,6 +134,44 @@ export function attachAuthenticated(request: unknown, value: Authenticated): voi
 
 export function readAuthenticated(request: unknown): Authenticated | undefined {
   return isRecord(request) ? sessions.get(request) : undefined;
+}
+
+export function attachPendingLogin(request: unknown, value: PendingLogin): void {
+  if (!isRecord(request)) {
+    throw new Error("la requête n'est pas un objet : attente impossible à attacher");
+  }
+
+  pendingLogins.set(request, value);
+}
+
+export function readPendingLogin(request: unknown): PendingLogin | undefined {
+  return isRecord(request) ? pendingLogins.get(request) : undefined;
+}
+
+/**
+ * Le secret CSRF à comparer, qu'il vienne d'une session ou d'une attente.
+ *
+ * Les deux portent le leur, et la garde CSRF n'a pas à savoir lequel des deux
+ * la route attendait : il n'y en a jamais qu'un attaché.
+ */
+export function readCsrfSecret(request: unknown): string | undefined {
+  return readAuthenticated(request)?.session.csrfSecret ?? readPendingLogin(request)?.csrfSecret;
+}
+
+/**
+ * L'attente, qui est forcément là derrière la garde.
+ *
+ * Son absence est un défaut de branchement, pas un refus d'accès : elle remonte
+ * en erreur inattendue, et non en 401.
+ */
+export function requirePendingLogin(request: unknown): PendingLogin {
+  const pending = readPendingLogin(request);
+
+  if (pending === undefined) {
+    throw new Error('route en attente de code atteinte sans attente résolue');
+  }
+
+  return pending;
 }
 
 /**

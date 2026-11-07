@@ -1,9 +1,17 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, count, eq, gte, lt, type SQL } from 'drizzle-orm';
+import { and, count, eq, gte, isNull, lt, or, sql, type SQL } from 'drizzle-orm';
 
 import type { Database } from '../db/client.js';
 import { DATABASE } from '../db/database.module.js';
-import { account, loginAttempt, rememberToken, session } from '../db/schema.js';
+import {
+  account,
+  accountTwoFactor,
+  loginAttempt,
+  pendingLogin,
+  rememberToken,
+  session,
+  twoFactorBackupCode,
+} from '../db/schema.js';
 
 /*
   Toutes les requêtes SQL de la connexion, réunies ici.
@@ -31,6 +39,8 @@ export interface SessionRecord {
   csrfSecret: string;
   lastSeenAt: Date;
   expiresAt: Date;
+  /** Quand le second facteur a été validé dans cette session, ou jamais. */
+  adminUnlockedAt: Date | null;
 }
 
 export interface RememberRecord {
@@ -44,6 +54,34 @@ export interface RememberRecord {
 
 /** L'issue d'une tentative, telle que la table la compte. */
 export type LoginOutcome = 'succeeded' | 'failed' | 'blocked';
+
+/** Ce qui était vérifié : le mot de passe, ou le code du second facteur. */
+export type LoginPurpose = 'password' | 'code';
+
+/** La double authentification d'un compte, telle que le service la lit. */
+export interface TwoFactorRecord {
+  accountId: string;
+  secretCipher: string;
+  activatedAt: Date | null;
+  lastUsedStep: number | null;
+}
+
+/** Un code de secours, retrouvé par son numéro. */
+export interface BackupCodeRecord {
+  id: string;
+  codeHash: string;
+  usedAt: Date | null;
+}
+
+/** L'attente entre le mot de passe et le code. */
+export interface PendingLoginRecord {
+  id: string;
+  accountId: string;
+  csrfSecret: string;
+  attempts: number;
+  remember: boolean;
+  expiresAt: Date;
+}
 
 @Injectable()
 export class AuthRepository {
@@ -85,6 +123,7 @@ export class AuthRepository {
     accountId: string;
     tokenHash: string;
     csrfSecret: string;
+    adminUnlockedAt?: Date;
     expiresAt: Date;
   }): Promise<SessionRecord> {
     const [row] = await this.database.insert(session).values(input).returning({
@@ -93,6 +132,7 @@ export class AuthRepository {
       csrfSecret: session.csrfSecret,
       lastSeenAt: session.lastSeenAt,
       expiresAt: session.expiresAt,
+      adminUnlockedAt: session.adminUnlockedAt,
     });
 
     if (row === undefined) {
@@ -119,6 +159,7 @@ export class AuthRepository {
           csrfSecret: session.csrfSecret,
           lastSeenAt: session.lastSeenAt,
           expiresAt: session.expiresAt,
+          adminUnlockedAt: session.adminUnlockedAt,
         },
         account: {
           id: account.id,
@@ -207,6 +248,7 @@ export class AuthRepository {
     emailFingerprint: string;
     ipFingerprint: string;
     outcome: LoginOutcome;
+    purpose: LoginPurpose;
   }): Promise<void> {
     await this.database.insert(loginAttempt).values(input);
   }
@@ -222,16 +264,202 @@ export class AuthRepository {
     emailFingerprint: string;
     ipFingerprint: string;
     since: Date;
+    purpose: LoginPurpose;
   }): Promise<{ byEmail: number; byIp: number }> {
     const [byEmail, byIp] = await Promise.all([
       this.countFailuresWhere(
         eq(loginAttempt.emailFingerprint, input.emailFingerprint),
         input.since,
+        input.purpose,
       ),
-      this.countFailuresWhere(eq(loginAttempt.ipFingerprint, input.ipFingerprint), input.since),
+      this.countFailuresWhere(
+        eq(loginAttempt.ipFingerprint, input.ipFingerprint),
+        input.since,
+        input.purpose,
+      ),
     ]);
 
     return { byEmail, byIp };
+  }
+
+  // La double authentification, les codes de secours, et l'attente du code.
+
+  async findTwoFactor(accountId: string): Promise<TwoFactorRecord | undefined> {
+    const [row] = await this.database
+      .select({
+        accountId: accountTwoFactor.accountId,
+        secretCipher: accountTwoFactor.secretCipher,
+        activatedAt: accountTwoFactor.activatedAt,
+        lastUsedStep: accountTwoFactor.lastUsedStep,
+      })
+      .from(accountTwoFactor)
+      .where(eq(accountTwoFactor.accountId, accountId))
+      .limit(1);
+
+    return row;
+  }
+
+  /**
+   * Écrit un secret neuf, inactif, en écrasant une inscription inachevée.
+   *
+   * Une inscription déjà confirmée n'est jamais écrasée, d'où le `setWhere` :
+   * la désactivation est le seul chemin pour en changer, et elle demande le mot
+   * de passe. Sans cette condition, un `setup` suffirait à remplacer le second
+   * facteur de quelqu'un.
+   */
+  async upsertInactiveTwoFactor(accountId: string, secretCipher: string): Promise<boolean> {
+    const written = await this.database
+      .insert(accountTwoFactor)
+      .values({ accountId, secretCipher })
+      .onConflictDoUpdate({
+        target: accountTwoFactor.accountId,
+        set: { secretCipher, lastUsedStep: null },
+        setWhere: isNull(accountTwoFactor.activatedAt),
+      })
+      .returning({ accountId: accountTwoFactor.accountId });
+
+    return written.length > 0;
+  }
+
+  async activateTwoFactor(accountId: string, at: Date): Promise<void> {
+    await this.database
+      .update(accountTwoFactor)
+      .set({ activatedAt: at })
+      .where(eq(accountTwoFactor.accountId, accountId));
+  }
+
+  async deleteTwoFactor(accountId: string): Promise<void> {
+    await this.database.transaction(async (transaction) => {
+      await transaction
+        .delete(twoFactorBackupCode)
+        .where(eq(twoFactorBackupCode.accountId, accountId));
+      await transaction.delete(accountTwoFactor).where(eq(accountTwoFactor.accountId, accountId));
+    });
+  }
+
+  /**
+   * Retient le pas d'un code accepté, à condition qu'il soit plus récent.
+   *
+   * Une seule requête conditionnelle, comme la rotation du jeton de
+   * mémorisation : deux soumissions simultanées du même code ne peuvent pas
+   * passer toutes les deux, la seconde ne modifiant aucune ligne.
+   */
+  async claimTotpStep(accountId: string, step: number): Promise<boolean> {
+    const claimed = await this.database
+      .update(accountTwoFactor)
+      .set({ lastUsedStep: step })
+      .where(
+        and(
+          eq(accountTwoFactor.accountId, accountId),
+          or(isNull(accountTwoFactor.lastUsedStep), lt(accountTwoFactor.lastUsedStep, step)),
+        ),
+      )
+      .returning({ accountId: accountTwoFactor.accountId });
+
+    return claimed.length > 0;
+  }
+
+  async replaceBackupCodes(
+    accountId: string,
+    codes: { position: number; codeHash: string }[],
+  ): Promise<void> {
+    await this.database.transaction(async (transaction) => {
+      await transaction
+        .delete(twoFactorBackupCode)
+        .where(eq(twoFactorBackupCode.accountId, accountId));
+      await transaction
+        .insert(twoFactorBackupCode)
+        .values(codes.map((code) => ({ accountId, ...code })));
+    });
+  }
+
+  async findBackupCode(accountId: string, position: number): Promise<BackupCodeRecord | undefined> {
+    const [row] = await this.database
+      .select({
+        id: twoFactorBackupCode.id,
+        codeHash: twoFactorBackupCode.codeHash,
+        usedAt: twoFactorBackupCode.usedAt,
+      })
+      .from(twoFactorBackupCode)
+      .where(
+        and(
+          eq(twoFactorBackupCode.accountId, accountId),
+          eq(twoFactorBackupCode.position, position),
+        ),
+      )
+      .limit(1);
+
+    return row;
+  }
+
+  /** Consomme un code, à condition qu'il ne l'ait pas déjà été. */
+  async consumeBackupCode(id: string, at: Date): Promise<boolean> {
+    const consumed = await this.database
+      .update(twoFactorBackupCode)
+      .set({ usedAt: at })
+      .where(and(eq(twoFactorBackupCode.id, id), isNull(twoFactorBackupCode.usedAt)))
+      .returning({ id: twoFactorBackupCode.id });
+
+    return consumed.length > 0;
+  }
+
+  async createPendingLogin(input: {
+    accountId: string;
+    tokenHash: string;
+    csrfSecret: string;
+    remember: boolean;
+    expiresAt: Date;
+  }): Promise<void> {
+    await this.database.insert(pendingLogin).values(input);
+  }
+
+  async findPendingLoginByTokenHash(
+    tokenHash: string,
+  ): Promise<{ pending: PendingLoginRecord; account: AccountRecord } | undefined> {
+    const [row] = await this.database
+      .select({
+        pending: {
+          id: pendingLogin.id,
+          accountId: pendingLogin.accountId,
+          csrfSecret: pendingLogin.csrfSecret,
+          attempts: pendingLogin.attempts,
+          remember: pendingLogin.remember,
+          expiresAt: pendingLogin.expiresAt,
+        },
+        account: {
+          id: account.id,
+          householdId: account.householdId,
+          email: account.email,
+          passwordHash: account.passwordHash,
+          role: account.role,
+        },
+      })
+      .from(pendingLogin)
+      .innerJoin(account, eq(account.id, pendingLogin.accountId))
+      .where(eq(pendingLogin.tokenHash, tokenHash))
+      .limit(1);
+
+    return row;
+  }
+
+  /** Compte un essai de plus sur cette attente, et rend le total. */
+  async countPendingAttempt(id: string): Promise<number> {
+    const [row] = await this.database
+      .update(pendingLogin)
+      .set({ attempts: sql`${pendingLogin.attempts} + 1` })
+      .where(eq(pendingLogin.id, id))
+      .returning({ attempts: pendingLogin.attempts });
+
+    return row?.attempts ?? 0;
+  }
+
+  async deletePendingLogin(id: string): Promise<void> {
+    await this.database.delete(pendingLogin).where(eq(pendingLogin.id, id));
+  }
+
+  /** Ouvre les droits d'administration de cette session. */
+  async unlockSession(id: string, at: Date): Promise<void> {
+    await this.database.update(session).set({ adminUnlockedAt: at }).where(eq(session.id, id));
   }
 
   /**
@@ -246,15 +474,25 @@ export class AuthRepository {
       this.database.delete(session).where(lt(session.expiresAt, now)),
       this.database.delete(rememberToken).where(lt(rememberToken.expiresAt, now)),
       this.database.delete(loginAttempt).where(lt(loginAttempt.attemptedAt, attemptRetention)),
+      this.database.delete(pendingLogin).where(lt(pendingLogin.expiresAt, now)),
     ]);
   }
 
-  private async countFailuresWhere(matches: SQL, since: Date): Promise<number> {
+  private async countFailuresWhere(
+    matches: SQL,
+    since: Date,
+    purpose: LoginPurpose,
+  ): Promise<number> {
     const [row] = await this.database
       .select({ failures: count() })
       .from(loginAttempt)
       .where(
-        and(matches, eq(loginAttempt.outcome, 'failed'), gte(loginAttempt.attemptedAt, since)),
+        and(
+          matches,
+          eq(loginAttempt.outcome, 'failed'),
+          eq(loginAttempt.purpose, purpose),
+          gte(loginAttempt.attemptedAt, since),
+        ),
       );
 
     return row?.failures ?? 0;

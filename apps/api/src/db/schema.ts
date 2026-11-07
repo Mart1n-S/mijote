@@ -1,4 +1,5 @@
 import {
+  boolean,
   index,
   integer,
   pgEnum,
@@ -240,6 +241,13 @@ export const pendingLogin = pgTable(
     csrfSecret: text('csrf_secret').notNull(),
     /** Essais déjà faits sur cette attente. Au-delà de cinq, elle est détruite. */
     attempts: integer('attempts').notNull().default(0),
+    /*
+      « Se souvenir de moi » est demandé au mot de passe, mais la session ne
+      s'ouvre qu'après le code : le choix attend donc ici. Le poser plus tôt
+      reviendrait à remettre un jeton de trente jours à qui n'a pas encore
+      prouvé son second facteur.
+    */
+    remember: boolean('remember').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   },

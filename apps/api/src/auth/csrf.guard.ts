@@ -5,13 +5,7 @@ import { ProblemException } from '../errors/problem.exception.js';
 import { isSameOrigin } from '../security/origin.js';
 import { hashesMatch } from '../security/tokens.js';
 
-import {
-  readAuthenticated,
-  readHeader,
-  readMethod,
-  readOrigin,
-  readPath,
-} from './request-context.js';
+import { readCsrfSecret, readHeader, readMethod, readOrigin, readPath } from './request-context.js';
 
 /*
   La protection CSRF, en trois barrières (ADR 0010).
@@ -93,7 +87,13 @@ export class CsrfGuard implements CanActivate {
       return true;
     }
 
-    const expected = readAuthenticated(request)?.session.csrfSecret;
+    /*
+      Le secret de la session, ou celui de l'attente de code : les deux portent
+      le leur, et la garde de session n'en attache jamais qu'un. C'est ce qui
+      permet à la soumission du code de garder cette barrière, au lieu de
+      s'ajouter à la liste des routes exemptées.
+    */
+    const expected = readCsrfSecret(request);
     const presented = readHeader(request, CSRF_HEADER_NAME);
 
     /*

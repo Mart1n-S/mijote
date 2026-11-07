@@ -158,6 +158,7 @@ describe.skipIf(!reachable)('la connexion, contre une vraie base', () => {
     process.env['SMTP_PORT'] ??= '1025';
     process.env['MAIL_FROM'] ??= 'Mijote <no-reply@mijote.local>';
     process.env['SECURITY_PEPPER'] ??= Buffer.alloc(32).toString('base64');
+    process.env['SECURITY_TOTP_KEY'] ??= Buffer.alloc(32).toString('base64');
 
     database = createDatabase(DATABASE_URL ?? '');
 
@@ -288,10 +289,11 @@ describe.skipIf(!reachable)('la connexion, contre une vraie base', () => {
     });
 
     expect(loggedOut.status).toBe(204);
-    // Les trois cookies sont effacés.
+    // Les quatre cookies sont effacés : session, mémorisation, attente de
+    // code et jeton CSRF.
     expect(
       loggedOut.headers.getSetCookie().filter((header) => header.includes('Max-Age=0')),
-    ).toHaveLength(3);
+    ).toHaveLength(4);
 
     // La session est vraiment fermée côté serveur : le cookie ne vaut plus rien.
     expect((await fetch(`${baseUrl}/test-session/mienne`, { headers: { cookie } })).status).toBe(

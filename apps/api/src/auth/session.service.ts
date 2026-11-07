@@ -19,6 +19,7 @@ export interface SessionStore {
     accountId: string;
     tokenHash: string;
     csrfSecret: string;
+    adminUnlockedAt?: Date;
     expiresAt: Date;
   }): Promise<SessionRecord>;
   findSessionByTokenHash(
@@ -26,6 +27,7 @@ export interface SessionStore {
   ): Promise<{ session: SessionRecord; account: AccountRecord } | undefined>;
   touchSession(id: string, seenAt: Date): Promise<void>;
   deleteSession(id: string): Promise<void>;
+  unlockSession(id: string, at: Date): Promise<void>;
 }
 
 /** Une session valide et le compte auquel elle appartient. */
@@ -51,8 +53,14 @@ const TOUCH_INTERVAL_MS = 60 * 1000;
 export class SessionService {
   constructor(@Inject(AuthRepository) private readonly store: SessionStore) {}
 
-  /** Ouvre une session et rend les secrets à poser en cookies. */
-  async open(accountId: string): Promise<OpenedSession> {
+  /**
+   * Ouvre une session et rend les secrets à poser en cookies.
+   *
+   * `adminUnlockedAt` n'est posé que lorsqu'un second facteur vient d'être
+   * validé : une session ouverte sans lui vaut pour l'application, et aucune
+   * route d'administration ne l'accepte (ADR 0012).
+   */
+  async open(accountId: string, adminUnlockedAt?: Date): Promise<OpenedSession> {
     const token = createSecret();
     const csrfSecret = createSecret();
 
@@ -60,10 +68,16 @@ export class SessionService {
       accountId,
       tokenHash: hashSecret(token),
       csrfSecret,
+      ...(adminUnlockedAt === undefined ? undefined : { adminUnlockedAt }),
       expiresAt: new Date(Date.now() + ABSOLUTE_TIMEOUT_MS),
     });
 
     return { token, csrfSecret };
+  }
+
+  /** Ouvre les droits d'administration d'une session déjà ouverte. */
+  async unlockAdmin(sessionId: string): Promise<void> {
+    await this.store.unlockSession(sessionId, new Date());
   }
 
   /**

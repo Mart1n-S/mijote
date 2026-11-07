@@ -14,7 +14,7 @@ describe('createRoutes', () => {
     // L'égalité sur les noms et non un compte : la route de repli n'est pas
     // une page métier, mais elle fait nombre. Un écran ajouté par mégarde se
     // verrait ici.
-    expect(createRoutes(false).map((route) => route.name)).toEqual(['home', 'not-found']);
+    expect(createRoutes(false).map((route) => route.name)).toEqual(['home', 'login', 'not-found']);
   });
 
   it('attrape une adresse inconnue', () => {
@@ -34,6 +34,26 @@ describe('createRoutes', () => {
   it("n'ajoute pas la page de démonstration autrement", () => {
     // C'est ce que la production passe : la page ne doit pas y être atteignable.
     expect(createRoutes(false).some((route) => route.name === 'design-system')).toBe(false);
+  });
+
+  it("n'ouvre que la page de connexion", () => {
+    /*
+      L'application est privée : une page sans `public` demande une session, et
+      c'est la garde qui le fait respecter. Une page ouverte par mégarde se
+      verrait ici.
+    */
+    const open = createRoutes(true).flatMap((route) =>
+      route.meta?.public === true ? [route.name] : [],
+    );
+
+    expect(open).toEqual(['login']);
+  });
+
+  it('ne met pas la connexion dans la navigation', () => {
+    const login = createRoutes(false).find((route) => route.name === 'login');
+
+    expect(login?.path).toBe('/connexion');
+    expect(login?.meta?.navLabel).toBeUndefined();
   });
 
   it('donne un titre à chaque page', () => {

@@ -6,6 +6,7 @@ import { Logger } from 'nestjs-pino';
 
 import { AppModule } from './app.module.js';
 import { loadEnvFile } from './env.js';
+import { resolveTrustProxy } from './security/trust-proxy.js';
 
 loadEnvFile();
 
@@ -26,6 +27,14 @@ app.useLogger(app.get(Logger));
 // Ce retrait est isolé pour l'instant : l'issue #31 réunira les en-têtes de
 // sécurité dans un middleware Express, et il ira l'y rejoindre.
 app.disable('x-powered-by');
+
+/*
+  Le mandataire inverse du homelab est devant l'application : sans ce réglage,
+  Express ignorerait X-Forwarded-For et la limitation des tentatives compterait
+  tout le monde sous l'adresse du mandataire. La valeur est explicite, et
+  `true` est refusé par resolveTrustProxy : voir .env.example et l'ADR 0010.
+*/
+app.set('trust proxy', resolveTrustProxy(process.env));
 
 app.enableShutdownHooks();
 

@@ -111,6 +111,47 @@ function errorFields(error: Error): Record<string, unknown> {
 }
 
 /*
+  L'erreur de requête de Drizzle, reconnue à sa forme.
+
+  Elle porte la requête **et ses paramètres** dans son message, donc dans la
+  première ligne de sa pile, et dans une propriété `params`. Depuis la story
+  #10, ces paramètres sont des adresses e-mail : c'est la « première requête qui
+  en portera » qu'annonçait le commentaire ci-dessus, et il faut donc la traiter
+  à part.
+
+  Reconnue par sa forme et non par `instanceof` : la classe n'est pas exportée
+  par la racine de drizzle-orm, et le module de journalisation n'a pas à
+  dépendre de l'ORM pour savoir se taire.
+*/
+interface QueryError {
+  query: string;
+  params: unknown;
+}
+
+function isQueryError(error: Error): error is Error & QueryError {
+  return 'query' in error && typeof error.query === 'string' && 'params' in error;
+}
+
+/** Ce que Drizzle écrit à la place du message, les paramètres retirés. */
+const QUERY_FAILED = 'requête SQL en échec';
+
+/**
+ * La pile sans sa première ligne.
+ *
+ * V8 commence une pile par le message de l'erreur : garder la pile telle quelle
+ * remettrait les paramètres que le message vient de perdre. Seules les lignes
+ * d'appel sont gardées, et elles suffisent à situer la requête.
+ */
+function callFrames(stack: string | undefined): string | undefined {
+  const frames = (stack ?? '')
+    .split('\n')
+    .filter((line) => /^\s+at /.test(line))
+    .join('\n');
+
+  return frames === '' ? undefined : frames;
+}
+
+/*
   Liste blanche pour les erreurs aussi, et pas seulement pour les requêtes.
 
   Le sérialiseur par défaut de pino recopie toutes les propriétés énumérables de
@@ -122,17 +163,31 @@ function errorFields(error: Error): Record<string, unknown> {
   La cause est gardée, sur un seul niveau : c'est elle qui dit pourquoi, et elle
   passe par le même tamis.
 
-  Limite connue, mesurée : Drizzle place la requête et ses paramètres dans le
-  message de ses erreurs. Tant que le seul SQL du projet est `select 1`, ce
-  message ne porte rien de personnel. À la première requête qui en portera, il
-  ne faudra pas journaliser l'erreur entière mais son `code`.
+  Le cas d'une requête en échec est traité à part, parce que Drizzle place ses
+  paramètres dans le message : mesuré le 7 novembre 2026 contre la base de
+  développement, `select 1 from table_inexistante where email = $1` lève une
+  erreur dont le message, la pile et la propriété `params` portent l'adresse
+  soumise. Sont donc gardées la requête, qui est paramétrée et ne porte aucune
+  valeur, le code de PostgreSQL, et les lignes d'appel de la pile.
+
+  Le message de la cause, lui, est gardé : PostgreSQL y nomme la contrainte ou
+  la table, jamais la valeur. C'est son champ `detail` qui dirait « Key
+  (email)=(...) already exists », et la liste blanche ne le laisse pas passer.
 */
 function serializeError(value: unknown): Record<string, unknown> {
   if (!(value instanceof Error)) {
     return { type: typeof value, message: String(value) };
   }
 
-  const fields = errorFields(value);
+  const fields = isQueryError(value)
+    ? {
+        type: value.name,
+        message: QUERY_FAILED,
+        code: readErrorCode(value),
+        stack: callFrames(value.stack),
+        query: value.query,
+      }
+    : errorFields(value);
 
   return value.cause instanceof Error ? { ...fields, cause: errorFields(value.cause) } : fields;
 }

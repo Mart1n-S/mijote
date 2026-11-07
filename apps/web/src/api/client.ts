@@ -1,4 +1,6 @@
 import {
+  CSRF_COOKIE,
+  CSRF_HEADER,
   PROBLEM_DETAILS_MEDIA_TYPE,
   problemDetailsSchema,
   type ProblemDetails,
@@ -19,6 +21,54 @@ const API_PREFIX = '/api';
 
 /** Au-delà, on considère que le service ne répond pas. */
 const TIMEOUT_MS = 5_000;
+
+/** Ces méthodes ne modifient rien : elles n'ont rien à prouver au serveur. */
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+/**
+ * Le jeton CSRF, que le serveur a posé dans le seul cookie lisible.
+ *
+ * Le renvoyer en en-tête est ce qui prouve au serveur que la requête vient
+ * d'une page de cette origine : une page d'un autre site ne peut ni lire ce
+ * cookie, ni écrire cet en-tête (voir l'ADR 0010).
+ */
+function readCsrfToken(): string | undefined {
+  for (const pair of document.cookie.split(';')) {
+    const separator = pair.indexOf('=');
+
+    if (separator > 0 && pair.slice(0, separator).trim() === CSRF_COOKIE) {
+      const value = pair.slice(separator + 1).trim();
+
+      return value === '' ? undefined : value;
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Les en-têtes d'une requête qui modifie l'état : le jeton CSRF, et le type de
+ * média que l'API exige.
+ *
+ * Le type JSON est posé ici plutôt qu'à chaque appel, parce que c'est une
+ * barrière de sécurité et non un détail de requête : l'API refuse en 415 tout
+ * ce qui n'est pas du JSON, justement parce qu'un formulaire d'un autre site ne
+ * peut pas déclarer ce type.
+ */
+function writeHeaders(init: RequestInit | undefined): HeadersInit {
+  const headers = new Headers(init?.headers);
+  const token = readCsrfToken();
+
+  if (!headers.has('content-type')) {
+    headers.set('content-type', 'application/json');
+  }
+
+  if (token !== undefined) {
+    headers.set(CSRF_HEADER, token);
+  }
+
+  return headers;
+}
 
 function buildUserMessage(status: number | undefined, problem: ProblemDetails | undefined): string {
   if (status === undefined) {
@@ -97,9 +147,12 @@ async function readProblem(response: Response): Promise<ProblemDetails | undefin
 export async function apiRequest(path: string, init?: RequestInit): Promise<Response> {
   let response: Response;
 
+  const method = (init?.method ?? 'GET').toUpperCase();
+
   try {
     response = await fetch(`${API_PREFIX}${path}`, {
       ...init,
+      ...(SAFE_METHODS.has(method) ? undefined : { headers: writeHeaders(init) }),
       signal: init?.signal ?? AbortSignal.timeout(TIMEOUT_MS),
     });
   } catch (error) {

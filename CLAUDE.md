@@ -25,6 +25,7 @@ Objectif (section 13 du cahier des charges) : design system, comptes sur invitat
 | Composants | Reka UI (comportement et ARIA), styles maison à partir de jetons de design (CSS custom properties) |
 | Tests      | Vitest (unitaires et intégration), Playwright (bout en bout), axe-core (accessibilité)             |
 | Validation | zod, schémas partagés dans `packages/shared` (ADR 0008)                                            |
+| Hachage    | Argon2id par `@node-rs/argon2`, paramètres mesurés (ADR 0011)                                      |
 | Journaux   | pino par nestjs-pino, au format JSON (ADR 0008)                                                    |
 | E-mails    | nodemailer, Mailpit en développement (ADR 0009)                                                    |
 | Conteneurs | Docker Compose en développement, homelab en production                                             |
@@ -59,6 +60,7 @@ pnpm typecheck        # vérification des types, tous les paquets
 pnpm test             # Vitest
 pnpm test:e2e         # Playwright, avec axe-core
 pnpm db:migrate       # migrations Drizzle
+pnpm admin:create     # crée le premier administrateur, dans un terminal
 ```
 
 Avant de proposer un commit : `pnpm lint`, `pnpm typecheck` et `pnpm test` doivent passer.
@@ -88,8 +90,10 @@ Le détail est dans `.claude/rules/` : `security.md` et `writing-style.md` sont 
 ## Conventions
 
 - **Langue** : documentation, commentaires, commits et rapports en français. Noms dans le code (variables, fonctions, classes, fichiers, tables, colonnes) en anglais.
+- **Adresses** : celles que l'utilisateur voit sont en français (`/connexion`), paramètres de requête compris (`?suivant=`). Les routes de l'API restent en anglais (`/auth/login`), comme le reste du code.
 - **Ponctuation** : jamais de tiret long (—) ni de tiret moyen (–) ; utiliser deux-points, virgules ou parenthèses.
 - **Commits** : Conventional Commits en français, à l'impératif présent, en minuscules : `type(portée): description`. Types : `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `perf`, `build`, `ci`. Portées : `api`, `web`, `shared`, `db`, `ci`, `docs`, `ia` (tout ce qui touche `.claude/` : agents, rules, réglages).
+- **Fermeture d'issue** : une description de PR écrit `Closes #<numéro>`, **en anglais, seule exception au français**. GitHub ne reconnaît que ses propres mots-clés (`close`, `closes`, `closed`, `fix`, `fixes`, `fixed`, `resolve`, `resolves`, `resolved`) : « Ferme #23 », dans la PR #24, n'a rien fermé, et l'issue a dû l'être à la main.
 - **Branches** : une branche par story, `<type>/<numéro d'issue>-<description-courte>`, créée depuis `main`.
 - **Commentaires** : expliquer le pourquoi, pas le quoi ; commenter ce qui n'est pas évident.
 - **Git** : proposer les commits ; ne jamais faire `git push` sans demande, jamais `git push --force`, jamais de fusion de PR (c'est moi qui fusionne).

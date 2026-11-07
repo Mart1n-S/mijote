@@ -1,0 +1,393 @@
+import {
+  CSRF_COOKIE,
+  CSRF_HEADER,
+  problemDetailsSchema,
+  sessionResponseSchema,
+} from '@mijote/shared';
+import { Controller, Get, Module } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
+import { randomUUID } from 'node:crypto';
+import { sql } from 'drizzle-orm';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
+import { AppModule } from '../app.module.js';
+import { createDatabase, type Database } from '../db/client.js';
+import { account, household, loginAttempt, rememberToken, session } from '../db/schema.js';
+import { loadEnvFile } from '../env.js';
+import { hashPassword } from '../security/passwords.js';
+import { fingerprint, readPepper } from '../security/pepper.js';
+import { resolveTrustProxy } from '../security/trust-proxy.js';
+
+import { Roles } from './roles.decorator.js';
+
+/*
+  Le parcours de connexion, en entier, contre une vraie base.
+
+  C'est le seul fichier qui mesure le SQL de auth.repository.ts, et le seul où
+  une session existe vraiment : les gardes, la rotation du jeton de
+  mémorisation, la révocation sur rejeu et la limitation des tentatives se
+  voient ici, et pas ailleurs.
+
+  Hors CI, il se saute quand PostgreSQL n'est pas joignable, pour qu'un
+  `pnpm test` sans `docker compose up` reste vert. **En CI, il ne se saute
+  jamais** : le service est déclaré dans .github/workflows/ci.yml, et un saut
+  silencieux y laisserait tout le socle de la story non mesuré.
+*/
+
+loadEnvFile();
+
+const DATABASE_URL = process.env['DATABASE_URL'];
+const PASSWORD = 'un mot de passe assez long';
+
+/** Un domaine réservé, qui n'existe nulle part. */
+const EMAIL = `martin-${randomUUID()}@exemple.test`;
+const UNKNOWN_EMAIL = `personne-${randomUUID()}@exemple.test`;
+/** Une adresse à elle seule pour la limitation, qui compte par adresse. */
+const FLOODED_EMAIL = `insistant-${randomUUID()}@exemple.test`;
+
+/**
+ * La base répond-elle, et les migrations sont-elles passées ?
+ *
+ * La requête porte sur une table de la migration 0001 : une base joignable mais
+ * pas migrée est un oubli, et elle doit être traitée comme une base absente
+ * plutôt que faire échouer chaque test pour une raison obscure.
+ */
+async function probeDatabase(url: string): Promise<boolean> {
+  const probe = createDatabase(url);
+
+  try {
+    await probe.execute(sql`select 1 from ${session} limit 1`);
+
+    return true;
+  } catch {
+    return false;
+  } finally {
+    await probe.$client.end();
+  }
+}
+
+const reachable = DATABASE_URL === undefined ? false : await probeDatabase(DATABASE_URL);
+
+if (!reachable && process.env['CI'] === 'true') {
+  throw new Error(
+    "PostgreSQL est injoignable, ou les migrations ne sont pas passées, alors que CI est posée : le service déclaré dans .github/workflows/ci.yml n'a pas démarré, et ce test ne doit pas se sauter en CI.",
+  );
+}
+
+let database: Database;
+let app: NestExpressApplication;
+let baseUrl: string;
+let householdId: string;
+let accountId: string;
+
+/** Les routes qui n'existent que pour ce test. */
+@Controller('test-session')
+class TestSessionController {
+  @Get('mienne')
+  mine(): { ok: true } {
+    return { ok: true };
+  }
+
+  @Roles('admin')
+  @Get('administration')
+  administration(): { ok: true } {
+    return { ok: true };
+  }
+}
+
+@Module({ imports: [AppModule], controllers: [TestSessionController] })
+class TestAppModule {}
+
+/** Le problème renvoyé, sans son identifiant de requête. */
+function sessionFailureBody(body: unknown): Record<string, unknown> {
+  const problem = problemDetailsSchema.parse(body);
+  const { requestId, ...rest } = problem;
+
+  expect(requestId).toMatch(/^[0-9a-f-]{36}$/);
+
+  return rest;
+}
+
+/** La valeur d'un cookie dans les en-têtes Set-Cookie d'une réponse. */
+function cookieValue(response: Response, name: string): string | undefined {
+  for (const header of response.headers.getSetCookie()) {
+    if (header.startsWith(`${name}=`)) {
+      const value = header.slice(name.length + 1).split(';')[0];
+
+      return value === '' ? undefined : value;
+    }
+  }
+
+  return undefined;
+}
+
+/** Un en-tête Cookie, comme un navigateur l'enverrait. */
+function cookieHeader(pairs: Record<string, string | undefined>): string {
+  return Object.entries(pairs)
+    .filter((entry): entry is [string, string] => entry[1] !== undefined)
+    .map(([name, value]) => `${name}=${value}`)
+    .join('; ');
+}
+
+async function login(
+  body: { email: string; password: string; remember?: boolean },
+  ip = '203.0.113.7',
+): Promise<Response> {
+  return fetch(`${baseUrl}/auth/login`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      origin: baseUrl,
+      // L'application est derrière un mandataire : l'adresse comptée est
+      // celle-ci, et c'est ce qui permet de viser une IP par test.
+      'x-forwarded-for': ip,
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+describe.skipIf(!reachable)('la connexion, contre une vraie base', () => {
+  /*
+    Les crochets vivent dans le describe, et non au niveau du fichier : sauté,
+    il ne doit ni monter l'application ni écrire dans une base absente.
+  */
+  beforeAll(async () => {
+    process.env['LOG_LEVEL'] = 'silent';
+    process.env['SMTP_HOST'] ??= '127.0.0.1';
+    process.env['SMTP_PORT'] ??= '1025';
+    process.env['MAIL_FROM'] ??= 'Mijote <no-reply@mijote.local>';
+    process.env['SECURITY_PEPPER'] ??= Buffer.alloc(32).toString('base64');
+
+    database = createDatabase(DATABASE_URL ?? '');
+
+    const [createdHousehold] = await database
+      .insert(household)
+      .values({ name: `Foyer de test ${randomUUID()}` })
+      .returning({ id: household.id });
+
+    householdId = createdHousehold?.id ?? '';
+
+    const [createdAccount] = await database
+      .insert(account)
+      .values({
+        householdId,
+        email: EMAIL,
+        passwordHash: await hashPassword(PASSWORD),
+      })
+      .returning({ id: account.id });
+
+    accountId = createdAccount?.id ?? '';
+
+    app = await NestFactory.create<NestExpressApplication>(TestAppModule, { logger: false });
+    app.set('trust proxy', resolveTrustProxy(process.env));
+
+    await app.listen(0);
+
+    baseUrl = await app.getUrl();
+  });
+
+  afterAll(async () => {
+    // Le foyer emporte en cascade son compte, ses sessions et ses jetons.
+    await database.delete(household).where(sql`${household.id} = ${householdId}`);
+
+    const pepper = readPepper(process.env);
+
+    for (const email of [EMAIL, UNKNOWN_EMAIL, FLOODED_EMAIL]) {
+      await database
+        .delete(loginAttempt)
+        .where(sql`${loginAttempt.emailFingerprint} = ${fingerprint(pepper, email)}`);
+    }
+
+    await app.close();
+    await database.$client.end();
+  });
+
+  it('ouvre une session et pose les cookies', async () => {
+    const response = await login({ email: EMAIL, password: PASSWORD });
+
+    expect(response.status).toBe(200);
+    /*
+      Cette réponse porte un Set-Cookie, donc le jeton de session, et l'adresse
+      du compte : ni le disque du poste ni un intermédiaire n'ont à en garder
+      une copie après la session.
+    */
+    expect(response.headers.get('cache-control')).toBe('no-store');
+
+    const body = sessionResponseSchema.parse(await response.json());
+
+    expect(body.account).toEqual({ id: accountId, email: EMAIL, householdId, role: 'user' });
+
+    const token = cookieValue(response, 'mijote_session');
+
+    expect(token).toBeDefined();
+    expect(cookieValue(response, CSRF_COOKIE)).toBeDefined();
+    // Pas de mémorisation demandée : pas de troisième cookie.
+    expect(cookieValue(response, 'mijote_remember')).toBeUndefined();
+
+    const rows = await database.select().from(session);
+
+    expect(rows.some((row) => row.accountId === accountId)).toBe(true);
+    // Le jeton du cookie n'est nulle part en base, seule son empreinte y est.
+    expect(rows.map((row) => row.tokenHash)).not.toContain(token);
+  });
+
+  it('refuse le même mot de passe sur une adresse inconnue, avec le même message', async () => {
+    const unknown = await login({ email: UNKNOWN_EMAIL, password: PASSWORD });
+    const wrong = await login({ email: EMAIL, password: 'pas le bon mot de passe' });
+
+    expect(unknown.status).toBe(401);
+    expect(wrong.status).toBe(401);
+
+    /*
+      Mot pour mot le même corps, à l'identifiant de requête près : c'est lui
+      qui relie l'erreur à sa trace côté serveur, et il change à chaque appel.
+    */
+    const first = { ...sessionFailureBody(await unknown.json()) };
+    const second = { ...sessionFailureBody(await wrong.json()) };
+
+    expect(first).toEqual(second);
+    expect(first['status']).toBe(401);
+    expect(first['detail']).toBe('Adresse e-mail ou mot de passe incorrect.');
+  });
+
+  it('donne accès à une route protégée, et la referme à la déconnexion', async () => {
+    const opened = await login({ email: EMAIL, password: PASSWORD });
+    const token = cookieValue(opened, 'mijote_session');
+    const csrf = cookieValue(opened, CSRF_COOKIE);
+    const cookie = cookieHeader({ mijote_session: token, [CSRF_COOKIE]: csrf ?? '' });
+
+    expect((await fetch(`${baseUrl}/test-session/mienne`, { headers: { cookie } })).status).toBe(
+      200,
+    );
+
+    // Sans cookie, la même route répond 401.
+    expect((await fetch(`${baseUrl}/test-session/mienne`)).status).toBe(401);
+
+    // Une route réservée aux administrateurs refuse ce compte.
+    expect(
+      (await fetch(`${baseUrl}/test-session/administration`, { headers: { cookie } })).status,
+    ).toBe(403);
+
+    // La déconnexion sans le jeton CSRF est refusée.
+    const withoutToken = await fetch(`${baseUrl}/auth/logout`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin: baseUrl, cookie },
+    });
+
+    expect(withoutToken.status).toBe(403);
+
+    const loggedOut = await fetch(`${baseUrl}/auth/logout`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        origin: baseUrl,
+        cookie,
+        [CSRF_HEADER]: csrf ?? '',
+      },
+    });
+
+    expect(loggedOut.status).toBe(204);
+    // Les trois cookies sont effacés.
+    expect(
+      loggedOut.headers.getSetCookie().filter((header) => header.includes('Max-Age=0')),
+    ).toHaveLength(3);
+
+    // La session est vraiment fermée côté serveur : le cookie ne vaut plus rien.
+    expect((await fetch(`${baseUrl}/test-session/mienne`, { headers: { cookie } })).status).toBe(
+      401,
+    );
+  });
+
+  it('reprend la session mémorisée, fait tourner le jeton et révoque un rejeu', async () => {
+    const opened = await login({ email: EMAIL, password: PASSWORD, remember: true });
+    const remember = cookieValue(opened, 'mijote_remember');
+
+    expect(remember).toBeDefined();
+
+    // Le navigateur a été fermé : il ne reste que le cookie de mémorisation.
+    const resumed = await fetch(`${baseUrl}/auth/session`, {
+      headers: { cookie: cookieHeader({ mijote_remember: remember }) },
+    });
+
+    expect(resumed.status).toBe(200);
+
+    const rotated = cookieValue(resumed, 'mijote_remember');
+
+    expect(rotated).toBeDefined();
+    expect(rotated).not.toBe(remember);
+    expect(cookieValue(resumed, 'mijote_session')).toBeDefined();
+
+    /*
+      L'ancien cookie, présenté aussitôt : il est dans le délai de grâce, donc
+      accepté, et aucun cookie de mémorisation n'est reposé. C'est le cas des
+      deux onglets qui se chargent en même temps, mesuré ici contre le vrai SQL.
+    */
+    const inGrace = await fetch(`${baseUrl}/auth/session`, {
+      headers: { cookie: cookieHeader({ mijote_remember: remember }) },
+    });
+
+    expect(inGrace.status).toBe(200);
+    expect(cookieValue(inGrace, 'mijote_remember')).toBeUndefined();
+
+    /*
+      Le rejeu, hors délai de grâce : la rotation est vieillie en base, puis
+      l'ancien cookie est présenté à nouveau. Toute la famille doit tomber.
+    */
+    const family = remember?.split('.')[0] ?? '';
+
+    await database
+      .update(rememberToken)
+      .set({ rotatedAt: new Date(Date.now() - 60_000) })
+      .where(sql`${rememberToken.family} = ${family}`);
+
+    const replayed = await fetch(`${baseUrl}/auth/session`, {
+      headers: { cookie: cookieHeader({ mijote_remember: remember }) },
+    });
+
+    expect(replayed.status).toBe(401);
+
+    // Et le jeton qui avait tourné ne vaut plus rien non plus.
+    const afterRevocation = await fetch(`${baseUrl}/auth/session`, {
+      headers: { cookie: cookieHeader({ mijote_remember: rotated }) },
+    });
+
+    expect(afterRevocation.status).toBe(401);
+  });
+
+  it('bloque après cinq échecs sur une même adresse', async () => {
+    const ip = '203.0.113.90';
+
+    for (let count = 0; count < 5; count += 1) {
+      const refused = await login({ email: FLOODED_EMAIL, password: 'faux' }, ip);
+
+      expect(refused.status).toBe(401);
+    }
+
+    const blocked = await login({ email: FLOODED_EMAIL, password: 'faux' }, ip);
+
+    expect(blocked.status).toBe(429);
+
+    const problem: unknown = await blocked.json();
+
+    expect(JSON.stringify(problem)).toContain('Trop de tentatives');
+
+    /*
+      La même IP, une autre adresse : elle passe encore, parce que la limite par
+      IP est plus haute. C'est ce qui permet à deux personnes d'un même foyer de
+      se tromper sans se bloquer l'une l'autre.
+    */
+    const other = await login({ email: EMAIL, password: PASSWORD }, ip);
+
+    expect(other.status).toBe(200);
+  });
+
+  it("n'écrit que des empreintes dans la table des tentatives", async () => {
+    const rows = await database.select().from(loginAttempt);
+    const written = JSON.stringify(rows);
+
+    expect(rows.length).toBeGreaterThan(0);
+    expect(written).not.toContain('exemple.test');
+    expect(written).not.toContain('203.0.113');
+  });
+});

@@ -1,6 +1,7 @@
 import type { RouteRecordRaw } from 'vue-router';
 
 import HomePage from './pages/HomePage.vue';
+import LoginPage from './pages/LoginPage.vue';
 import NotFoundPage from './pages/NotFoundPage.vue';
 
 declare module 'vue-router' {
@@ -9,6 +10,11 @@ declare module 'vue-router' {
     title: string;
     /** Libellé dans la navigation principale. Absent, la page n'y figure pas. */
     navLabel?: string;
+    /**
+     * Accessible sans session. Absent, la page en demande une : l'application
+     * est privée, et le défaut doit être le plus fermé des deux.
+     */
+    public?: boolean;
   }
 }
 
@@ -37,6 +43,18 @@ export function createRoutes(withDesignSystem: boolean): RouteRecordRaw[] {
       meta: { title: 'Accueil', navLabel: 'Accueil' },
     },
   ];
+
+  /*
+    La connexion est la seule page ouverte, et elle ne figure pas dans la
+    navigation : on y arrive par la garde, ou parce qu'on n'est pas connecté.
+    Import statique, c'est le premier écran d'une visite sans session.
+  */
+  routes.push({
+    path: '/connexion',
+    name: 'login',
+    component: LoginPage,
+    meta: { title: 'Connexion', public: true },
+  });
 
   if (withDesignSystem && designSystemPage !== undefined) {
     routes.push({

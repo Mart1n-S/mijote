@@ -71,13 +71,46 @@ describe('safeNextPath', () => {
       Une redirection ouverte : l'adresse de connexion est celle qu'on envoie
       par courriel, et son paramètre ne doit pas pouvoir emmener ailleurs après
       la connexion.
+
+      La règle tient en deux conditions : commencer par une barre oblique, et
+      pas par une seconde. Les cas ci-dessous sont les façons connues de
+      contourner l'une ou l'autre.
     */
-    expect(safeNextPath('//ailleurs.example/piege')).toBe('/');
-    expect(safeNextPath('https://ailleurs.example')).toBe('/');
-    expect(safeNextPath('/\\ailleurs.example')).toBe('/');
-    expect(safeNextPath('planning')).toBe('/');
-    expect(safeNextPath(undefined)).toBe('/');
-    expect(safeNextPath(['/un', '/deux'])).toBe('/');
+    for (const ailleurs of [
+      // Adresse relative au protocole : le navigateur y lit un hôte.
+      '//ailleurs.example/piege',
+      '//',
+      // La barre oblique inverse, que plusieurs navigateurs traitent comme //.
+      '/\\ailleurs.example',
+      '\\\\ailleurs.example',
+      // Un schéma, en toutes casses, et un schéma qui exécute du code.
+      'https://ailleurs.example',
+      'HTTPS://AILLEURS.EXAMPLE',
+      'javascript:alert(1)',
+      'data:text/html,<script></script>',
+      // Pas de barre oblique au début : résolu contre la page courante.
+      'planning',
+      'ailleurs.example/piege',
+      // Une espace avant, qui ne fait pas de la valeur un chemin.
+      ' //ailleurs.example',
+      // Deux fois le paramètre : vue-router en fait un tableau.
+      ['/un', '/deux'],
+      undefined,
+      '',
+    ]) {
+      expect(safeNextPath(ailleurs), `${JSON.stringify(ailleurs)} doit être écarté`).toBe('/');
+    }
+  });
+
+  it('garde un chemin interne même quand il ressemble à une adresse', () => {
+    /*
+      Ce qui est contrôlé est la forme, et elle suffit : ces valeurs restent
+      des chemins de cette origine, le navigateur les résolvant contre elle.
+      Les garder évite de perdre la page demandée pour une ressemblance.
+    */
+    expect(safeNextPath('/%2F%2Failleurs.example')).toBe('/%2F%2Failleurs.example');
+    expect(safeNextPath('/ailleurs.example')).toBe('/ailleurs.example');
+    expect(safeNextPath('/')).toBe('/');
   });
 });
 

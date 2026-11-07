@@ -90,6 +90,22 @@ test.describe('la connexion', () => {
     ]);
   });
 
+  test("n'emmène pas ailleurs après la connexion", async ({ page, baseURL }) => {
+    /*
+      L'adresse de connexion est celle qu'on envoie par courriel : son paramètre
+      de retour ne doit pas pouvoir servir de redirection ouverte. La forme est
+      contrôlée par safeNextPath, et c'est ici que le parcours entier le montre,
+      dans un vrai navigateur.
+    */
+    await stubAnonymousApi(page);
+    await page.goto('/connexion?suivant=//ailleurs.example/piege');
+    await fillForm(page, STUB_PASSWORD);
+
+    await expect(page.getByRole('heading', { level: 1, name: 'Accueil' })).toBeVisible();
+    // Sur l'origine de l'application, et à sa racine.
+    expect(page.url()).toBe(`${baseURL ?? ''}/`);
+  });
+
   test('envoie la mémorisation quand la case est cochée', async ({ page }) => {
     const stub = await stubAnonymousApi(page);
 

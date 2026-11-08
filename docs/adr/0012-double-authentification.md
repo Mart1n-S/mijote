@@ -74,6 +74,12 @@ La même table `login_attempt`, avec une colonne `purpose` (`password` ou `code`
 
 Deux limites se superposent : **cinq essais sur une même attente**, qui la détruisent et renvoient au mot de passe, et la fenêtre glissante de quinze minutes de l'ADR 0010, qui survit à cette destruction et empêche donc de la contourner en recommençant.
 
+**Le mot de passe redemandé est limité lui aussi**, sous un troisième motif, `reauth`. Il manquait, et la relecture sécurité l'a relevé : une session volée permettait de deviner le mot de passe sans borne, chaque essai réservant au passage 64 Mio d'Argon2. Or c'est ce mot de passe qui empêche cette même session d'inscrire l'application de l'attaquant : le laisser sans compteur vidait la barrière de son sens.
+
+Un motif à part, et non celui de la connexion : les deux partagent l'adresse IP, et compter ensemble aurait permis à un porteur de session volée d'épuiser le compteur de `/auth/login` et de verrouiller le vrai propriétaire dehors. Un test mesure les deux faces : le blocage après cinq essais, et la connexion qui reste ouverte.
+
+Le code soumis à l'activation est compté comme les trois autres. Le gain pour un attaquant y est nul, le secret étant celui qu'il vient de recevoir, mais « les essais de code sont limités » ne souffre pas d'exception, et cette route serait sinon la seule sans compteur.
+
 ### L'activation et la désactivation exigent le mot de passe
 
 Les deux, et c'est le point le plus important de cette décision. Sans cela, une session volée d'un administrateur **sans** second facteur suffirait à inscrire l'application de l'attaquant : il obtiendrait l'administration, et le propriétaire se retrouverait verrouillé hors de son propre compte. Le mot de passe est donc redemandé à l'inscription **et** à la confirmation, pour que chaque route soit sûre par elle-même et non parce que l'autre l'est. L'écran ne le demande qu'une fois et le renvoie avec le code.
@@ -96,6 +102,8 @@ Une route d'administration demande donc trois choses, et non une : le rôle, un 
 
 Un administrateur sans second facteur garde sa session et toute l'application ; **aucune** route d'administration ne l'accepte, et l'en-tête le conduit à l'activer. La double authentification des autres comptes est hors périmètre de la story #11, et aucun écran ne la propose.
 
+« Aucun écran » ne suffisait pas : les quatre routes de gestion refusent donc explicitement un compte ordinaire, par un 403. Sans ce refus, quelqu'un qui aurait tapé l'adresse de l'écran pouvait inscrire une application, puis ne plus pouvoir la retirer, faute d'écran de désactivation. C'est la garde de rôle qui ne peut pas servir ici : elle exige un second facteur **déjà actif**, ce que l'inscription est précisément en train d'obtenir.
+
 ### Les journaux
 
 Jamais le secret, jamais l'URI d'inscription (elle le contient), jamais un code, jamais un code de secours. Sont journalisés : l'inscription, l'activation, la désactivation, un code refusé, l'usage d'un code de secours avec son numéro, et le déverrouillage. Un test relit les lignes écrites et refuse d'y trouver le secret, le code ou l'adresse.
@@ -108,6 +116,9 @@ Jamais le secret, jamais l'URI d'inscription (elle le contient), jamais un code,
 - Le QR code est servi en **image de données** (`data:image/svg+xml,...`) et non injecté par `v-html` : une image ne peut rien exécuter. **La CSP de l'issue #31 devra donc autoriser `img-src 'self' data:`**, sans quoi le QR ne s'affichera pas en production.
 - L'activation hache dix codes de secours, soit un peu plus d'une seconde : c'est une fois par inscription, et c'est le prix de codes qui résistent à une base volée.
 - `POST /auth/two-factor/unlock` n'a pas encore d'écran : il n'y a aucune route d'administration dans le lot 1. La route et sa garde sont mesurées par les tests, et l'écran viendra avec le premier écran d'administration.
+- La désactivation est un `POST /auth/two-factor/disable` et non un `DELETE /auth/two-factor`. La requête porte un corps (mot de passe et code), et un corps sur DELETE, bien que légal, est jeté par nombre de mandataires. Celui du homelab n'est pas dans ce dépôt (issue #31) : autant ne pas en dépendre pour la seule route qui permet de changer d'appareil.
+- **Les droits d'administration n'ont pas de péremption propre** : une fois le code validé, ils valent jusqu'au bout de la session, soit douze heures au plus. Une borne d'inactivité qui leur serait propre réduirait ce qu'une session volée obtient après un code, et c'est à trancher à l'arrivée du premier écran d'administration, en même temps que son interface de déverrouillage.
+- **La reprise, quand les dix codes de secours sont épuisés et le téléphone perdu.** Il n'existe pas de route de renouvellement, et la désactivation demande un code : le compte est alors sans chemin de retour par l'application. La procédure assumée pour ce lot est côté exploitant, sur la base : supprimer la ligne `account_two_factor` du compte, ce qui emporte ses codes de secours, et l'administrateur réinscrit son application à la prochaine connexion. C'est le même genre d'intervention que la perte de `SECURITY_TOTP_KEY`, et une story de renouvellement des codes la remplacera.
 
 ## Quand revoir cette décision
 

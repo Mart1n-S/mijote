@@ -9,8 +9,7 @@ import { emailLayout, escapeHtml } from './html.js';
   le ferait, Mailpit compris.
 
   Le commentaire de `invitationUrl` dit que l'adresse est construite par
-  l'application : ceci en fait une garantie au lieu d'une convention, pour
-  l'appelant d'aujourd'hui comme pour celui de la story #12.
+  l'application : ceci en fait une garantie au lieu d'une convention.
 */
 function isWebUrl(value: string): boolean {
   try {
@@ -27,54 +26,57 @@ function isWebUrl(value: string): boolean {
 export interface InvitationEmail {
   /** L'adresse invitée. Elle ne sort d'ici que dans l'enveloppe du message. */
   to: string;
-  /** Nom du foyer, saisi par un utilisateur. */
-  householdName: string;
-  /** Nom de la personne qui invite, saisi par un utilisateur. */
-  inviterName: string;
-  /** Lien d'acceptation, construit par l'application. */
+  /** Lien d'inscription, construit par l'application. */
   invitationUrl: string;
 }
 
 /**
- * L'e-mail d'invitation à rejoindre un foyer.
+ * L'e-mail d'invitation à s'inscrire sur Mijote.
  *
- * Le nom du foyer et celui de la personne qui invite viennent d'une saisie :
- * ils sont échappés dans la version HTML, et laissés tels quels dans la version
- * texte, où une entité HTML s'afficherait littéralement.
+ * Il ne nomme personne, et c'est voulu : nommer l'invitant exposerait l'adresse
+ * de l'administrateur à chaque invité, et l'invitation n'est pas un
+ * rattachement à son foyer mais un ticket d'inscription, chaque compte ayant le
+ * sien (ADR 0013). Le message est signé par Mijote, ce que fait l'enveloppe.
+ *
+ * Le lien est la seule valeur insérée dans le HTML, et il y est échappé : c'est
+ * un attribut, et l'application le construit, mais la règle de l'ADR 0009 ne
+ * souffre pas d'exception.
  */
 export function invitationEmail(data: InvitationEmail): MailMessage {
   if (!isWebUrl(data.invitationUrl)) {
     throw new Error("le lien d'invitation doit être une adresse http ou https");
   }
 
-  const subject = `Invitation à rejoindre le foyer ${data.householdName} sur Mijote`;
+  const subject = 'Invitation à rejoindre Mijote';
 
   const text = `Bonjour,
 
-${data.inviterName} vous invite à rejoindre le foyer « ${data.householdName} » sur Mijote,
-pour planifier les repas et la liste de courses ensemble.
+Vous êtes invité à créer votre compte sur Mijote, pour planifier vos repas et
+votre liste de courses.
 
-Pour accepter, ouvrez ce lien :
+Pour vous inscrire, ouvrez ce lien :
 ${data.invitationUrl}
 
-Si vous n'attendiez pas cette invitation, ignorez ce message : rien ne sera créé.
+Ce lien ne sert qu'une fois, et il expire. Si vous n'attendiez pas cette
+invitation, ignorez ce message : rien ne sera créé.
 
 Mijote, planification de repas.
 `;
 
-  const household = escapeHtml(data.householdName);
-  const inviter = escapeHtml(data.inviterName);
   const url = escapeHtml(data.invitationUrl);
 
   const html = emailLayout(
-    'Invitation à rejoindre un foyer',
+    'Invitation à rejoindre Mijote',
     `<p>Bonjour,</p>
     <p>
-      ${inviter} vous invite à rejoindre le foyer « ${household} » sur Mijote, pour
-      planifier les repas et la liste de courses ensemble.
+      Vous êtes invité à créer votre compte sur Mijote, pour planifier vos repas
+      et votre liste de courses.
     </p>
-    <p><a href="${url}">Accepter l'invitation</a></p>
-    <p>Si vous n'attendiez pas cette invitation, ignorez ce message : rien ne sera créé.</p>`,
+    <p><a href="${url}">Créer mon compte</a></p>
+    <p>
+      Ce lien ne sert qu'une fois, et il expire. Si vous n'attendiez pas cette
+      invitation, ignorez ce message : rien ne sera créé.
+    </p>`,
   );
 
   return { to: data.to, subject, text, html };

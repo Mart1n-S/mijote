@@ -177,13 +177,11 @@ describe('MemoryMailer', () => {
     await mailer.send(
       invitationEmail({
         to: 'invitee@exemple.test',
-        householdName: 'Foyer Simon',
-        inviterName: 'Martin',
-        invitationUrl: 'https://mijote.local/invitations/jeton',
+        invitationUrl: 'https://mijote.local/invitation#jeton',
       }),
     );
 
     expect(mailer.sent).toHaveLength(1);
-    expect(mailer.sent[0]?.subject).toContain('Foyer Simon');
+    expect(mailer.sent[0]?.subject).toBe('Invitation à rejoindre Mijote');
   });
 });

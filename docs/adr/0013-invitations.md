@@ -23,7 +23,9 @@ Le **rôle choisi à l'invitation est le rôle dans l'application** : inviter qu
 
 Le foyer naît avec un **nom par défaut**, « Mon foyer », renommable au profil (issue #14). Écarté : le demander sur la page d'acceptation. Rien ne lit encore ce nom, et réclamer une donnée inutilisée sur le premier écran d'une personne est de la friction là où l'abandon coûte le plus. Écarté aussi : le dériver de l'adresse, qui recopierait une donnée personnelle dans une seconde colonne.
 
-**Le lien vaut la vérification de l'e-mail** que demande la section 7 du cahier des charges : il n'arrive que dans la boîte visée, et l'accepter prouve qu'on la contrôle. Aucun second message de vérification n'est donc envoyé.
+**Le lien vaut la vérification de l'e-mail** que demande le cahier des charges (section 3, « Compte ») : il n'arrive que dans la boîte visée, et l'accepter prouve qu'on la contrôle. Aucun second message de vérification n'est donc envoyé.
+
+Et aucune colonne ne l'enregistre : les deux seuls chemins qui créent un compte sont la commande `admin:create`, lancée à la main sur le serveur, et cette acceptation. Tout compte a donc une adresse prouvée, et une colonne qui vaudrait toujours vrai serait une donnée morte, qu'il faudrait tenir à jour sans qu'elle décide de rien. Le jour où une inscription libre existera, elle apportera cette colonne avec elle.
 
 ### Le jeton est opaque, haché, à usage unique et révocable
 

@@ -55,20 +55,34 @@ const BASE_URL = 'https://mijote.local';
 
 /** Un domaine réservé, qui n'existe nulle part. */
 const ADMIN_EMAIL = `admin-${randomUUID()}@exemple.test`;
+const USER_EMAIL = `membre-${randomUUID()}@exemple.test`;
 const INVITED = `invite-${randomUUID()}@exemple.test`;
 const RACED = `course-${randomUUID()}@exemple.test`;
 const REPLACED = `remplace-${randomUUID()}@exemple.test`;
 const DOUBLE_LIVE = `double-${randomUUID()}@exemple.test`;
+/** L'adresse que les tentatives refusées visent : rien ne doit la toucher. */
+const REFUSED = `refuse-${randomUUID()}@exemple.test`;
 const TRIGGER = `declencheur-${randomUUID()}@exemple.test`;
 const PURGED = `purge-${randomUUID()}@exemple.test`;
 const KEPT = `garde-${randomUUID()}@exemple.test`;
 
 /** Toutes les adresses à nettoyer : comptes, foyers et invitations. */
-const EMAILS = [ADMIN_EMAIL, INVITED, RACED, REPLACED, DOUBLE_LIVE, TRIGGER, PURGED, KEPT];
+const EMAILS = [
+  ADMIN_EMAIL,
+  USER_EMAIL,
+  INVITED,
+  RACED,
+  REPLACED,
+  DOUBLE_LIVE,
+  TRIGGER,
+  PURGED,
+  KEPT,
+];
 
 /** Une IP par test : la limitation compte par IP, et ne doit pas les mêler. */
 const IPS = {
   admin: '203.0.113.10',
+  user: '203.0.113.14',
   invited: '203.0.113.11',
   raced: '203.0.113.12',
   replaced: '203.0.113.13',
@@ -136,6 +150,9 @@ let adminId: string;
 /** La session de l'administrateur : rôle, second facteur, code validé. */
 let adminCookie: string;
 let adminCsrf: string;
+/** La session d'un compte ordinaire, qui n'a rien à faire en administration. */
+let userCookie: string;
+let userCsrf: string;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -301,6 +318,12 @@ describe.skipIf(!reachable)('les invitations, contre une vraie base', () => {
 
     adminId = createdAdmin?.id ?? '';
 
+    await database.insert(account).values({
+      householdId,
+      email: USER_EMAIL,
+      passwordHash: await hashPassword(PASSWORD),
+    });
+
     // Le second facteur, écrit comme l'API l'écrirait : le test peut donc
     // calculer les codes que l'application d'authentification afficherait.
     await database.insert(accountTwoFactor).values({
@@ -356,6 +379,28 @@ describe.skipIf(!reachable)('les invitations, contre une vraie base', () => {
       mijote_session: cookieValue(verified, 'mijote_session'),
       [CSRF_COOKIE]: adminCsrf,
     });
+
+    // Un compte ordinaire : pas de second facteur, donc la session s'ouvre au
+    // mot de passe.
+    const opened = await fetch(`${baseUrl}/auth/login`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        origin: baseUrl,
+        'x-forwarded-for': IPS.user,
+      },
+      body: JSON.stringify({ email: USER_EMAIL, password: PASSWORD }),
+    });
+
+    if (opened.status !== 200) {
+      throw new Error(`la session du compte ordinaire ne s'est pas ouverte : ${opened.status}`);
+    }
+
+    userCsrf = cookieValue(opened, CSRF_COOKIE) ?? '';
+    userCookie = cookieHeader({
+      mijote_session: cookieValue(opened, 'mijote_session'),
+      [CSRF_COOKIE]: userCsrf,
+    });
   });
 
   afterAll(async () => {
@@ -410,6 +455,53 @@ describe.skipIf(!reachable)('les invitations, contre une vraie base', () => {
     // La base ne porte qu'une empreinte : le jeton lui-même n'existe que dans
     // le message, et dans la barre d'adresse de qui l'a reçu.
     expect(row?.tokenHash).toBe(hashSecret(token));
+  });
+
+  it("refuse l'administration des invitations à qui n'est pas administrateur", async () => {
+    /*
+      Les trois routes d'administration, mesurées une par une : c'est le serveur
+      qui protège l'administration, l'interface ne faisant que conduire au bon
+      écran.
+    */
+    const routes: { method: string; path: string }[] = [
+      { method: 'POST', path: '/invitations' },
+      { method: 'GET', path: '/invitations' },
+      { method: 'POST', path: `/invitations/${randomUUID()}/revoke` },
+    ];
+
+    for (const { method, path } of routes) {
+      // Sans session : la garde de session refuse avant tout le reste.
+      const anonymous = await fetch(`${baseUrl}${path}`, {
+        method,
+        headers: { 'content-type': 'application/json', origin: baseUrl },
+        ...(method === 'GET' ? {} : { body: JSON.stringify({ email: REFUSED, role: 'user' }) }),
+      });
+
+      expect(anonymous.status, `${method} ${path} sans session`).toBe(401);
+
+      // Avec la session d'un compte ordinaire : la garde de rôle refuse.
+      const ordinary = await fetch(`${baseUrl}${path}`, {
+        method,
+        headers: {
+          'content-type': 'application/json',
+          origin: baseUrl,
+          cookie: userCookie,
+          [CSRF_HEADER]: userCsrf,
+          'x-forwarded-for': IPS.user,
+        },
+        ...(method === 'GET' ? {} : { body: JSON.stringify({ email: REFUSED, role: 'user' }) }),
+      });
+
+      expect(ordinary.status, `${method} ${path} en compte ordinaire`).toBe(403);
+    }
+
+    // Et rien n'est parti : aucune invitation créée par ces tentatives.
+    const written = await database
+      .select({ id: invitation.id })
+      .from(invitation)
+      .where(eq(invitation.email, REFUSED));
+
+    expect(written).toHaveLength(0);
   });
 
   it('garde les deux autres barrières sur les routes exemptées du jeton CSRF', async () => {

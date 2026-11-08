@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import {
   boolean,
   index,
@@ -35,7 +36,7 @@ export const loginOutcome = pgEnum('login_outcome', ['succeeded', 'failed', 'blo
  * même adresse IP, et un porteur de session volée pourrait sinon épuiser le
  * compteur de la connexion et verrouiller le vrai propriétaire dehors.
  */
-export const loginPurpose = pgEnum('login_purpose', ['password', 'code', 'reauth']);
+export const loginPurpose = pgEnum('login_purpose', ['password', 'code', 'reauth', 'invitation']);
 
 /** Un foyer. Un compte en fait partie, et tout ce qui est partagé lui appartient. */
 export const household = pgTable('household', {
@@ -258,5 +259,62 @@ export const pendingLogin = pgTable(
   (table) => [
     uniqueIndex('pending_login_token_hash_unique').on(table.tokenHash),
     index('pending_login_expires_at_idx').on(table.expiresAt),
+  ],
+);
+
+/**
+ * Une invitation à s'inscrire : un ticket, pour une V1 fermée.
+ *
+ * Elle ne rattache à rien. Chaque invité crée son compte **et son propre
+ * foyer**, comme le cahier des charges le prévoit (« un compte correspond à un
+ * foyer ») : les 1 à 35 personnes d'un foyer sont des mangeurs, un nombre de
+ * portions du profil, pas des comptes (ADR 0013).
+ */
+export const invitation = pgTable(
+  'invitation',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    /*
+      L'adresse invitée, normalisée et **en clair** : c'est elle qui fixe le
+      compte à créer, et la liste de l'administrateur l'affiche. C'est une
+      donnée personnelle, d'où la purge des invitations terminées plus bas, et
+      la règle qui lui interdit les journaux.
+    */
+    email: text('email').notNull(),
+    /** Le rôle que le compte créé aura dans l'application. */
+    role: accountRole('role').notNull().default('user'),
+    /*
+      Empreinte SHA-256 du jeton du lien, jamais le jeton : une fuite de cette
+      table ne donne aucune invitation utilisable. L'empreinte suffit, le jeton
+      étant tiré au hasard sur 32 octets.
+    */
+    tokenHash: text('token_hash').notNull(),
+    /*
+      Qui a invité. Nul si ce compte a été supprimé depuis : l'invitation reste,
+      elle dit ce qui s'est passé.
+    */
+    invitedBy: uuid('invited_by').references(() => account.id, { onDelete: 'set null' }),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    /** Consommée : le compte existe. Le jeton ne vaut plus rien. */
+    usedAt: timestamp('used_at', { withTimezone: true }),
+    /** Révoquée par l'administrateur, ou remplacée par une invitation plus récente. */
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('invitation_token_hash_unique').on(table.tokenHash),
+    /*
+      Une seule invitation vivante par adresse. Le prédicat ne regarde que les
+      deux dates, et non l'expiration : un index ne peut pas contenir `now()`,
+      qui n'est pas immuable. Une invitation expirée mais non révoquée reste
+      donc dans l'index, et c'est la création qui la révoque d'abord, dans la
+      même transaction (ADR 0013).
+    */
+    uniqueIndex('invitation_email_live_unique')
+      .on(table.email)
+      .where(sql`${table.usedAt} is null and ${table.revokedAt} is null`),
+    // Les deux comptages de la limitation d'envoi : par invitant, et par adresse.
+    index('invitation_inviter_idx').on(table.invitedBy, table.createdAt),
+    index('invitation_email_idx').on(table.email, table.createdAt),
   ],
 );

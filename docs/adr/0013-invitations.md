@@ -53,7 +53,11 @@ La page le lit, l'**efface aussitôt** de la barre d'adresse (`history.replaceSt
 
 ### Un seul refus pour cinq cas, et pas d'oracle
 
-Expiré, révoqué, déjà utilisé, inconnu, ou dont l'adresse a entre-temps un compte : les cinq reçoivent **le même message et le même statut** (410). Les distinguer dirait à qui tient un lien si un compte existe pour cette adresse, et l'appartenance à cette application est précisément ce qu'une V1 fermée ne publie pas. Un test les parcourt tous les cinq et compare les réponses.
+Expiré, révoqué, déjà utilisé, inconnu, ou dont l'adresse a entre-temps un compte : les cinq reçoivent **le même message et le même statut** (410). Les distinguer dirait à qui tient un lien si un compte existe pour cette adresse, et l'appartenance à cette application est précisément ce qu'une V1 fermée ne publie pas.
+
+Les cinq cas sont traités **au même endroit, pour les deux routes publiques** : sans cela, l'aperçu dirait oui à un lien que l'acceptation refuse, et l'invité taperait un mot de passe pour rien. Un test les parcourt tous les cinq sur chacune des deux routes.
+
+Un écart subsiste, mesuré et accepté : un lien inconnu, expiré, révoqué ou utilisé coûte une requête, le cas « l'adresse a déjà un compte » en coûte deux. Seul le détenteur du jeton peut l'observer, et il connaît déjà l'adresse invitée : égaliser demanderait une requête de plus sur chaque refus pour n'apprendre rien à personne.
 
 Côté administrateur, le message est au contraire **explicite** : inviter une adresse qui a déjà un compte est refusé par un 409 qui le dit. Ce n'est pas un oracle : la route exige le rôle administrateur et son second facteur, et l'administrateur est justement la personne qui doit savoir pourquoi son invitation ne part pas.
 
@@ -70,6 +74,8 @@ D'où la décision : **la création révoque l'invitation vivante de la même ad
 L'ordre est inversé par rapport à l'intuition : l'invitation est consommée **avant** la création du compte, par une requête conditionnelle (`where used_at is null and revoked_at is null and expires_at >= ?`). Deux acceptations simultanées du même lien ne peuvent donc pas créer deux comptes : la seconde ne modifie aucune ligne et est refusée.
 
 Créer d'abord aurait laissé la seconde échouer sur l'unicité de l'adresse, **après** avoir payé un hachage Argon2id, et sur une erreur de contrainte plutôt que sur un refus écrit. Un test envoie les deux requêtes ensemble contre une vraie base.
+
+Le prix de cet ordre : si la création échoue après la consommation (panne de base, ou adresse prise dans l'intervalle par un `admin:create` lancé à la main), **le ticket est brûlé** et aucun compte n'existe. L'invité reçoit l'erreur générique du filtre, et il faut le réinviter. C'est le bon compromis : l'autre ordre échangerait ce cas rare contre un doublon de compte sous concurrence.
 
 ### La session s'ouvre au bout, sans mémorisation ni déverrouillage
 
@@ -90,7 +96,7 @@ Le test qui énumère la liste mot pour mot (ADR 0010) reste la condition pour l
 Trois compteurs, chacun pour une menace distincte.
 
 - **Dix envois par heure et par administrateur**, et **trois par jour et par adresse invitée**. Pas de table nouvelle : les invitations sont des lignes datées, donc elles se comptent elles-mêmes. La limite par adresse est la plus importante des deux : sans elle, notre serveur deviendrait un moyen d'inonder la boîte de quelqu'un.
-- **Cinq acceptations ratées par IP et par quart d'heure**, dans la table `login_attempt` sous un quatrième motif, `invitation`. Le jeton est hors de portée d'une recherche exhaustive, ce n'est donc pas lui que ce compteur protège : c'est la mémoire du serveur, cette route hachant un mot de passe en Argon2id. Un motif à part, comme `reauth` dans l'ADR 0012, pour qu'une acceptation ratée ne rapproche personne du blocage de la connexion.
+- **Cinq essais ratés par IP et par quart d'heure, sur les deux routes publiques**, dans la table `login_attempt` sous un quatrième motif, `invitation`. Le jeton est hors de portée d'une recherche exhaustive, ce n'est donc pas lui que ce compteur protège : c'est la mémoire du serveur, l'acceptation hachant un mot de passe en Argon2id, et une lecture en base que n'importe qui peut solliciter. Un motif à part, comme `reauth` dans l'ADR 0012, pour qu'un essai raté ne rapproche personne du blocage de la connexion.
 
 L'IP est passée comme sujet **et** comme IP : les deux compteurs de la limitation tiennent alors la même valeur, et la borne effective est la plus basse des deux. Il n'y a pas de sujet utile à compter ici, l'adresse invitée n'étant connue qu'après la résolution du jeton.
 
@@ -119,6 +125,9 @@ La garde de navigation vérifie trois choses dans cet ordre, le rôle, le second
 - L'écran d'administration des invitations **ne montre aucun lien**. Un administrateur qui veut relancer quelqu'un renvoie une invitation, ce qui révoque la précédente : il n'y a pas de « copier le lien », et c'est volontaire.
 - Le gabarit d'e-mail de la story #9 a été corrigé : « Invitation à rejoindre Mijote », sans nom de foyer, et **sans l'adresse de l'invitant**, qui serait exposée à chaque invité. Le message est signé par Mijote.
 - Quatre écrans nouveaux, donc quatre passages axe-core, un par écran, comme le veut le socle d'accessibilité (ADR 0007).
+- **Les administrateurs administrent les invitations en commun** : la liste et la révocation ne sont bornées ni par l'invitant ni par un foyer, donc chacun voit et peut révoquer les invitations des autres, adresses invitées comprises. C'est la conséquence directe d'une invitation qui ne porte pas de foyer et d'un rôle qui vaut pour l'application entière. Chaque action est donc attribuée au journal : l'envoi par `invitedBy`, la révocation par `revokedBy`.
+- Les cinq routes répondent `Cache-Control: no-store` : chacune porte au moins une adresse e-mail, et la liste d'administration en porte jusqu'à deux cents.
+- L'acceptation **ferme la session présentée**, comme la connexion : la page est publique, donc quelqu'un de déjà connecté peut ouvrir un lien d'invitation, et sa session resterait sinon valable côté serveur sans qu'aucun cookie ne la désigne plus.
 
 ## Quand revoir cette décision
 

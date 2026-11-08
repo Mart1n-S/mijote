@@ -27,11 +27,15 @@ export const loginOutcome = pgEnum('login_outcome', ['succeeded', 'failed', 'blo
 /**
  * Ce qui était vérifié par une tentative.
  *
- * Les deux compteurs restent séparés : cinq mots de passe faux et cinq codes
- * faux sont deux histoires différentes, et les mélanger ferait qu'un code mal
- * tapé rapprocherait du blocage de la connexion elle-même.
+ * Les trois compteurs restent séparés : cinq mots de passe faux à la
+ * connexion, cinq codes faux et cinq mots de passe faux à la réauthentification
+ * sont trois histoires différentes.
+ *
+ * `reauth` en particulier ne doit pas compter avec `password` : les deux ont la
+ * même adresse IP, et un porteur de session volée pourrait sinon épuiser le
+ * compteur de la connexion et verrouiller le vrai propriétaire dehors.
  */
-export const loginPurpose = pgEnum('login_purpose', ['password', 'code']);
+export const loginPurpose = pgEnum('login_purpose', ['password', 'code', 'reauth']);
 
 /** Un foyer. Un compte en fait partie, et tout ce qui est partagé lui appartient. */
 export const household = pgTable('household', {
@@ -207,7 +211,7 @@ export const twoFactorBackupCode = pgTable(
     position: smallint('position').notNull(),
     /*
       Empreinte Argon2id, et non SHA-256 comme les jetons de session : un code
-      de secours fait 55 bits, donc il se cassse hors ligne sur une base volée
+      de secours fait 55 bits, donc il se casse hors ligne sur une base volée
       là où 32 octets tirés au hasard ne se cassent pas.
     */
     codeHash: text('code_hash').notNull(),

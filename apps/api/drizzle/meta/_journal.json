@@ -29,6 +29,13 @@
       "when": 1794063039847,
       "tag": "0003_memorisation_en_attente",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794081086329,
+      "tag": "0004_motif_de_reauthentification",
+      "breakpoints": true
     }
   ]
 }

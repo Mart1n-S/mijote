@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { stubAdminWithoutTwoFactor, stubAnonymousApi, stubHealthyApi } from './api';
+import { stubAdminWithoutTwoFactor, stubAnonymousApi, stubHealthyApi, STUB_PASSWORD } from './api';
 
 /*
   Aucune page ne doit appeler un service tiers. La règle vient de deux
@@ -56,6 +56,17 @@ for (const page_ of PAGES) {
     }
 
     await page.goto(page_.path);
+
+    /*
+      La page d'activation s'arrête à l'étape du mot de passe : le QR code n'est
+      dessiné qu'après, et c'est lui qu'on veut voir ne rien demander à
+      personne. On avance donc d'une étape.
+    */
+    if (page_.session === 'admin') {
+      await page.getByLabel('Mot de passe').fill(STUB_PASSWORD);
+      await page.getByRole('button', { name: 'Continuer' }).click();
+      await expect(page.locator('img')).toBeVisible();
+    }
 
     // La police ne part au téléchargement qu'au moment où du texte l'utilise :
     // attendre ici, sinon le contrôle passerait avant la seule requête qui

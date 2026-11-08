@@ -97,6 +97,20 @@ export async function ensureSessionLoaded(): Promise<void> {
 }
 
 /**
+ * Relit la session depuis le serveur, même si elle a déjà été lue.
+ *
+ * `ensureSessionLoaded` ne sert qu'une fois : il sort aussitôt dès que la garde
+ * de navigation a fait sa lecture, c'est-à-dire presque toujours. Après une
+ * activation, il faut donc forcer la relecture, sans quoi l'en-tête continue
+ * d'inviter à activer ce qui vient de l'être.
+ */
+export async function reloadSession(): Promise<void> {
+  pending = load();
+
+  await pending;
+}
+
+/**
  * Ce que la connexion a donné.
  *
  * `two-factor` veut dire que le mot de passe est bon et qu'un code est

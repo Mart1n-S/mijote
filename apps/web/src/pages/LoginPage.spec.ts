@@ -57,6 +57,19 @@ function twoFactorRequired(): Response {
   });
 }
 
+function pendingExpired(): Response {
+  return new Response(
+    JSON.stringify({
+      type: 'about:blank',
+      title: 'Authentification requise',
+      status: 401,
+      detail: 'La vérification a expiré. Recommencez la connexion.',
+      requestId: '00000000-0000-4000-8000-000000000000',
+    }),
+    { status: 401, headers: { 'content-type': PROBLEM_DETAILS_MEDIA_TYPE } },
+  );
+}
+
 function invalidCode(): Response {
   return new Response(
     JSON.stringify({
@@ -253,9 +266,12 @@ describe('la seconde étape, quand un code est attendu', () => {
     expect(wrapper.find('input[type="password"]').exists()).toBe(false);
     expect(wrapper.find('input[name="code"]').exists()).toBe(true);
     expect(wrapper.find('h2').text()).toBe('Code de vérification');
-    // Le code se saisit au pavé numérique, et le gestionnaire de mots de passe
-    // sait le proposer.
-    expect(wrapper.find('input[name="code"]').attributes('inputmode')).toBe('numeric');
+    /*
+      Pas de clavier numérique : un code de secours est fait de lettres, et cet
+      écran en accepte un. Le gestionnaire de mots de passe sait quand même
+      proposer le code reçu.
+    */
+    expect(wrapper.find('input[name="code"]').attributes('inputmode')).toBeUndefined();
     expect(wrapper.find('input[name="code"]').attributes('autocomplete')).toBe('one-time-code');
     /*
       Le focus suit l'écran : sans cela il resterait sur un bouton qui n'est
@@ -301,6 +317,35 @@ describe('la seconde étape, quand un code est attendu', () => {
     expect(wrapper.find('form [role="alert"]').text()).toContain('Code incorrect ou expiré.');
     expect(wrapper.find('input[name="code"]').exists()).toBe(true);
     expect(isAuthenticated.value).toBe(false);
+  });
+
+  it("laisse recommencer la connexion quand l'attente a expiré", async () => {
+    /*
+      L'attente meurt au bout de cinq minutes, ou au cinquième essai raté :
+      l'API dit alors de recommencer, et l'écran doit offrir le moyen de le
+      faire. Sans ce bouton, il ne resterait qu'un champ dont chaque envoi
+      échoue.
+    */
+    stubResponses([twoFactorRequired(), pendingExpired()]);
+
+    const wrapper = await mountPage();
+
+    await fill(wrapper, ACCOUNT.email, PASSWORD);
+    await wrapper.find('form').trigger('submit');
+    await flushPromises();
+
+    await wrapper.find('input[name="code"]').setValue('123456');
+    await wrapper.find('form').trigger('submit');
+    await flushPromises();
+
+    expect(wrapper.find('form [role="alert"]').text()).toContain('Recommencez la connexion');
+
+    await wrapper.find('button[type="button"]').trigger('click');
+
+    // Le formulaire du mot de passe est revenu, et le message a disparu.
+    expect(wrapper.find('input[type="password"]').exists()).toBe(true);
+    expect(wrapper.find('input[name="code"]').exists()).toBe(false);
+    expect(wrapper.find('form [role="alert"]').text()).toBe('');
   });
 
   it('refuse un code vide sans appeler le serveur', async () => {

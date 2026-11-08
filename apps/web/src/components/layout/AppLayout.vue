@@ -76,7 +76,7 @@ const links = computed(() =>
       <div v-if="isAuthenticated" class="layout__account">
         <!-- Le second facteur est obligatoire pour l'administrateur : tant
              qu'il manque, aucune route d'administration ne l'accepte, et c'est
-             ici qu'il est conduit a l'activer. -->
+             ici qu'il est conduit à l'activer. -->
         <RouterLink
           v-if="mustActivateTwoFactor"
           class="layout__two-factor"

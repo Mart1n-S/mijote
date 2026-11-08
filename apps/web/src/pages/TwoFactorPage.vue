@@ -11,7 +11,7 @@ import { ApiError, apiRequest } from '../api/client';
 import BaseAlert from '../components/base/BaseAlert.vue';
 import BaseButton from '../components/base/BaseButton.vue';
 import BaseField from '../components/base/BaseField.vue';
-import { ensureSessionLoaded, isTwoFactorActive } from '../session/session';
+import { isTwoFactorActive, reloadSession } from '../session/session';
 
 /*
   L'activation de la double authentification, en trois temps : le mot de passe,
@@ -127,7 +127,7 @@ async function confirmEnrollment(): Promise<void> {
 
 async function refreshSession(): Promise<void> {
   try {
-    await ensureSessionLoaded();
+    await reloadSession();
   } catch (error) {
     // L'affichage des codes de secours compte plus que cette mise à jour : ils
     // ne seront plus montrés.

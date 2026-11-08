@@ -114,6 +114,15 @@ async function submit(): Promise<void> {
   }
 }
 
+/** Repart du mot de passe, l'attente du code ayant expiré ou été épuisée. */
+function restart(): void {
+  step.value = 'password';
+  password.value = '';
+  code.value = '';
+  codeError.value = '';
+  formError.value = '';
+}
+
 async function submitCode(): Promise<void> {
   codeError.value = '';
   formError.value = '';
@@ -191,11 +200,14 @@ async function submitCode(): Promise<void> {
         secours fonctionne aussi, numéro compris.
       </p>
 
+      <!-- Pas d'`inputmode="numeric"` ici, contrairement à l'écran
+           d'activation : un code de secours est fait de lettres, et un clavier
+           limité aux chiffres rendrait le chemin du téléphone perdu intapable
+           sur mobile. -->
       <BaseField
         v-model="code"
         label="Code"
         name="code"
-        inputmode="numeric"
         autocomplete="one-time-code"
         autocapitalize="characters"
         spellcheck="false"
@@ -206,6 +218,11 @@ async function submitCode(): Promise<void> {
       <BaseButton type="submit" :loading="submitting" loading-label="vérification en cours">
         Vérifier
       </BaseButton>
+
+      <!-- L'attente expire au bout de cinq minutes, et meurt au cinquième essai
+           raté : le message dit alors de recommencer, et ceci est le moyen de le
+           faire. Sans lui, l'écran ne garderait qu'un bouton qui échoue. -->
+      <BaseButton variant="secondary" @click="restart">Recommencer la connexion</BaseButton>
     </form>
   </div>
 </template>

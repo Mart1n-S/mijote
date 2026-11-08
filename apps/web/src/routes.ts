@@ -59,8 +59,8 @@ export function createRoutes(withDesignSystem: boolean): RouteRecordRaw[] {
 
   /*
     La double authentification : une page de compte, qui demande une session.
-    Elle ne figure pas dans la navigation, on y arrive par l'invitation de
-    l'en-tete quand elle manque, ou par un lien direct.
+    Elle ne figure pas dans la navigation : on y arrive par l'invitation de
+    l'en-tête quand elle manque, ou par un lien direct.
   */
   routes.push({
     path: '/securite/double-authentification',

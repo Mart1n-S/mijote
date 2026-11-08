@@ -4,7 +4,7 @@ import { PROBLEM_DETAILS_MEDIA_TYPE } from '@mijote/shared';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { resetSessionForTests } from '../session/session';
+import { mustActivateTwoFactor, resetSessionForTests } from '../session/session';
 
 import TwoFactorPage from './TwoFactorPage.vue';
 
@@ -60,6 +60,22 @@ function activated(): Response {
     status: 200,
     headers: { 'content-type': 'application/json' },
   });
+}
+
+/** La session telle que le serveur la rend après l'activation. */
+function sessionWithTwoFactor(): Response {
+  return new Response(
+    JSON.stringify({
+      account: {
+        id: '11111111-1111-4111-8111-111111111111',
+        email: 'martin@exemple.test',
+        householdId: '22222222-2222-4222-8222-222222222222',
+        role: 'admin',
+      },
+      twoFactor: { active: true },
+    }),
+    { status: 200, headers: { 'content-type': 'application/json' } },
+  );
 }
 
 function wrongPassword(): Response {
@@ -141,6 +157,12 @@ describe('TwoFactorPage', () => {
     // La clé en groupes de quatre, pour se recopier sans se perdre.
     expect(wrapper.text()).toContain('JBSW Y3DP EHPK 3PXP');
     expect(wrapper.find('input[name="code"]').exists()).toBe(true);
+    /*
+      Ici, et seulement ici, le clavier numérique : l'activation n'accepte que
+      six chiffres, là où l'écran de connexion accepte aussi un code de secours
+      fait de lettres.
+    */
+    expect(wrapper.find('input[name="code"]').attributes('inputmode')).toBe('numeric');
   });
 
   it('montre le message du serveur sur un mot de passe refusé', async () => {
@@ -156,7 +178,7 @@ describe('TwoFactorPage', () => {
   });
 
   it('envoie le mot de passe et le code pour activer', async () => {
-    stubResponses([enrollment(), activated()]);
+    stubResponses([enrollment(), activated(), sessionWithTwoFactor()]);
 
     const wrapper = mount(TwoFactorPage);
 
@@ -179,8 +201,28 @@ describe('TwoFactorPage', () => {
     expect(vi.mocked(fetch).mock.calls[1]?.[0]).toBe('/api/auth/two-factor/activate');
   });
 
+  it("n'invite plus à activer ce qui vient de l'être", async () => {
+    /*
+      Le point bloquant de la relecture : la relecture de session doit être
+      forcée. `ensureSessionLoaded` sort aussitôt dès que la garde de
+      navigation a déjà lu, donc l'en-tête continuait d'inviter à activer, et
+      le lien ramenait sur un écran qui répond « déjà active ».
+    */
+    stubResponses([enrollment(), activated(), sessionWithTwoFactor()]);
+
+    const wrapper = mount(TwoFactorPage);
+
+    await enroll(wrapper);
+    await wrapper.find('input[name="code"]').setValue('123456');
+    await wrapper.find('form').trigger('submit');
+    await flushPromises();
+
+    expect(vi.mocked(fetch).mock.calls[2]?.[0]).toBe('/api/auth/session');
+    expect(mustActivateTwoFactor.value).toBe(false);
+  });
+
   it('montre les dix codes de secours, une seule fois', async () => {
-    stubResponses([enrollment(), activated()]);
+    stubResponses([enrollment(), activated(), sessionWithTwoFactor()]);
 
     const wrapper = mount(TwoFactorPage);
 

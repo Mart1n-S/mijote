@@ -130,7 +130,7 @@ describe.skipIf(!reachable)('envoi réel vers Mailpit', () => {
   beforeAll(deleteTestMessages);
   afterAll(deleteTestMessages);
 
-  it('livre une invitation, avec ses deux versions et son nom de foyer échappé', async () => {
+  it('livre une invitation, avec ses deux versions et son lien échappé', async () => {
     const logger = new PinoLogger({ pinoHttp: { level: 'silent' } });
     const mailer = new SmtpMailer(
       createMailTransport({

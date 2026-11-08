@@ -78,9 +78,17 @@ export async function createAdminAccount(
 export function databaseFailure(error: unknown): Error {
   const code = readPostgresCode(error);
 
-  return new Error(
-    `l'écriture en base a échoué${code === undefined ? '' : ` (code ${code})`}, voir les journaux de PostgreSQL`,
-  );
+  /*
+    Sans code de PostgreSQL, l'échec ne vient pas forcément de la base : la
+    création de compte hache aussi le mot de passe, et annoncer « l'écriture en
+    base a échoué » enverrait alors chercher au mauvais endroit. Le message
+    reste donc neutre, et il ne recopie toujours rien de ce qu'on a passé.
+  */
+  if (code === undefined) {
+    return new Error("la création du compte a échoué, voir les journaux de l'API");
+  }
+
+  return new Error(`l'écriture en base a échoué (code ${code}), voir les journaux de PostgreSQL`);
 }
 
 function readPostgresCode(error: unknown): string | undefined {

@@ -143,7 +143,7 @@ async function revoke(invitation: Invitation): Promise<void> {
       type="email"
       name="email"
       autocomplete="off"
-      help="Un lien lui sera envoyé. Il expire au bout de trois jours."
+      help="Un lien lui sera envoyé, valable quelques jours."
       required
       :error="emailError"
     />

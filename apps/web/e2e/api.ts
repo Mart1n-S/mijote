@@ -27,9 +27,10 @@ const INVITATION_PREVIEW_ROUTE = '**/api/invitations/preview';
 const INVITATION_ACCEPT_ROUTE = '**/api/invitations/accept';
 const INVITATION_REVOKE_ROUTE = '**/api/invitations/*/revoke';
 /*
-  La liste et la création. Le motif exclut les deux routes publiques et la
-  révocation : Playwright prend la première route qui correspond, et un motif
-  trop large répondrait à leur place.
+  La liste et la création. Le motif ne recouvre ni les deux routes publiques ni
+  la révocation, et c'est ce qui compte : Playwright essaie ses routes de la
+  dernière enregistrée à la première, donc un motif trop large répondrait à la
+  place d'une autre, quel que soit l'ordre d'enregistrement.
 */
 const INVITATIONS_ROUTE = '**/api/invitations';
 

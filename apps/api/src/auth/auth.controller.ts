@@ -12,17 +12,7 @@ import {
   type TwoFactorConfirmInput,
   type TwoFactorSetupResponse,
 } from '@mijote/shared';
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Post,
-  Req,
-  Res,
-} from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, Res } from '@nestjs/common';
 import { z } from 'zod';
 
 import { ProblemException } from '../errors/problem.exception.js';
@@ -197,6 +187,7 @@ export class AuthController {
     const started = await this.auth.startTwoFactorSetup(
       requireAuthenticated(request),
       body.password,
+      readClientIp(request),
     );
 
     writeSecret(response);
@@ -216,6 +207,7 @@ export class AuthController {
       requireAuthenticated(request),
       body.password,
       body.code,
+      readClientIp(request),
     );
 
     writeSecret(response);
@@ -239,8 +231,16 @@ export class AuthController {
     await this.auth.unlockAdmin(requireAuthenticated(request), body.code, readClientIp(request));
   }
 
-  /** La désactivation : mot de passe et code, parce que c'est aussi le chemin du téléphone perdu. */
-  @Delete('two-factor')
+  /**
+   * La désactivation : mot de passe et code, parce que c'est aussi le chemin du
+   * téléphone perdu.
+   *
+   * `POST .../disable` et non `DELETE /auth/two-factor` : la requête porte un
+   * corps, et un corps sur DELETE, bien que légal, est jeté par nombre de
+   * mandataires. Le mandataire du homelab n'est pas dans ce dépôt (issue #31),
+   * donc autant ne pas en dépendre.
+   */
+  @Post('two-factor/disable')
   @HttpCode(HttpStatus.NO_CONTENT)
   async disableTwoFactor(
     @Body(new ZodValidationPipe(twoFactorConfirmSchema)) body: TwoFactorConfirmInput,

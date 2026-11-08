@@ -283,8 +283,8 @@ class NoTwoFactor implements TwoFactorStore {
     return Promise.resolve(true);
   }
 
-  activateTwoFactor(): Promise<void> {
-    return Promise.resolve();
+  activateTwoFactor(): Promise<boolean> {
+    return Promise.resolve(true);
   }
 
   deleteTwoFactor(): Promise<void> {
@@ -293,10 +293,6 @@ class NoTwoFactor implements TwoFactorStore {
 
   claimTotpStep(): Promise<boolean> {
     return Promise.resolve(true);
-  }
-
-  replaceBackupCodes(): Promise<void> {
-    return Promise.resolve();
   }
 
   findBackupCode(): Promise<undefined> {

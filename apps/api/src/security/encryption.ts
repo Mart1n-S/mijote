@@ -43,6 +43,23 @@ export function readEncryptionKey(env: NodeJS.ProcessEnv): Buffer {
     );
   }
 
+  /*
+    Le tour complet, parce que `Buffer.from(..., 'base64')` ignore en silence
+    ce qui n'est pas de la base64 : une clé recopiée de travers peut décoder à
+    32 octets et passer. Elle ne se verrait alors qu'au premier code refusé, et
+    pour tous les administrateurs à la fois.
+
+    La comparaison tolère l'absence de remplissage et l'alphabet base64url,
+    deux écritures légitimes de la même clé.
+  */
+  const normalized = raw.replace(/=+$/, '').replaceAll('-', '+').replaceAll('_', '/');
+
+  if (key.toString('base64').replace(/=+$/, '') !== normalized) {
+    throw new Error(
+      "SECURITY_TOTP_KEY n'est pas de la base64 valide : des caractères ont été ignorés au décodage. Voir .env.example.",
+    );
+  }
+
   return key;
 }
 

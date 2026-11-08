@@ -277,7 +277,7 @@ describe('les barrières du CSRF', () => {
       ['POST', '/auth/two-factor/setup'],
       ['POST', '/auth/two-factor/activate'],
       ['POST', '/auth/two-factor/unlock'],
-      ['DELETE', '/auth/two-factor'],
+      ['POST', '/auth/two-factor/disable'],
     ] as const) {
       const problem = await problemAt(path, {
         method,

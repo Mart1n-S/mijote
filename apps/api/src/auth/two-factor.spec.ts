@@ -312,14 +312,40 @@ class MemoryTwoFactor implements TwoFactorStore {
     return Promise.resolve(true);
   }
 
-  activateTwoFactor(accountId: string, at: Date): Promise<void> {
+  /*
+    Conditionnelle et en un seul temps, comme le vrai dépôt : le secret doit
+    être resté celui qu'un code vient de vérifier, et les codes de secours ne
+    sont posés que si l'activation a bien eu lieu.
+  */
+  activateTwoFactor(
+    accountId: string,
+    at: Date,
+    verifiedCipher: string,
+    codes: { position: number; codeHash: string }[],
+  ): Promise<boolean> {
     const row = this.rows.get(accountId);
 
-    if (row !== undefined) {
-      this.rows.set(accountId, { ...row, activatedAt: at });
+    if (row === undefined || row.activatedAt !== null || row.secretCipher !== verifiedCipher) {
+      return Promise.resolve(false);
     }
 
-    return Promise.resolve();
+    this.rows.set(accountId, { ...row, activatedAt: at });
+
+    for (const key of [...this.backups.keys()]) {
+      if (key.startsWith(`${accountId}:`)) {
+        this.backups.delete(key);
+      }
+    }
+
+    for (const code of codes) {
+      this.backups.set(`${accountId}:${String(code.position)}`, {
+        id: `code-${String(code.position)}`,
+        codeHash: code.codeHash,
+        usedAt: null,
+      });
+    }
+
+    return Promise.resolve(true);
   }
 
   deleteTwoFactor(accountId: string): Promise<void> {
@@ -345,27 +371,6 @@ class MemoryTwoFactor implements TwoFactorStore {
     this.rows.set(accountId, { ...row, lastUsedStep: step });
 
     return Promise.resolve(true);
-  }
-
-  replaceBackupCodes(
-    accountId: string,
-    codes: { position: number; codeHash: string }[],
-  ): Promise<void> {
-    for (const key of [...this.backups.keys()]) {
-      if (key.startsWith(`${accountId}:`)) {
-        this.backups.delete(key);
-      }
-    }
-
-    for (const code of codes) {
-      this.backups.set(`${accountId}:${String(code.position)}`, {
-        id: `code-${String(code.position)}`,
-        codeHash: code.codeHash,
-        usedAt: null,
-      });
-    }
-
-    return Promise.resolve();
   }
 
   findBackupCode(accountId: string, position: number): Promise<BackupCodeRecord | undefined> {
@@ -787,7 +792,7 @@ describe("l'activation", () => {
     */
     const session = await authenticated();
 
-    expect(await failureMessage(service.startTwoFactorSetup(session, 'pas le bon'))).toBe(
+    expect(await failureMessage(service.startTwoFactorSetup(session, 'pas le bon', IP))).toBe(
       'Mot de passe incorrect.',
     );
     // Aucun secret n'a été engendré.
@@ -797,18 +802,18 @@ describe("l'activation", () => {
   it('exige aussi le mot de passe pour confirmer', async () => {
     const session = await authenticated();
 
-    await service.startTwoFactorSetup(session, PASSWORD);
+    await service.startTwoFactorSetup(session, PASSWORD, IP);
 
-    expect(await failureMessage(service.activateTwoFactor(session, 'pas le bon', '000000'))).toBe(
-      'Mot de passe incorrect.',
-    );
+    expect(
+      await failureMessage(service.activateTwoFactor(session, 'pas le bon', '000000', IP)),
+    ).toBe('Mot de passe incorrect.');
     // Le secret reste inactif.
     expect(twoFactor.rows.get(ACCOUNT.id)?.activatedAt).toBeNull();
   });
 
   it("rend une clé lisible et une URI, et n'active rien encore", async () => {
     const session = await authenticated();
-    const started = await service.startTwoFactorSetup(session, PASSWORD);
+    const started = await service.startTwoFactorSetup(session, PASSWORD, IP);
 
     expect(started.key).toMatch(/^[A-Z2-7]{32}$/);
     expect(started.uri).toContain('otpauth://totp/');
@@ -820,14 +825,14 @@ describe("l'activation", () => {
 
   it('refuse un premier code faux, et active avec le bon', async () => {
     const session = await authenticated();
-    const started = await service.startTwoFactorSetup(session, PASSWORD);
+    const started = await service.startTwoFactorSetup(session, PASSWORD, IP);
 
-    expect(await failureMessage(service.activateTwoFactor(session, PASSWORD, '000000'))).toBe(
+    expect(await failureMessage(service.activateTwoFactor(session, PASSWORD, '000000', IP))).toBe(
       'Code incorrect ou expiré.',
     );
     expect(twoFactor.rows.get(ACCOUNT.id)?.activatedAt).toBeNull();
 
-    const codes = await service.activateTwoFactor(session, PASSWORD, currentCode(started.key));
+    const codes = await service.activateTwoFactor(session, PASSWORD, currentCode(started.key), IP);
 
     expect(codes).toHaveLength(10);
     expect(twoFactor.rows.get(ACCOUNT.id)?.activatedAt).toBeInstanceOf(Date);
@@ -843,11 +848,74 @@ describe("l'activation", () => {
     // Activer, c'est valider un code : redemander un second code aussitôt
     // n'apporterait rien.
     const session = await authenticated();
-    const started = await service.startTwoFactorSetup(session, PASSWORD);
+    const started = await service.startTwoFactorSetup(session, PASSWORD, IP);
 
-    await service.activateTwoFactor(session, PASSWORD, currentCode(started.key));
+    await service.activateTwoFactor(session, PASSWORD, currentCode(started.key), IP);
 
     expect([...sessions.rows.values()][0]?.adminUnlockedAt).toBeInstanceOf(Date);
+  });
+
+  it('limite les essais de mot de passe, sans bloquer la connexion', async () => {
+    /*
+      Le point relevé par la relecture sécurité : sans limitation, une session
+      volée permettait de deviner le mot de passe sans borne, et chaque essai
+      réservait 64 Mio d'Argon2. C'est pourtant ce mot de passe qui empêche
+      cette session d'inscrire l'application de l'attaquant.
+    */
+    const session = await authenticated();
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await failureMessage(service.startTwoFactorSetup(session, 'pas le bon', IP));
+    }
+
+    // Même avec le bon mot de passe : bloqué.
+    expect(await failureMessage(service.startTwoFactorSetup(session, PASSWORD, IP))).toContain(
+      'Trop de mots de passe',
+    );
+    expect(twoFactor.rows.size).toBe(0);
+
+    /*
+      Et la connexion reste ouverte : les deux compteurs sont séparés, sans quoi
+      un porteur de session volée verrouillerait le vrai propriétaire dehors.
+    */
+    const result = await service.login({ email: EMAIL, password: PASSWORD, remember: false }, IP);
+
+    expect('account' in result).toBe(true);
+  });
+
+  it("compte aussi le code refusé à l'activation", async () => {
+    const session = await authenticated();
+
+    await service.startTwoFactorSetup(session, PASSWORD, IP);
+    await failureMessage(service.activateTwoFactor(session, PASSWORD, '000000', IP));
+
+    /*
+      « Les essais de code sont limités » ne souffre pas d'exception : cette
+      route serait sinon la seule sans compteur.
+    */
+    expect(
+      attempts.rows.filter((row) => row.purpose === 'code' && row.outcome === 'failed'),
+    ).toHaveLength(1);
+  });
+
+  it('refuse le second facteur à un compte ordinaire', async () => {
+    /*
+      L'issue #11 met la double authentification des autres comptes hors
+      périmètre, et aucun écran ne la propose : un compte ordinaire qui taperait
+      l'adresse pourrait sinon inscrire une application et ne plus pouvoir la
+      retirer.
+    */
+    accounts.rows.set(ACCOUNT.id, { ...ACCOUNT, role: 'user' });
+
+    const session = await authenticated();
+
+    expect(await failureMessage(service.startTwoFactorSetup(session, PASSWORD, IP))).toContain(
+      "comptes d'administration",
+    );
+    expect(await failureMessage(service.unlockAdmin(session, '000000', IP))).toContain(
+      "comptes d'administration",
+    );
+    expect(twoFactor.rows.size).toBe(0);
   });
 
   it('refuse de réinscrire une application quand elle est déjà active', async () => {
@@ -862,7 +930,7 @@ describe("l'activation", () => {
 
     const before = twoFactor.rows.get(ACCOUNT.id)?.secretCipher;
 
-    expect(await failureMessage(service.startTwoFactorSetup(session, PASSWORD))).toContain(
+    expect(await failureMessage(service.startTwoFactorSetup(session, PASSWORD, IP))).toContain(
       'déjà active',
     );
     // Le secret en place n'a pas bougé : seule la désactivation en change.
@@ -871,7 +939,7 @@ describe("l'activation", () => {
 
   it("ne journalise ni la clé ni l'URI", async () => {
     const session = await authenticated();
-    const started = await service.startTwoFactorSetup(session, PASSWORD);
+    const started = await service.startTwoFactorSetup(session, PASSWORD, IP);
     const written = JSON.stringify(log.lines);
 
     expect(written).not.toContain(started.key);

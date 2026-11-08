@@ -55,8 +55,11 @@ export interface RememberRecord {
 /** L'issue d'une tentative, telle que la table la compte. */
 export type LoginOutcome = 'succeeded' | 'failed' | 'blocked';
 
-/** Ce qui était vérifié : le mot de passe, ou le code du second facteur. */
-export type LoginPurpose = 'password' | 'code';
+/**
+ * Ce qui était vérifié : le mot de passe à la connexion, le code du second
+ * facteur, ou le mot de passe redemandé à une réauthentification.
+ */
+export type LoginPurpose = 'password' | 'code' | 'reauth';
 
 /** La double authentification d'un compte, telle que le service la lit. */
 export interface TwoFactorRecord {
@@ -321,11 +324,51 @@ export class AuthRepository {
     return written.length > 0;
   }
 
-  async activateTwoFactor(accountId: string, at: Date): Promise<void> {
-    await this.database
-      .update(accountTwoFactor)
-      .set({ activatedAt: at })
-      .where(eq(accountTwoFactor.accountId, accountId));
+  /**
+   * Active le second facteur et pose ses codes de secours, en une transaction.
+   *
+   * En une seule, parce que les deux vont ensemble : dix codes affichés à
+   * quelqu'un dont la ligne serait restée inactive lui feraient croire qu'il
+   * est protégé, alors que `verifyCode` les refuserait tous.
+   *
+   * Et sous condition, comme toutes les écritures de cette décision : le
+   * secret doit être resté celui qu'un code vient de vérifier. Entre cette
+   * vérification et ici s'écoule plus d'une seconde, le temps de hacher les
+   * dix codes, et un `setup` simultané pourrait l'avoir remplacé. Rend faux
+   * quand la ligne n'a pas bougé.
+   */
+  async activateTwoFactor(
+    accountId: string,
+    at: Date,
+    verifiedCipher: string,
+    codes: { position: number; codeHash: string }[],
+  ): Promise<boolean> {
+    return this.database.transaction(async (transaction) => {
+      const activated = await transaction
+        .update(accountTwoFactor)
+        .set({ activatedAt: at })
+        .where(
+          and(
+            eq(accountTwoFactor.accountId, accountId),
+            isNull(accountTwoFactor.activatedAt),
+            eq(accountTwoFactor.secretCipher, verifiedCipher),
+          ),
+        )
+        .returning({ accountId: accountTwoFactor.accountId });
+
+      if (activated.length === 0) {
+        return false;
+      }
+
+      await transaction
+        .delete(twoFactorBackupCode)
+        .where(eq(twoFactorBackupCode.accountId, accountId));
+      await transaction
+        .insert(twoFactorBackupCode)
+        .values(codes.map((code) => ({ accountId, ...code })));
+
+      return true;
+    });
   }
 
   async deleteTwoFactor(accountId: string): Promise<void> {
@@ -357,20 +400,6 @@ export class AuthRepository {
       .returning({ accountId: accountTwoFactor.accountId });
 
     return claimed.length > 0;
-  }
-
-  async replaceBackupCodes(
-    accountId: string,
-    codes: { position: number; codeHash: string }[],
-  ): Promise<void> {
-    await this.database.transaction(async (transaction) => {
-      await transaction
-        .delete(twoFactorBackupCode)
-        .where(eq(twoFactorBackupCode.accountId, accountId));
-      await transaction
-        .insert(twoFactorBackupCode)
-        .values(codes.map((code) => ({ accountId, ...code })));
-    });
   }
 
   async findBackupCode(accountId: string, position: number): Promise<BackupCodeRecord | undefined> {

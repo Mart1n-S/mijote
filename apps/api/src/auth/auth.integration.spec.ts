@@ -1,14 +1,16 @@
 import {
+  backupCodesResponseSchema,
   CSRF_COOKIE,
   CSRF_HEADER,
   problemDetailsSchema,
   sessionResponseSchema,
+  twoFactorSetupResponseSchema,
 } from '@mijote/shared';
 import { Controller, Get, Module } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { randomUUID } from 'node:crypto';
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../app.module.js';
@@ -20,6 +22,7 @@ import {
   loginAttempt,
   rememberToken,
   session,
+  twoFactorBackupCode,
 } from '../db/schema.js';
 import { loadEnvFile } from '../env.js';
 import { encrypt, readEncryptionKey } from '../security/encryption.js';
@@ -134,6 +137,23 @@ function cookieValue(response: Response, name: string): string | undefined {
   }
 
   return undefined;
+}
+
+/** Un POST JSON avec ses cookies et son jeton CSRF, comme le front en fait. */
+async function postJson(
+  path: string,
+  options: { cookie: string; csrf: string; body: unknown },
+): Promise<Response> {
+  return fetch(`${baseUrl}${path}`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      origin: baseUrl,
+      cookie: options.cookie,
+      [CSRF_HEADER]: options.csrf,
+    },
+    body: JSON.stringify(options.body),
+  });
 }
 
 /** Un en-tête Cookie, comme un navigateur l'enverrait. */
@@ -654,6 +674,125 @@ describe.skipIf(!reachable)('la connexion, contre une vraie base', () => {
         })
       ).status,
     ).toBe(200);
+  });
+
+  it("inscrit une application, s'en sert, puis la retire", async () => {
+    /*
+      Le chemin d'activation contre le vrai SQL : c'est le seul endroit où
+      `upsertInactiveTwoFactor` et sa condition, l'activation conditionnelle
+      avec ses dix codes dans la même transaction, la consommation d'un code de
+      secours et la suppression sont mesurés. Les faux en mémoire reproduisent
+      ces conditions, mais c'est ici qu'on sait qu'elles tiennent en base.
+    */
+    const email = `admin-inscription-${randomUUID()}@exemple.test`;
+    const [owner] = await database
+      .insert(account)
+      .values({ householdId, email, passwordHash: await hashPassword(PASSWORD), role: 'admin' })
+      .returning({ id: account.id });
+
+    const opened = await login({ email, password: PASSWORD });
+
+    expect(opened.status).toBe(200);
+
+    const sessionCookie = cookieHeader({
+      mijote_session: cookieValue(opened, 'mijote_session'),
+      [CSRF_COOKIE]: cookieValue(opened, CSRF_COOKIE) ?? '',
+    });
+    const sessionCsrf = cookieValue(opened, CSRF_COOKIE) ?? '';
+
+    // L'inscription : la réponse porte le secret, donc elle interdit sa copie.
+    const started = await postJson('/auth/two-factor/setup', {
+      cookie: sessionCookie,
+      csrf: sessionCsrf,
+      body: { password: PASSWORD },
+    });
+
+    expect(started.status).toBe(200);
+    expect(started.headers.get('cache-control')).toBe('no-store');
+
+    const enrollment = twoFactorSetupResponseSchema.parse(await started.json());
+
+    expect(enrollment.uri).toContain(enrollment.key);
+    // Rien n'est actif tant qu'aucun code n'a confirmé.
+    const [inactive] = await database
+      .select()
+      .from(accountTwoFactor)
+      .where(eq(accountTwoFactor.accountId, owner?.id ?? ''));
+
+    expect(inactive?.activatedAt).toBeNull();
+    // Le secret est chiffré en base, et la ligne ne porte pas la clé en clair.
+    expect(inactive?.secretCipher).not.toContain(enrollment.key);
+
+    const activated = await postJson('/auth/two-factor/activate', {
+      cookie: sessionCookie,
+      csrf: sessionCsrf,
+      body: { password: PASSWORD, code: totpCode(enrollment.key, stepAt(new Date())) },
+    });
+
+    expect(activated.status).toBe(200);
+
+    const backupCodes = backupCodesResponseSchema.parse(await activated.json()).codes;
+
+    expect(backupCodes).toHaveLength(10);
+
+    const rows = await database
+      .select()
+      .from(twoFactorBackupCode)
+      .where(eq(twoFactorBackupCode.accountId, owner?.id ?? ''));
+
+    expect(rows).toHaveLength(10);
+    // Les codes ne sont en base que hachés en Argon2id.
+    for (const code of backupCodes) {
+      expect(JSON.stringify(rows)).not.toContain(code.replace(/-/g, ''));
+    }
+
+    for (const row of rows) {
+      expect(row.codeHash).toMatch(/^\$argon2id\$/);
+    }
+
+    /*
+      Un code de secours ouvre une session, et ne sert qu'une fois. La
+      consommation est conditionnelle en SQL : c'est elle qu'on mesure ici.
+    */
+    const first = backupCodes[0] ?? '';
+
+    for (const expected of [200, 401]) {
+      const attempt = await login({ email, password: PASSWORD });
+      const pendingCsrf = cookieValue(attempt, CSRF_COOKIE) ?? '';
+      const submitted = await postJson('/auth/two-factor', {
+        cookie: cookieHeader({
+          mijote_pending: cookieValue(attempt, 'mijote_pending'),
+          [CSRF_COOKIE]: pendingCsrf,
+        }),
+        csrf: pendingCsrf,
+        body: { code: first },
+      });
+
+      expect(submitted.status, `code de secours, essai attendu en ${String(expected)}`).toBe(
+        expected,
+      );
+    }
+
+    // La désactivation : mot de passe et code, et tout part avec elle.
+    const disabled = await postJson('/auth/two-factor/disable', {
+      cookie: sessionCookie,
+      csrf: sessionCsrf,
+      body: { password: PASSWORD, code: totpCode(enrollment.key, stepAt(new Date()) + 1) },
+    });
+
+    expect(disabled.status).toBe(204);
+    expect(
+      await database
+        .select()
+        .from(accountTwoFactor)
+        .where(eq(accountTwoFactor.accountId, owner?.id ?? '')),
+    ).toEqual([]);
+    expect(
+      await database
+        .select()
+        .from(twoFactorBackupCode)
+        .where(eq(twoFactorBackupCode.accountId, owner?.id ?? '')),
+    ).toEqual([]);
   });
 
   it("conduit à l'activation un administrateur qui n'en a pas", async () => {

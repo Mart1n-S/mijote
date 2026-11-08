@@ -48,13 +48,14 @@ const NO_SETUP = "Aucune inscription en cours : recommencez l'activation.";
 export interface TwoFactorStore {
   findTwoFactor(accountId: string): Promise<TwoFactorRecord | undefined>;
   upsertInactiveTwoFactor(accountId: string, secretCipher: string): Promise<boolean>;
-  activateTwoFactor(accountId: string, at: Date): Promise<void>;
+  activateTwoFactor(
+    accountId: string,
+    at: Date,
+    verifiedCipher: string,
+    codes: { position: number; codeHash: string }[],
+  ): Promise<boolean>;
   deleteTwoFactor(accountId: string): Promise<void>;
   claimTotpStep(accountId: string, step: number): Promise<boolean>;
-  replaceBackupCodes(
-    accountId: string,
-    codes: { position: number; codeHash: string }[],
-  ): Promise<void>;
   findBackupCode(accountId: string, position: number): Promise<BackupCodeRecord | undefined>;
   consumeBackupCode(id: string, at: Date): Promise<boolean>;
 }
@@ -118,10 +119,17 @@ export class TwoFactorService {
   /**
    * Confirme l'inscription par un premier code, et rend les codes de secours.
    *
+   * Rend un verdict et non un tableau vide quand le code est faux : c'est
+   * l'appelant qui compte l'essai et qui refuse, comme sur les trois autres
+   * chemins de code.
+   *
    * Les dix empreintes Argon2id coûtent un peu plus d'une seconde, une fois
    * par activation : c'est le prix de codes qui résistent à une base volée.
    */
-  async activate(accountId: string, code: string): Promise<BackupCode[]> {
+  async activate(
+    accountId: string,
+    code: string,
+  ): Promise<{ verdict: CodeVerdict; codes: BackupCode[] }> {
     const record = await this.store.findTwoFactor(accountId);
 
     if (record === undefined) {
@@ -132,34 +140,45 @@ export class TwoFactorService {
       throw new ProblemException(HttpStatus.CONFLICT, ALREADY_ACTIVE);
     }
 
-    if ((await this.verifyTotp(record, code)) !== 'totp') {
-      return [];
+    const verdict = await this.verifyTotp(record, code);
+
+    if (verdict !== 'totp') {
+      return { verdict, codes: [] };
     }
 
     const codes = createBackupCodes();
-
-    await this.store.replaceBackupCodes(
-      accountId,
-      await Promise.all(
-        codes.map(async (backup) => ({
-          position: backup.position,
-          codeHash: await hashPassword(backup.secret),
-        })),
-      ),
+    const hashed = await Promise.all(
+      codes.map(async (backup) => ({
+        position: backup.position,
+        codeHash: await hashPassword(backup.secret),
+      })),
     );
-    await this.store.activateTwoFactor(accountId, new Date());
+
+    /*
+      Le secret vérifié est repassé au dépôt : s'il a changé entre-temps, par un
+      `setup` simultané, l'activation ne confirme rien et les codes ne sont pas
+      posés.
+    */
+    if (!(await this.store.activateTwoFactor(accountId, new Date(), record.secretCipher, hashed))) {
+      throw new ProblemException(HttpStatus.CONFLICT, NO_SETUP);
+    }
 
     this.logger.info({ accountId }, 'double authentification activée');
 
-    return codes;
+    return { verdict, codes };
   }
 
   /**
    * Vérifie un code du téléphone ou un code de secours.
    *
    * La forme du code décide du chemin : six chiffres pour le téléphone, un
-   * numéro suivi de douze lettres pour un code de secours. Les deux chemins
-   * paient le même prix, et répondent la même chose quand ils échouent.
+   * numéro suivi de douze lettres pour un code de secours. Les deux répondent
+   * la même chose quand ils échouent.
+   *
+   * Le temps, lui, est égal **à l'intérieur** de chaque chemin, et non entre
+   * les deux : le code de secours paie une empreinte Argon2id que le code du
+   * téléphone ne paie pas. Ce n'est pas une fuite, la forme de la saisie disant
+   * déjà lequel a été pris, mais il ne faut pas croire cette égalité garantie.
    */
   async verifyCode(accountId: string, code: string): Promise<CodeVerdict> {
     const record = await this.store.findTwoFactor(accountId);

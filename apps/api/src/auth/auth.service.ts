@@ -6,7 +6,7 @@ import { ProblemException } from '../errors/problem.exception.js';
 import type { BackupCode } from '../security/backup-codes.js';
 import { decoyPasswordDigest, verifyPassword } from '../security/passwords.js';
 
-import { AttemptsService } from './attempts.service.js';
+import { type AttemptKeys, AttemptsService } from './attempts.service.js';
 import type { AuthLog } from './auth.log.js';
 import {
   clearedCookies,
@@ -60,6 +60,17 @@ const MALFORMED_BACKUP_CODE =
 
 /** Redemandé pour activer ou désactiver le second facteur. */
 const WRONG_PASSWORD = 'Mot de passe incorrect.';
+
+const TOO_MANY_PASSWORDS = 'Trop de mots de passe incorrects. Réessayez dans quelques minutes.';
+
+/**
+ * Le second facteur ne concerne que l'administrateur dans ce lot.
+ *
+ * Sans ce refus, un compte ordinaire qui taperait l'adresse de l'écran
+ * pourrait inscrire une application, puis ne plus pouvoir la retirer, aucun
+ * écran ne le proposant (ADR 0012).
+ */
+const ADMIN_ONLY = "La double authentification ne concerne que les comptes d'administration.";
 
 /** Ce que la connexion lit des comptes, et rien de plus. */
 export interface AccountStore {
@@ -230,6 +241,8 @@ export class AuthService {
    * vaut pour l'application, et le code lui ouvre l'administration (ADR 0012).
    */
   async unlockAdmin(authenticated: Authenticated, code: string, clientIp: string): Promise<void> {
+    this.requireAdmin(authenticated.account);
+
     const kind = await this.checkCode(authenticated.account.id, code, clientIp);
 
     await this.sessions.unlockAdmin(authenticated.session.id);
@@ -247,8 +260,10 @@ export class AuthService {
   async startTwoFactorSetup(
     authenticated: Authenticated,
     password: string,
+    clientIp: string,
   ): Promise<{ uri: string; key: string }> {
-    await this.confirmPassword(authenticated.account, password);
+    this.requireAdmin(authenticated.account);
+    await this.confirmPassword(authenticated.account, password, clientIp);
 
     return this.twoFactor.startSetup(authenticated.account);
   }
@@ -258,14 +273,30 @@ export class AuthService {
     authenticated: Authenticated,
     password: string,
     code: string,
+    clientIp: string,
   ): Promise<BackupCode[]> {
-    await this.confirmPassword(authenticated.account, password);
+    this.requireAdmin(authenticated.account);
+    await this.confirmPassword(authenticated.account, password, clientIp);
 
-    const codes = await this.twoFactor.activate(authenticated.account.id, code);
+    const accountId = authenticated.account.id;
+    /*
+      Le code de l'activation est compté comme les trois autres. Le gain pour un
+      attaquant est nul, le secret étant celui qu'il vient de recevoir, mais
+      « les essais de code sont limités » ne souffre pas d'exception, et cette
+      route serait sinon la seule sans compteur.
+    */
+    const keys = await this.startCodeAttempt(accountId, clientIp);
+    const activated = await this.twoFactor.activate(accountId, code);
 
-    if (codes.length === 0) {
-      throw new ProblemException(HttpStatus.UNAUTHORIZED, INVALID_CODE);
+    if (activated.verdict !== 'totp') {
+      throw await this.refuseCode(
+        keys,
+        accountId,
+        activated.verdict === 'malformed' ? 'malformed' : 'invalid',
+      );
     }
+
+    await this.acceptCode(keys);
 
     /*
       Activer, c'est valider un code : la session courante gagne donc ses droits
@@ -273,7 +304,7 @@ export class AuthService {
     */
     await this.sessions.unlockAdmin(authenticated.session.id);
 
-    return codes;
+    return activated.codes;
   }
 
   /**
@@ -289,7 +320,8 @@ export class AuthService {
     code: string,
     clientIp: string,
   ): Promise<void> {
-    await this.confirmPassword(authenticated.account, password);
+    this.requireAdmin(authenticated.account);
+    await this.confirmPassword(authenticated.account, password, clientIp);
     await this.checkCode(authenticated.account.id, code, clientIp);
     await this.twoFactor.disable(authenticated.account.id);
   }
@@ -391,6 +423,20 @@ export class AuthService {
     clientIp: string,
     onFailure?: () => Promise<void>,
   ): Promise<'totp' | 'backup'> {
+    const keys = await this.startCodeAttempt(accountId, clientIp);
+    const verdict = await this.twoFactor.verifyCode(accountId, code);
+
+    if (verdict === 'invalid' || verdict === 'malformed') {
+      throw await this.refuseCode(keys, accountId, verdict, onFailure);
+    }
+
+    await this.acceptCode(keys);
+
+    return verdict;
+  }
+
+  /** Ouvre un essai de code, ou refuse quand la limite est atteinte. */
+  private async startCodeAttempt(accountId: string, clientIp: string): Promise<AttemptKeys> {
     const keys = this.attempts.keysFor(accountId, clientIp);
 
     if (await this.attempts.isBlocked(keys, 'code')) {
@@ -400,32 +446,78 @@ export class AuthService {
       throw new ProblemException(HttpStatus.TOO_MANY_REQUESTS, TOO_MANY_CODES);
     }
 
-    const verdict = await this.twoFactor.verifyCode(accountId, code);
-
-    if (verdict === 'invalid' || verdict === 'malformed') {
-      await this.attempts.record(keys, 'failed', 'code');
-      await onFailure?.();
-      // Jamais le code soumis, pas plus qu'un mot de passe.
-      this.logger.info({ accountId }, 'code refusé');
-
-      throw new ProblemException(
-        HttpStatus.UNAUTHORIZED,
-        verdict === 'malformed' ? MALFORMED_BACKUP_CODE : INVALID_CODE,
-      );
-    }
-
-    await this.attempts.record(keys, 'succeeded', 'code');
-
-    return verdict;
+    return keys;
   }
 
-  /** Redemande le mot de passe du compte connecté. */
-  private async confirmPassword(account: AccountRecord, password: string): Promise<void> {
+  /**
+   * Compte l'échec et rend l'exception à lever.
+   *
+   * Elle est rendue et non levée ici : `throw await ...` chez l'appelant est ce
+   * qui fait voir au compilateur que la suite n'est pas atteinte.
+   */
+  private async refuseCode(
+    keys: AttemptKeys,
+    accountId: string,
+    verdict: 'invalid' | 'malformed',
+    onFailure?: () => Promise<void>,
+  ): Promise<ProblemException> {
+    await this.attempts.record(keys, 'failed', 'code');
+    await onFailure?.();
+    // Jamais le code soumis, pas plus qu'un mot de passe.
+    this.logger.info({ accountId }, 'code refusé');
+
+    return new ProblemException(
+      HttpStatus.UNAUTHORIZED,
+      verdict === 'malformed' ? MALFORMED_BACKUP_CODE : INVALID_CODE,
+    );
+  }
+
+  private async acceptCode(keys: AttemptKeys): Promise<void> {
+    await this.attempts.record(keys, 'succeeded', 'code');
+  }
+
+  /** Le second facteur ne concerne que l'administrateur dans ce lot. */
+  private requireAdmin(account: AccountRecord): void {
+    if (account.role !== 'admin') {
+      throw new ProblemException(HttpStatus.FORBIDDEN, ADMIN_ONLY);
+    }
+  }
+
+  /**
+   * Redemande le mot de passe du compte connecté, et compte l'essai.
+   *
+   * La limitation est le point que la relecture sécurité a relevé : sans elle,
+   * une session volée permettait de deviner le mot de passe sans borne, et
+   * chaque essai réservait 64 Mio d'Argon2. C'est pourtant ce mot de passe qui
+   * empêche cette même session d'inscrire l'application de l'attaquant.
+   *
+   * Un motif à part, `reauth`, et non celui de la connexion : les deux
+   * partagent l'adresse IP, et compter ensemble permettrait à un porteur de
+   * session d'épuiser le compteur de `/auth/login` et de verrouiller le vrai
+   * propriétaire dehors.
+   */
+  private async confirmPassword(
+    account: AccountRecord,
+    password: string,
+    clientIp: string,
+  ): Promise<void> {
+    const keys = this.attempts.keysFor(account.id, clientIp);
+
+    if (await this.attempts.isBlocked(keys, 'reauth')) {
+      await this.attempts.record(keys, 'blocked', 'reauth');
+      this.logger.warn({ accountId: account.id }, 'réauthentification bloquée par la limitation');
+
+      throw new ProblemException(HttpStatus.TOO_MANY_REQUESTS, TOO_MANY_PASSWORDS);
+    }
+
     if (!(await verifyPassword(account.passwordHash, password))) {
+      await this.attempts.record(keys, 'failed', 'reauth');
       this.logger.info({ accountId: account.id }, 'mot de passe refusé à la réauthentification');
 
       throw new ProblemException(HttpStatus.UNAUTHORIZED, WRONG_PASSWORD);
     }
+
+    await this.attempts.record(keys, 'succeeded', 'reauth');
   }
 
   private async openSession(

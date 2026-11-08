@@ -66,6 +66,8 @@ pnpm admin:create     # crée le premier administrateur, dans un terminal
 
 Avant de proposer un commit : `pnpm lint`, `pnpm typecheck` et `pnpm test` doivent passer.
 
+**Jamais de tuyau sur une vérification.** `pnpm lint | tail` ou `pnpm test | grep` rendent le code de sortie de `tail` ou de `grep`, pas celui de `pnpm` : une vérification en échec passe alors pour un succès. Lancer la commande nue, ou poser `set -o pipefail` avant le tuyau. Cela vaut pour tout ce qui décide d'un commit ou d'un push.
+
 ## Façon de travailler
 
 1. **Réfléchir avant de coder** : expliciter les hypothèses ; si la demande est floue, poser la question.

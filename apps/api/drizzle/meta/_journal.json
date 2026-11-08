@@ -36,6 +36,13 @@
       "when": 1794081086329,
       "tag": "0004_motif_de_reauthentification",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794099815427,
+      "tag": "0005_invitations",
+      "breakpoints": true
     }
   ]
 }

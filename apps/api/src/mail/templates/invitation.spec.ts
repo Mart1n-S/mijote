@@ -14,9 +14,7 @@ const HOSTILE = '<script>alert("xss")</script> & O\'Neil';
 function invitation(overrides: Partial<Parameters<typeof invitationEmail>[0]> = {}) {
   return invitationEmail({
     to: 'invitee@exemple.test',
-    householdName: 'Foyer Simon',
-    inviterName: 'Martin',
-    invitationUrl: 'https://mijote.local/invitations/jeton',
+    invitationUrl: 'https://mijote.local/invitation#jeton',
     ...overrides,
   });
 }
@@ -35,38 +33,58 @@ describe('escapeHtml', () => {
     expect(escapeHtml('Tom & Jerry')).toBe('Tom &amp; Jerry');
     expect(escapeHtml('<b>')).toBe('&lt;b&gt;');
   });
+
+  it('désarme une valeur hostile en entier', () => {
+    /*
+      Le gabarit de l'invitation n'insère plus qu'un lien, construit par
+      l'application : c'est ici que la garantie de l'ADR 0009 est mesurée pour
+      les gabarits à venir, qui porteront des valeurs saisies.
+    */
+    const escaped = escapeHtml(HOSTILE);
+
+    expect(escaped).not.toContain('<script>');
+    expect(escaped).not.toContain("O'Neil");
+    expect(escaped).toContain('&lt;script&gt;');
+    expect(escaped).toContain('O&#39;Neil');
+  });
 });
 
 describe('invitationEmail', () => {
-  it('échappe le nom du foyer et celui de la personne qui invite', () => {
-    const message = invitation({ householdName: HOSTILE, inviterName: HOSTILE });
+  it("ne nomme personne, et surtout pas l'invitant", () => {
+    /*
+      Nommer l'invitant exposerait l'adresse de l'administrateur à chaque
+      invité, et l'invitation n'est pas un rattachement à son foyer mais un
+      ticket d'inscription : chaque compte crée le sien (ADR 0013).
+    */
+    const message = invitation();
 
-    expect(message.html).not.toContain('<script>');
-    expect(message.html).not.toContain("O'Neil");
-    expect(message.html).toContain('&lt;script&gt;');
-    expect(message.html).toContain('O&#39;Neil');
+    expect(message.subject).toBe('Invitation à rejoindre Mijote');
+    expect(message.html).not.toContain('@');
+    expect(message.text).not.toContain('@');
+    expect(message.html).not.toContain('foyer');
   });
 
-  it("échappe aussi l'adresse du lien, qui est un attribut HTML", () => {
+  it("échappe l'adresse du lien, qui est un attribut HTML", () => {
     const message = invitation({ invitationUrl: 'https://mijote.local/i?a=1&b="2"' });
 
     expect(message.html).toContain('href="https://mijote.local/i?a=1&amp;b=&quot;2&quot;"');
   });
 
   it("n'échappe rien dans la version texte, où une entité s'afficherait", () => {
-    const message = invitation({ householdName: 'Tom & Jerry' });
+    const message = invitation({ invitationUrl: 'https://mijote.local/invitation?a=1&b=2#jeton' });
 
-    expect(message.text).toContain('Tom & Jerry');
+    expect(message.text).toContain('a=1&b=2');
     expect(message.text).not.toContain('&amp;');
   });
 
   it('porte les deux versions, en français', () => {
     const message = invitation();
 
-    expect(message.subject).toBe('Invitation à rejoindre le foyer Foyer Simon sur Mijote');
-    expect(message.text).toContain('vous invite à rejoindre le foyer');
-    expect(message.html).toContain('vous invite à rejoindre le foyer');
+    expect(message.text).toContain('créer votre compte sur Mijote');
+    expect(message.html).toContain('créer votre compte sur Mijote');
     expect(message.html).toContain('<html lang="fr">');
+    // Le lien ne sert qu'une fois, et le message le dit.
+    expect(message.text).toContain("ne sert qu'une fois");
   });
 
   it('ne charge aucune ressource distante, ni pixel de suivi', () => {

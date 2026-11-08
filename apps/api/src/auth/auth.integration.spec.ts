@@ -193,6 +193,7 @@ describe.skipIf(!reachable)('la connexion, contre une vraie base', () => {
     process.env['MAIL_FROM'] ??= 'Mijote <no-reply@mijote.local>';
     process.env['SECURITY_PEPPER'] ??= Buffer.alloc(32).toString('base64');
     process.env['SECURITY_TOTP_KEY'] ??= Buffer.alloc(32).toString('base64');
+    process.env['APP_BASE_URL'] ??= 'https://mijote.local';
 
     database = createDatabase(DATABASE_URL ?? '');
 
@@ -511,7 +512,7 @@ describe.skipIf(!reachable)('la connexion, contre une vraie base', () => {
     const body = sessionResponseSchema.parse(await verified.json());
 
     expect(body.account.id).toBe(adminId);
-    expect(body.twoFactor).toEqual({ active: true });
+    expect(body.twoFactor).toEqual({ active: true, adminUnlocked: true });
 
     const sessionToken = cookieValue(verified, 'mijote_session');
     const sessionCsrf = cookieValue(verified, CSRF_COOKIE);

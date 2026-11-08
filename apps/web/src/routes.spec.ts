@@ -18,6 +18,10 @@ describe('createRoutes', () => {
       'home',
       'login',
       'two-factor',
+      'invitation',
+      'admin',
+      'admin-unlock',
+      'admin-invitations',
       'not-found',
     ]);
   });
@@ -41,17 +45,37 @@ describe('createRoutes', () => {
     expect(createRoutes(false).some((route) => route.name === 'design-system')).toBe(false);
   });
 
-  it("n'ouvre que la page de connexion", () => {
+  it("n'ouvre que la connexion et l'inscription par invitation", () => {
     /*
       L'application est privée : une page sans `public` demande une session, et
       c'est la garde qui le fait respecter. Une page ouverte par mégarde se
       verrait ici.
+
+      Deux seulement, et la seconde ne peut pas être autrement : c'est là que le
+      compte se crée, donc il n'y a par définition pas encore de session. Son
+      pouvoir vient du jeton du lien, pas de l'adresse de la page (ADR 0013).
     */
     const open = createRoutes(true).flatMap((route) =>
       route.meta?.public === true ? [route.name] : [],
     );
 
-    expect(open).toEqual(['login']);
+    expect(open).toEqual(['login', 'invitation']);
+  });
+
+  it("réserve l'administration, et n'en montre que l'entrée dans la navigation", () => {
+    const admin = createRoutes(true).flatMap((route) =>
+      route.meta?.admin === true ? [{ name: route.name, nav: route.meta.navLabel }] : [],
+    );
+
+    /*
+      L'écran de déverrouillage en fait partie : il demande le rôle et le second
+      facteur, et la garde l'excepte du renvoi vers lui-même.
+    */
+    expect(admin).toEqual([
+      { name: 'admin', nav: 'Administration' },
+      { name: 'admin-unlock', nav: undefined },
+      { name: 'admin-invitations', nav: undefined },
+    ]);
   });
 
   it('ne met pas la connexion dans la navigation', () => {

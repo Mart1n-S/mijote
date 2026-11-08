@@ -23,7 +23,12 @@ const WEB_URL = `http://${HOST}:${process.env['MAILPIT_WEB_PORT'] ?? '8025'}`;
 /** Une adresse en .test : ce domaine est réservé et n'existe nulle part. */
 const RECIPIENT = 'invitee@exemple.test';
 
-const HOUSEHOLD = 'Foyer <Simon> & fils';
+/*
+  Un lien avec des caractères qui changent le sens du HTML : c'est la seule
+  valeur que le gabarit insère, et c'est elle qui prouve l'échappement de bout
+  en bout, jusqu'au HTML que Mailpit a reçu.
+*/
+const INVITATION_URL = 'https://mijote.local/invitation?de="moi"&vers=toi#jeton';
 
 const FROM = 'Mijote <no-reply@mijote.local>';
 
@@ -125,7 +130,7 @@ describe.skipIf(!reachable)('envoi réel vers Mailpit', () => {
   beforeAll(deleteTestMessages);
   afterAll(deleteTestMessages);
 
-  it('livre une invitation, avec ses deux versions et son nom de foyer échappé', async () => {
+  it('livre une invitation, avec ses deux versions et son lien échappé', async () => {
     const logger = new PinoLogger({ pinoHttp: { level: 'silent' } });
     const mailer = new SmtpMailer(
       createMailTransport({
@@ -140,24 +145,19 @@ describe.skipIf(!reachable)('envoi réel vers Mailpit', () => {
       logger,
     );
 
-    await mailer.send(
-      invitationEmail({
-        to: RECIPIENT,
-        householdName: HOUSEHOLD,
-        inviterName: 'Martin',
-        invitationUrl: 'https://mijote.local/invitations/jeton',
-      }),
-    );
+    await mailer.send(invitationEmail({ to: RECIPIENT, invitationUrl: INVITATION_URL }));
 
     const summary = await waitForMessage();
 
-    expect(summary.subject).toBe(`Invitation à rejoindre le foyer ${HOUSEHOLD} sur Mijote`);
+    expect(summary.subject).toBe('Invitation à rejoindre Mijote');
 
     const detail: unknown = await (await fetch(`${WEB_URL}/api/v1/message/${summary.id}`)).json();
 
     // Le HTML livré porte la valeur échappée, le texte la valeur brute.
-    expect(readPart(detail, 'HTML')).toContain('Foyer &lt;Simon&gt; &amp; fils');
-    expect(readPart(detail, 'HTML')).not.toContain('<Simon>');
-    expect(readPart(detail, 'Text')).toContain(HOUSEHOLD);
+    expect(readPart(detail, 'HTML')).toContain('de=&quot;moi&quot;&amp;vers=toi');
+    expect(readPart(detail, 'HTML')).not.toContain('de="moi"');
+    expect(readPart(detail, 'Text')).toContain(INVITATION_URL);
+    // Le message ne nomme personne : aucune adresse n'y figure.
+    expect(readPart(detail, 'HTML')).not.toContain('@');
   });
 });

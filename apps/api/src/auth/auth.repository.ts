@@ -57,9 +57,13 @@ export type LoginOutcome = 'succeeded' | 'failed' | 'blocked';
 
 /**
  * Ce qui était vérifié : le mot de passe à la connexion, le code du second
- * facteur, ou le mot de passe redemandé à une réauthentification.
+ * facteur, le mot de passe redemandé à une réauthentification, ou le jeton
+ * d'une invitation que l'on accepte.
+ *
+ * Les comptages restent séparés par motif : une acceptation ratée ne doit pas
+ * rapprocher qui que ce soit du blocage de la connexion.
  */
-export type LoginPurpose = 'password' | 'code' | 'reauth';
+export type LoginPurpose = 'password' | 'code' | 'reauth' | 'invitation';
 
 /** La double authentification d'un compte, telle que le service la lit. */
 export interface TwoFactorRecord {

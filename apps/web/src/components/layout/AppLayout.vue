@@ -47,13 +47,19 @@ async function leave(): Promise<void> {
   en développement disparaît donc d'elle-même de la barre en production.
 */
 const links = computed(() =>
-  router
-    .getRoutes()
-    .flatMap((route) =>
-      route.meta.navLabel === undefined || route.name === undefined
-        ? []
-        : [{ name: route.name, label: route.meta.navLabel }],
-    ),
+  router.getRoutes().flatMap((route) =>
+    /*
+      Une entrée d'administration n'est montrée qu'à un administrateur : la
+      garde la refuserait de toute façon, et proposer une page qui se refuse
+      est une impasse. Ce n'est pas une protection : les données sont
+      protégées par le serveur.
+    */
+    route.meta.navLabel === undefined ||
+    route.name === undefined ||
+    (route.meta.admin === true && currentAccount.value?.role !== 'admin')
+      ? []
+      : [{ name: route.name, label: route.meta.navLabel }],
+  ),
 );
 </script>
 

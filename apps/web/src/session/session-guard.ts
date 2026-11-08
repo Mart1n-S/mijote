@@ -1,6 +1,12 @@
-import type { RouteLocationRaw, Router } from 'vue-router';
+import type { RouteLocationNormalized, RouteLocationRaw, Router } from 'vue-router';
 
-import { ensureSessionLoaded, isAuthenticated } from './session';
+import {
+  currentAccount,
+  ensureSessionLoaded,
+  isAuthenticated,
+  mustActivateTwoFactor,
+  mustUnlockAdmin,
+} from './session';
 
 /*
   La garde de navigation : l'application est privée, donc une page demande une
@@ -14,6 +20,21 @@ import { ensureSessionLoaded, isAuthenticated } from './session';
 /** Nom de la route de connexion, et nom du paramètre de retour. */
 export const LOGIN_ROUTE = 'login';
 export const NEXT_QUERY = 'suivant';
+
+/** Les trois routes où la garde conduit un administrateur mal équipé. */
+export const ADMIN_ROUTE = 'admin';
+export const ADMIN_UNLOCK_ROUTE = 'admin-unlock';
+export const TWO_FACTOR_ROUTE = 'two-factor';
+
+/**
+ * Le repli, où est conduit un compte ordinaire qui tape une adresse
+ * d'administration.
+ *
+ * Une page introuvable, et non un refus : pour ce compte, cette page n'existe
+ * pas, et lui annoncer qu'elle existe mais lui est fermée ne lui apprendrait
+ * rien d'utile.
+ */
+export const NOT_FOUND_ROUTE = 'not-found';
 
 /**
  * Le chemin où revenir après la connexion.
@@ -47,8 +68,40 @@ export function installSessionGuard(router: Router): void {
         : true;
     }
 
-    return isAuthenticated.value
-      ? true
-      : { name: LOGIN_ROUTE, query: { [NEXT_QUERY]: to.fullPath } };
+    if (!isAuthenticated.value) {
+      return { name: LOGIN_ROUTE, query: { [NEXT_QUERY]: to.fullPath } };
+    }
+
+    return to.meta.admin === true ? adminDestination(to) : true;
   });
+}
+
+/**
+ * Où conduire quelqu'un qui demande une page d'administration.
+ *
+ * Trois conditions, dans cet ordre : le rôle, le second facteur, puis le code
+ * validé dans cette session (ADR 0012). Les deux dernières ont un écran ; la
+ * première n'en a pas, un compte ordinaire n'ayant rien à y faire.
+ *
+ * L'écran de déverrouillage porte lui aussi `meta.admin`, parce qu'il demande
+ * le rôle et le second facteur : d'où les deux exceptions sur son nom, l'une
+ * pour ne pas s'y renvoyer en boucle, l'autre pour ne pas l'afficher quand il
+ * n'y a plus rien à déverrouiller.
+ */
+function adminDestination(to: RouteLocationNormalized): RouteLocationRaw | boolean {
+  if (currentAccount.value?.role !== 'admin') {
+    return { name: NOT_FOUND_ROUTE, params: { pathMatch: to.path.slice(1).split('/') } };
+  }
+
+  if (mustActivateTwoFactor.value) {
+    return { name: TWO_FACTOR_ROUTE };
+  }
+
+  if (mustUnlockAdmin.value) {
+    return to.name === ADMIN_UNLOCK_ROUTE
+      ? true
+      : { name: ADMIN_UNLOCK_ROUTE, query: { [NEXT_QUERY]: to.fullPath } };
+  }
+
+  return to.name === ADMIN_UNLOCK_ROUTE ? { name: ADMIN_ROUTE } : true;
 }

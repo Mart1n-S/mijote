@@ -90,6 +90,8 @@ beforeAll(async () => {
   // Et la clé de chiffrement du secret TOTP, sans laquelle AuthModule refuse
   // de démarrer. Faite de zéros : elle ne protège rien ici.
   process.env['SECURITY_TOTP_KEY'] = Buffer.alloc(32).toString('base64');
+  // L'adresse publique, que InvitationsModule exige au démarrage.
+  process.env['APP_BASE_URL'] = 'https://mijote.local';
 
   app = await NestFactory.create(TestAppModule, { logger: false });
 

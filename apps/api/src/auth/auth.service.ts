@@ -192,7 +192,7 @@ export class AuthService {
 
     return {
       account: toSessionAccount(account),
-      twoFactor: { active: false },
+      twoFactor: { active: false, adminUnlocked: false },
       cookies,
     };
   }
@@ -229,7 +229,8 @@ export class AuthService {
 
     return {
       account: toSessionAccount(waiting.account),
-      twoFactor: { active: true },
+      // La session naît déverrouillée : le code vient d'être validé.
+      twoFactor: { active: true, adminUnlocked: true },
       cookies,
     };
   }
@@ -327,6 +328,47 @@ export class AuthService {
   }
 
   /**
+   * Ouvre une session pour un compte qui vient d'être créé.
+   *
+   * Appelée par l'acceptation d'une invitation : la personne vient de prouver
+   * qu'elle contrôle son adresse et de choisir son mot de passe, lui redemander
+   * de se connecter serait de la friction sans gain.
+   *
+   * Aucune mémorisation, et aucun déverrouillage d'administration : un compte
+   * invité comme administrateur devra d'abord inscrire son second facteur, puis
+   * se déverrouiller par un code (ADR 0012).
+   */
+  async openSessionFor(
+    accountId: string,
+    presentedSession?: string,
+  ): Promise<AuthenticatedResponse> {
+    const found = await this.accounts.findAccountById(accountId);
+
+    if (found === undefined) {
+      throw new Error("le compte qui vient d'être créé est introuvable");
+    }
+
+    /*
+      La session précédente de ce navigateur est fermée, comme à la connexion :
+      le cookie de session va être remplacé, et une session que plus aucun
+      cookie ne désigne ne peut plus être fermée par personne.
+    */
+    if (presentedSession !== undefined) {
+      await this.sessions.closePresented(presentedSession);
+    }
+
+    const cookies = await this.openSession(accountId, false);
+
+    this.logger.info({ accountId }, 'session ouverte après inscription');
+
+    return {
+      account: toSessionAccount(found),
+      twoFactor: { active: false, adminUnlocked: false },
+      cookies,
+    };
+  }
+
+  /**
    * Qui est connecté, en reprenant au besoin une session mémorisée.
    *
    * Appelée par `GET /auth/session`. Le cookie CSRF est reposé au passage :
@@ -343,7 +385,10 @@ export class AuthService {
       if (authenticated !== undefined) {
         return {
           account: toSessionAccount(authenticated.account),
-          twoFactor: { active: await this.twoFactor.isActive(authenticated.account.id) },
+          twoFactor: {
+            active: await this.twoFactor.isActive(authenticated.account.id),
+            adminUnlocked: authenticated.session.adminUnlockedAt !== null,
+          },
           cookies: [csrfCookie(authenticated.session.csrfSecret)],
         };
       }
@@ -386,7 +431,9 @@ export class AuthService {
 
     return {
       account: toSessionAccount(account),
-      twoFactor: { active: await this.twoFactor.isActive(account.id) },
+      // Jamais déverrouillée : la mémorisation rouvre l'application, et c'est
+      // tout (ADR 0012).
+      twoFactor: { active: await this.twoFactor.isActive(account.id), adminUnlocked: false },
       cookies,
     };
   }

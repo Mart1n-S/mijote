@@ -1,13 +1,19 @@
 import { emailSchema, MIN_PASSWORD_LENGTH } from '@mijote/shared';
-import { eq } from 'drizzle-orm';
 
+import {
+  type CreatedAccount,
+  createAccountWithHousehold,
+  emailIsTaken,
+} from '../accounts/account-creation.js';
 import type { Database } from '../db/client.js';
-import { account, household } from '../db/schema.js';
-import { hashPassword } from '../security/passwords.js';
 
 /*
   Ce que la commande de création d'administrateur fait vraiment, séparé de la
   saisie : c'est la part qui se teste contre une vraie base.
+
+  L'écriture elle-même vit dans accounts/account-creation.ts, partagée avec
+  l'acceptation d'une invitation : un compte créé par la commande vaut ainsi un
+  compte créé par le lien, au hachage et à la transaction près.
 */
 
 export interface AdminInput {
@@ -16,10 +22,7 @@ export interface AdminInput {
   password: string;
 }
 
-export interface CreatedAdmin {
-  householdId: string;
-  accountId: string;
-}
+export type CreatedAdmin = CreatedAccount;
 
 /**
  * Crée un foyer et son premier compte administrateur.
@@ -50,19 +53,18 @@ export async function createAdminAccount(
     );
   }
 
-  const existing = await withSafeFailure(() =>
-    database.select({ id: account.id }).from(account).where(eq(account.email, email.data)).limit(1),
-  );
-
-  if (existing.length > 0) {
+  if (await withSafeFailure(() => emailIsTaken(database, email.data))) {
     throw new Error('un compte existe déjà pour cette adresse');
   }
 
-  // Hachée avant la transaction : Argon2 prend une centaine de millisecondes,
-  // qui n'ont rien à faire dans une transaction ouverte.
-  const passwordHash = await hashPassword(input.password);
-
-  return withSafeFailure(() => createRows(database, email.data, householdName, passwordHash));
+  return withSafeFailure(() =>
+    createAccountWithHousehold(database, {
+      email: email.data,
+      password: input.password,
+      role: 'admin',
+      householdName,
+    }),
+  );
 }
 
 /**
@@ -76,9 +78,17 @@ export async function createAdminAccount(
 export function databaseFailure(error: unknown): Error {
   const code = readPostgresCode(error);
 
-  return new Error(
-    `l'écriture en base a échoué${code === undefined ? '' : ` (code ${code})`}, voir les journaux de PostgreSQL`,
-  );
+  /*
+    Sans code de PostgreSQL, l'échec ne vient pas forcément de la base : la
+    création de compte hache aussi le mot de passe, et annoncer « l'écriture en
+    base a échoué » enverrait alors chercher au mauvais endroit. Le message
+    reste donc neutre, et il ne recopie toujours rien de ce qu'on a passé.
+  */
+  if (code === undefined) {
+    return new Error("la création du compte a échoué, voir les journaux de l'API");
+  }
+
+  return new Error(`l'écriture en base a échoué (code ${code}), voir les journaux de PostgreSQL`);
 }
 
 function readPostgresCode(error: unknown): string | undefined {
@@ -102,38 +112,4 @@ async function withSafeFailure<Result>(run: () => Promise<Result>): Promise<Resu
   } catch (error) {
     throw databaseFailure(error);
   }
-}
-
-function createRows(
-  database: Database,
-  email: string,
-  householdName: string,
-  passwordHash: string,
-): Promise<CreatedAdmin> {
-  return database.transaction(async (transaction) => {
-    const [createdHousehold] = await transaction
-      .insert(household)
-      .values({ name: householdName })
-      .returning({ id: household.id });
-
-    if (createdHousehold === undefined) {
-      throw new Error("la création du foyer n'a rien renvoyé");
-    }
-
-    const [createdAccount] = await transaction
-      .insert(account)
-      .values({
-        householdId: createdHousehold.id,
-        email,
-        passwordHash,
-        role: 'admin',
-      })
-      .returning({ id: account.id });
-
-    if (createdAccount === undefined) {
-      throw new Error("la création du compte n'a rien renvoyé");
-    }
-
-    return { householdId: createdHousehold.id, accountId: createdAccount.id };
-  });
 }

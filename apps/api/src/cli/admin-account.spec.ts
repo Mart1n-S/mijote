@@ -70,10 +70,16 @@ describe('databaseFailure', () => {
     expect(safe.message).toContain('23505');
   });
 
-  it("se passe de code quand l'erreur n'en porte pas", () => {
+  it("reste neutre quand l'erreur ne porte pas de code", () => {
+    /*
+      Sans code de PostgreSQL, l'échec ne vient pas forcément de la base : la
+      création de compte hache aussi le mot de passe. Annoncer « l'écriture en
+      base a échoué » enverrait alors chercher au mauvais endroit.
+    */
     expect(databaseFailure(new Error('réseau coupé')).message).toBe(
-      "l'écriture en base a échoué, voir les journaux de PostgreSQL",
+      "la création du compte a échoué, voir les journaux de l'API",
     );
+    expect(databaseFailure(new Error('réseau coupé')).message).not.toContain('écriture en base');
     expect(databaseFailure('pas une erreur').message).toContain('a échoué');
   });
 });

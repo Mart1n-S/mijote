@@ -22,6 +22,17 @@ const LOGOUT_ROUTE = '**/api/auth/logout';
 const TWO_FACTOR_ROUTE = '**/api/auth/two-factor';
 const TWO_FACTOR_SETUP_ROUTE = '**/api/auth/two-factor/setup';
 const TWO_FACTOR_ACTIVATE_ROUTE = '**/api/auth/two-factor/activate';
+const TWO_FACTOR_UNLOCK_ROUTE = '**/api/auth/two-factor/unlock';
+const INVITATION_PREVIEW_ROUTE = '**/api/invitations/preview';
+const INVITATION_ACCEPT_ROUTE = '**/api/invitations/accept';
+const INVITATION_REVOKE_ROUTE = '**/api/invitations/*/revoke';
+/*
+  La liste et la création. Le motif ne recouvre ni les deux routes publiques ni
+  la révocation, et c'est ce qui compte : Playwright essaie ses routes de la
+  dernière enregistrée à la première, donc un motif trop large répondrait à la
+  place d'une autre, quel que soit l'ordre d'enregistrement.
+*/
+const INVITATIONS_ROUTE = '**/api/invitations';
 
 /** Le compte que les bouchons annoncent comme connecté. */
 export const STUB_ACCOUNT = {
@@ -123,7 +134,7 @@ export async function stubHealthyApi(page: Page): Promise<void> {
     page,
     SESSION_ROUTE,
     200,
-    JSON.stringify({ account: STUB_ACCOUNT, twoFactor: { active: false } }),
+    JSON.stringify({ account: STUB_ACCOUNT, twoFactor: { active: false, adminUnlocked: false } }),
   );
 }
 
@@ -188,7 +199,10 @@ export async function stubAnonymousApi(page: Page): Promise<StubbedAuth> {
         // retrouve. Pas de Secure ici, la prévisualisation étant en clair.
         'set-cookie': `${CSRF_COOKIE}=${STUB_CSRF_TOKEN}; Path=/; SameSite=Lax`,
       },
-      body: JSON.stringify({ account: STUB_ACCOUNT, twoFactor: { active: false } }),
+      body: JSON.stringify({
+        account: STUB_ACCOUNT,
+        twoFactor: { active: false, adminUnlocked: false },
+      }),
     });
   });
 
@@ -248,7 +262,10 @@ export async function stubTwoFactorLogin(page: Page): Promise<StubbedTwoFactor> 
         ? {
             status: 200,
             contentType: 'application/json',
-            body: JSON.stringify({ account: STUB_ACCOUNT, twoFactor: { active: true } }),
+            body: JSON.stringify({
+              account: STUB_ACCOUNT,
+              twoFactor: { active: true, adminUnlocked: true },
+            }),
           }
         : { status: 401, contentType: PROBLEM_DETAILS_MEDIA_TYPE, body: INVALID_CODE_BODY },
     );
@@ -271,7 +288,7 @@ export async function stubAdminWithoutTwoFactor(page: Page): Promise<StubbedTwoF
     page,
     SESSION_ROUTE,
     200,
-    JSON.stringify({ account: STUB_ADMIN, twoFactor: { active: false } }),
+    JSON.stringify({ account: STUB_ADMIN, twoFactor: { active: false, adminUnlocked: false } }),
   );
 
   await page.route(TWO_FACTOR_SETUP_ROUTE, async (route) => {
@@ -294,6 +311,185 @@ export async function stubAdminWithoutTwoFactor(page: Page): Promise<StubbedTwoF
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({ codes: STUB_BACKUP_CODES }),
+    });
+  });
+
+  return recorded;
+}
+
+/** Le jeton que les bouchons d'invitation acceptent, et l'adresse invitée. */
+export const STUB_INVITATION_TOKEN = 'un-jeton-opaque-de-test';
+export const STUB_INVITED_EMAIL = 'invitee@exemple.test';
+
+/** Une invitation en attente, telle que l'API la rendrait. */
+export const STUB_INVITATION = {
+  id: '33333333-3333-4333-8333-000000000001',
+  email: STUB_INVITED_EMAIL,
+  role: 'user',
+  status: 'pending',
+  createdAt: '2026-11-01T10:00:00.000Z',
+  expiresAt: '2026-11-04T10:00:00.000Z',
+};
+
+/** Ce que les bouchons d'invitation ont enregistré. */
+export interface StubbedInvitations {
+  /** Les corps des appels d'aperçu et d'acceptation, dans l'ordre. */
+  previews: unknown[];
+  accepts: unknown[];
+  /** Les corps des créations, et les identifiants révoqués. */
+  creations: unknown[];
+  revoked: string[];
+}
+
+/**
+ * Fait répondre l'API comme pour une invitation en attente, sans session.
+ *
+ * C'est l'état de quelqu'un qui ouvre son lien : la page lit le jeton dans le
+ * fragment, l'échange contre un POST, puis crée le compte.
+ */
+export async function stubPendingInvitation(page: Page): Promise<StubbedInvitations> {
+  const recorded: StubbedInvitations = { previews: [], accepts: [], creations: [], revoked: [] };
+
+  await respondJson(page, HEALTH_ROUTE, 200, JSON.stringify({ status: 'ok' }));
+  await respondProblem(page, SESSION_ROUTE, 401, ANONYMOUS);
+
+  await page.route(INVITATION_PREVIEW_ROUTE, async (route) => {
+    recorded.previews.push(route.request().postDataJSON());
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ email: STUB_INVITED_EMAIL }),
+    });
+  });
+
+  await page.route(INVITATION_ACCEPT_ROUTE, async (route) => {
+    recorded.accepts.push(route.request().postDataJSON());
+
+    await route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      headers: { 'set-cookie': `${CSRF_COOKIE}=${STUB_CSRF_TOKEN}; Path=/; SameSite=Lax` },
+      body: JSON.stringify({
+        account: { ...STUB_ACCOUNT, email: STUB_INVITED_EMAIL },
+        twoFactor: { active: false, adminUnlocked: false },
+      }),
+    });
+  });
+
+  return recorded;
+}
+
+/**
+ * Fait répondre l'API comme pour un administrateur déverrouillé.
+ *
+ * C'est l'état qui ouvre l'espace d'administration : rôle administrateur,
+ * second facteur actif, et code validé dans cette session (ADR 0012).
+ */
+export async function stubUnlockedAdmin(page: Page): Promise<StubbedInvitations> {
+  const recorded: StubbedInvitations = { previews: [], accepts: [], creations: [], revoked: [] };
+  /*
+    La liste évolue au fil du test : le bouchon la garde ici, comme le serveur
+    garderait ses lignes, pour que la relecture qui suit un envoi montre bien ce
+    qui vient d'être écrit.
+  */
+  let invitations: unknown[] = [STUB_INVITATION];
+
+  await respondJson(page, HEALTH_ROUTE, 200, JSON.stringify({ status: 'ok' }));
+  await respondJson(
+    page,
+    SESSION_ROUTE,
+    200,
+    JSON.stringify({
+      account: STUB_ADMIN,
+      twoFactor: { active: true, adminUnlocked: true },
+    }),
+  );
+
+  await page.route(INVITATION_REVOKE_ROUTE, async (route) => {
+    const found = /invitations\/([^/]+)\/revoke/.exec(route.request().url());
+
+    recorded.revoked.push(found?.[1] ?? '');
+    invitations = invitations.map((row) =>
+      typeof row === 'object' && row !== null ? { ...row, status: 'revoked' } : row,
+    );
+
+    await route.fulfill({ status: 204 });
+  });
+
+  await page.route(INVITATIONS_ROUTE, async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ invitations }),
+      });
+
+      return;
+    }
+
+    recorded.creations.push(route.request().postDataJSON());
+
+    await route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify(STUB_INVITATION),
+    });
+  });
+
+  return recorded;
+}
+
+/**
+ * Fait répondre l'API comme pour une session rouverte par la mémorisation :
+ * administrateur, second facteur actif, mais administration verrouillée.
+ */
+export async function stubLockedAdmin(page: Page): Promise<{ codes: unknown[] }> {
+  const recorded: { codes: unknown[] } = { codes: [] };
+  let unlocked = false;
+
+  await respondJson(page, HEALTH_ROUTE, 200, JSON.stringify({ status: 'ok' }));
+
+  await page.route(SESSION_ROUTE, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: { 'set-cookie': `${CSRF_COOKIE}=${STUB_CSRF_TOKEN}; Path=/; SameSite=Lax` },
+      body: JSON.stringify({
+        account: STUB_ADMIN,
+        twoFactor: { active: true, adminUnlocked: unlocked },
+      }),
+    });
+  });
+
+  await page.route(TWO_FACTOR_UNLOCK_ROUTE, async (route) => {
+    const body: unknown = route.request().postDataJSON();
+
+    recorded.codes.push(body);
+
+    const accepted =
+      typeof body === 'object' && body !== null && 'code' in body && body['code'] === STUB_CODE;
+
+    if (!accepted) {
+      await route.fulfill({
+        status: 401,
+        contentType: PROBLEM_DETAILS_MEDIA_TYPE,
+        body: INVALID_CODE_BODY,
+      });
+
+      return;
+    }
+
+    unlocked = true;
+
+    await route.fulfill({ status: 204 });
+  });
+
+  await page.route(INVITATIONS_ROUTE, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ invitations: [STUB_INVITATION] }),
     });
   });
 

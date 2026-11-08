@@ -52,6 +52,15 @@ export type LoginInput = z.infer<typeof loginSchema>;
 export const twoFactorStateSchema = z.object({
   /** Inscrite et confirmée par un premier code. */
   active: z.boolean(),
+  /**
+   * Un code a été validé dans **cette** session.
+   *
+   * Les routes d'administration l'exigent, et une session reprise par le
+   * cookie de mémorisation ne l'a pas : elle rouvre l'application, pas
+   * l'administration (ADR 0012). C'est ce qui conduit l'interface à l'écran de
+   * déverrouillage plutôt qu'à un refus.
+   */
+  adminUnlocked: z.boolean(),
 });
 
 export type TwoFactorState = z.infer<typeof twoFactorStateSchema>;
@@ -147,3 +156,67 @@ export const CSRF_HEADER = 'X-CSRF-Token';
 
 /** Nom du cookie lisible par le script, qui porte le jeton CSRF. */
 export const CSRF_COOKIE = 'mijote_csrf';
+
+/*
+  Les invitations : un ticket d'inscription pour une V1 fermée.
+
+  L'invitation ne rattache à rien. Chaque invité crée son compte et son propre
+  foyer, comme le prévoit le cahier des charges, et le rôle choisi à
+  l'invitation est son rôle dans l'application (ADR 0013).
+*/
+
+/**
+ * L'état d'une invitation, déduit de ses dates et non stocké.
+ *
+ * Une colonne de statut ferait une seconde vérité, qu'il faudrait tenir à jour
+ * au passage de chaque heure.
+ */
+export const invitationStatusSchema = z.enum(['pending', 'used', 'expired', 'revoked']);
+
+export type InvitationStatus = z.infer<typeof invitationStatusSchema>;
+
+/** Corps de la création d'une invitation, par un administrateur. */
+export const createInvitationSchema = z.object({
+  email: emailSchema,
+  role: z.enum(['user', 'admin']).default('user'),
+});
+
+export type CreateInvitationInput = z.infer<typeof createInvitationSchema>;
+
+/** Une invitation, telle que la liste de l'administrateur la montre. */
+export const invitationSchema = z.object({
+  id: z.uuid(),
+  email: z.string(),
+  role: z.enum(['user', 'admin']),
+  status: invitationStatusSchema,
+  createdAt: z.string(),
+  expiresAt: z.string(),
+});
+
+export type Invitation = z.infer<typeof invitationSchema>;
+
+export const invitationListSchema = z.object({ invitations: z.array(invitationSchema) });
+
+export type InvitationList = z.infer<typeof invitationListSchema>;
+
+/**
+ * Le jeton d'une invitation, tel que la page d'inscription le présente.
+ *
+ * Il arrive dans le **corps** de la requête, jamais dans l'URL : un jeton dans
+ * une adresse fuit par l'en-tête `Referer` et par les journaux du mandataire.
+ * Le lien de l'e-mail le porte donc dans son fragment, que le navigateur ne
+ * transmet jamais (ADR 0013).
+ */
+export const invitationTokenSchema = z.object({ token: z.string().trim().min(1).max(200) });
+
+/** Ce que la page d'inscription affiche avant de demander un mot de passe. */
+export const invitationPreviewSchema = z.object({ email: z.string() });
+
+export type InvitationPreview = z.infer<typeof invitationPreviewSchema>;
+
+/** Corps de l'acceptation : le jeton, et le mot de passe choisi. */
+export const acceptInvitationSchema = invitationTokenSchema.extend({
+  password: z.string().min(MIN_PASSWORD_LENGTH).max(200),
+});
+
+export type AcceptInvitationInput = z.infer<typeof acceptInvitationSchema>;

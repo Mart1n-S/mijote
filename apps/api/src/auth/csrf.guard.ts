@@ -52,6 +52,18 @@ const JSON_MEDIA_TYPE = 'application/json';
 */
 export const CSRF_EXEMPT_ROUTES: readonly { method: string; path: string }[] = [
   { method: 'POST', path: '/auth/login' },
+  /*
+    Les deux routes d'une invitation, pour la même raison : aucune session
+    n'existe encore, donc aucun secret CSRF à renvoyer. Le pouvoir vient du
+    jeton que le corps porte, et non d'un cookie, donc il n'y a rien à
+    détourner.
+
+    Elles gardent les deux autres barrières, et c'est nécessaire : l'acceptation
+    ouvre une session, donc un site tiers pourrait sinon connecter une victime à
+    un compte qu'il contrôle (ADR 0013).
+  */
+  { method: 'POST', path: '/invitations/preview' },
+  { method: 'POST', path: '/invitations/accept' },
 ];
 
 const WRONG_MEDIA_TYPE = 'Le type de média doit être application/json.';

@@ -88,6 +88,7 @@ beforeAll(async () => {
   // Un poivre de test, fait de zéros : il ne protège rien ici.
   process.env['SECURITY_PEPPER'] = Buffer.alloc(32).toString('base64');
   process.env['SECURITY_TOTP_KEY'] = Buffer.alloc(32).toString('base64');
+  process.env['APP_BASE_URL'] = 'https://mijote.local';
   delete process.env['TRUST_PROXY'];
 
   app = await NestFactory.create<NestExpressApplication>(TestAppModule, { logger: false });
@@ -292,13 +293,21 @@ describe('les barrières du CSRF', () => {
     }
   });
 
-  it('exempte la connexion, et elle seule', () => {
+  it("n'exempte que les trois routes qui précèdent une session", () => {
     /*
       La liste est énumérée ici, mot pour mot. S'y ajouter une route demande de
       changer ce test, donc de dire pourquoi la route ne peut pas porter le
       jeton.
+
+      Les trois ont la même raison : elles sont appelées avant qu'une session
+      existe, donc aucun secret CSRF ne leur a été remis. Les deux autres
+      barrières, l'origine et le type de média, les protègent toujours.
     */
-    expect(CSRF_EXEMPT_ROUTES).toEqual([{ method: 'POST', path: '/auth/login' }]);
+    expect(CSRF_EXEMPT_ROUTES).toEqual([
+      { method: 'POST', path: '/auth/login' },
+      { method: 'POST', path: '/invitations/preview' },
+      { method: 'POST', path: '/invitations/accept' },
+    ]);
   });
 
   it('ne se laisse pas contourner par une barre oblique en trop', async () => {

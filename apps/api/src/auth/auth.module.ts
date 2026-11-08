@@ -40,6 +40,10 @@ import { TwoFactorService } from './two-factor.service.js';
     { provide: APP_GUARD, useClass: CsrfGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
   ],
-  exports: [AuthService, SessionService],
+  /*
+    `AttemptsService` est exporté : la limitation est une facilité partagée, et
+    les invitations comptent leurs propres tentatives sous leur propre motif.
+  */
+  exports: [AuthService, SessionService, AttemptsService],
 })
 export class AuthModule {}

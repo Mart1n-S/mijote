@@ -4,6 +4,7 @@ import { LoggerModule } from 'nestjs-pino';
 
 import { AuthModule } from './auth/auth.module.js';
 import { DatabaseModule } from './db/database.module.js';
+import { InvitationsModule } from './invitations/invitations.module.js';
 import { ProblemDetailsFilter } from './errors/problem-details.filter.js';
 import { HealthModule } from './health/health.module.js';
 import { buildLoggerParams } from './logging/logger-options.js';
@@ -25,6 +26,7 @@ import { MailModule } from './mail/mail.module.js';
     */
     AuthModule,
     MailModule,
+    InvitationsModule,
     HealthModule,
   ],
   providers: [

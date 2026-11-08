@@ -327,6 +327,35 @@ export class AuthService {
   }
 
   /**
+   * Ouvre une session pour un compte qui vient d'être créé.
+   *
+   * Appelée par l'acceptation d'une invitation : la personne vient de prouver
+   * qu'elle contrôle son adresse et de choisir son mot de passe, lui redemander
+   * de se connecter serait de la friction sans gain.
+   *
+   * Aucune mémorisation, et aucun déverrouillage d'administration : un compte
+   * invité comme administrateur devra d'abord inscrire son second facteur, puis
+   * se déverrouiller par un code (ADR 0012).
+   */
+  async openSessionFor(accountId: string): Promise<AuthenticatedResponse> {
+    const found = await this.accounts.findAccountById(accountId);
+
+    if (found === undefined) {
+      throw new Error("le compte qui vient d'être créé est introuvable");
+    }
+
+    const cookies = await this.openSession(accountId, false);
+
+    this.logger.info({ accountId }, 'session ouverte après inscription');
+
+    return {
+      account: toSessionAccount(found),
+      twoFactor: { active: false },
+      cookies,
+    };
+  }
+
+  /**
    * Qui est connecté, en reprenant au besoin une session mémorisée.
    *
    * Appelée par `GET /auth/session`. Le cookie CSRF est reposé au passage :

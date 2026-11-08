@@ -15,7 +15,14 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../app.module.js';
 import { createDatabase, type Database } from '../db/client.js';
-import { account, accountTwoFactor, household, invitation, loginAttempt } from '../db/schema.js';
+import {
+  account,
+  accountTwoFactor,
+  household,
+  invitation,
+  loginAttempt,
+  session,
+} from '../db/schema.js';
 import { loadEnvFile } from '../env.js';
 import { encrypt, readEncryptionKey } from '../security/encryption.js';
 import { hashPassword } from '../security/passwords.js';
@@ -23,6 +30,8 @@ import { fingerprint, readPepper } from '../security/pepper.js';
 import { hashSecret } from '../security/tokens.js';
 import { createTotpSecret, stepAt, totpCode } from '../security/totp.js';
 import { resolveTrustProxy } from '../security/trust-proxy.js';
+
+import { TWO_FACTOR_SETUP_REQUIRED, TWO_FACTOR_UNLOCK_REQUIRED } from '../auth/roles.guard.js';
 
 /*
   Les invitations de bout en bout : l'API, PostgreSQL, et Mailpit.
@@ -56,12 +65,15 @@ const BASE_URL = 'https://mijote.local';
 /** Un domaine réservé, qui n'existe nulle part. */
 const ADMIN_EMAIL = `admin-${randomUUID()}@exemple.test`;
 const USER_EMAIL = `membre-${randomUUID()}@exemple.test`;
+/** Un administrateur qui n'a pas inscrit d'application : la garde le refuse. */
+const BARE_ADMIN_EMAIL = `admin-nu-${randomUUID()}@exemple.test`;
 const INVITED = `invite-${randomUUID()}@exemple.test`;
 const RACED = `course-${randomUUID()}@exemple.test`;
 const REPLACED = `remplace-${randomUUID()}@exemple.test`;
 const DOUBLE_LIVE = `double-${randomUUID()}@exemple.test`;
 /** L'adresse que les tentatives refusées visent : rien ne doit la toucher. */
 const REFUSED = `refuse-${randomUUID()}@exemple.test`;
+const REVOKED = `revoque-${randomUUID()}@exemple.test`;
 const TRIGGER = `declencheur-${randomUUID()}@exemple.test`;
 const PURGED = `purge-${randomUUID()}@exemple.test`;
 const KEPT = `garde-${randomUUID()}@exemple.test`;
@@ -70,7 +82,10 @@ const KEPT = `garde-${randomUUID()}@exemple.test`;
 const EMAILS = [
   ADMIN_EMAIL,
   USER_EMAIL,
+  BARE_ADMIN_EMAIL,
   INVITED,
+  REFUSED,
+  REVOKED,
   RACED,
   REPLACED,
   DOUBLE_LIVE,
@@ -83,6 +98,8 @@ const EMAILS = [
 const IPS = {
   admin: '203.0.113.10',
   user: '203.0.113.14',
+  bareAdmin: '203.0.113.15',
+  revoked: '203.0.113.16',
   invited: '203.0.113.11',
   raced: '203.0.113.12',
   replaced: '203.0.113.13',
@@ -150,9 +167,13 @@ let adminId: string;
 /** La session de l'administrateur : rôle, second facteur, code validé. */
 let adminCookie: string;
 let adminCsrf: string;
+/** Le jeton de cette session, pour pouvoir la reverrouiller en base. */
+let adminSessionToken: string;
 /** La session d'un compte ordinaire, qui n'a rien à faire en administration. */
 let userCookie: string;
 let userCsrf: string;
+/** Celle d'un administrateur sans second facteur. */
+let bareAdminCookie: string;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -324,6 +345,15 @@ describe.skipIf(!reachable)('les invitations, contre une vraie base', () => {
       passwordHash: await hashPassword(PASSWORD),
     });
 
+    // Administrateur, mais sans ligne dans account_two_factor : la garde doit
+    // le refuser, et le dire autrement qu'un verrouillage.
+    await database.insert(account).values({
+      householdId,
+      email: BARE_ADMIN_EMAIL,
+      passwordHash: await hashPassword(PASSWORD),
+      role: 'admin',
+    });
+
     // Le second facteur, écrit comme l'API l'écrirait : le test peut donc
     // calculer les codes que l'application d'authentification afficherait.
     await database.insert(accountTwoFactor).values({
@@ -375,8 +405,9 @@ describe.skipIf(!reachable)('les invitations, contre une vraie base', () => {
     }
 
     adminCsrf = cookieValue(verified, CSRF_COOKIE) ?? '';
+    adminSessionToken = cookieValue(verified, 'mijote_session') ?? '';
     adminCookie = cookieHeader({
-      mijote_session: cookieValue(verified, 'mijote_session'),
+      mijote_session: adminSessionToken,
       [CSRF_COOKIE]: adminCsrf,
     });
 
@@ -400,6 +431,27 @@ describe.skipIf(!reachable)('les invitations, contre une vraie base', () => {
     userCookie = cookieHeader({
       mijote_session: cookieValue(opened, 'mijote_session'),
       [CSRF_COOKIE]: userCsrf,
+    });
+
+    // L'administrateur sans second facteur : sa session s'ouvre au mot de
+    // passe, aucun code ne lui étant demandé.
+    const bare = await fetch(`${baseUrl}/auth/login`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        origin: baseUrl,
+        'x-forwarded-for': IPS.bareAdmin,
+      },
+      body: JSON.stringify({ email: BARE_ADMIN_EMAIL, password: PASSWORD }),
+    });
+
+    if (bare.status !== 200) {
+      throw new Error(`la session de l'administrateur nu ne s'est pas ouverte : ${bare.status}`);
+    }
+
+    bareAdminCookie = cookieHeader({
+      mijote_session: cookieValue(bare, 'mijote_session'),
+      [CSRF_COOKIE]: cookieValue(bare, CSRF_COOKIE) ?? '',
     });
   });
 
@@ -502,6 +554,91 @@ describe.skipIf(!reachable)('les invitations, contre une vraie base', () => {
       .where(eq(invitation.email, REFUSED));
 
     expect(written).toHaveLength(0);
+  });
+
+  it('exige aussi un second facteur actif, puis une session déverrouillée', async () => {
+    /*
+      Une route d'administration demande trois choses, et non une : le rôle, un
+      second facteur **actif**, et un code validé dans **cette** session (ADR
+      0012). Les deux dernières n'étaient affirmées nulle part côté serveur, et
+      c'est le serveur qui protège l'administration.
+    */
+    const withoutTwoFactor = await fetch(`${baseUrl}/invitations`, {
+      headers: { cookie: bareAdminCookie },
+    });
+
+    expect(withoutTwoFactor.status).toBe(403);
+    expect(problemDetailsSchema.parse(await withoutTwoFactor.json()).detail).toBe(
+      TWO_FACTOR_SETUP_REQUIRED,
+    );
+
+    /*
+      Le verrouillage est remis en base plutôt que par une seconde connexion :
+      un code TOTP ne se rejoue pas, donc ouvrir une session de plus
+      demanderait d'attendre le pas suivant. C'est exactement l'état d'une
+      session reprise par le cookie de mémorisation.
+    */
+    await database
+      .update(session)
+      .set({ adminUnlockedAt: null })
+      .where(eq(session.tokenHash, hashSecret(adminSessionToken)));
+
+    const locked = await fetch(`${baseUrl}/invitations`, { headers: { cookie: adminCookie } });
+
+    expect(locked.status).toBe(403);
+    // Un message distinct du précédent : c'est ce qui permet à l'interface de
+    // conduire au bon écran.
+    expect(problemDetailsSchema.parse(await locked.json()).detail).toBe(TWO_FACTOR_UNLOCK_REQUIRED);
+
+    await database
+      .update(session)
+      .set({ adminUnlockedAt: new Date() })
+      .where(eq(session.tokenHash, hashSecret(adminSessionToken)));
+
+    const unlocked = await fetch(`${baseUrl}/invitations`, { headers: { cookie: adminCookie } });
+
+    expect(unlocked.status).toBe(200);
+  });
+
+  it('révoque une invitation, et ne la révoque pas deux fois', async () => {
+    const created = await postAsAdmin('/invitations', { email: REVOKED, role: 'user' });
+    const invited = invitationSchema.parse(await created.json());
+
+    const revoked = await postAsAdmin(`/invitations/${invited.id}/revoke`);
+
+    expect(revoked.status).toBe(204);
+
+    const [row] = await database
+      .select({ revokedAt: invitation.revokedAt })
+      .from(invitation)
+      .where(eq(invitation.id, invited.id));
+
+    expect(row?.revokedAt).not.toBeNull();
+
+    // Le lien ne vaut plus rien, et le refus est celui des cinq cas.
+    const token = tokenInFragment(await waitForMail(REVOKED));
+    const refused = await postPublic('/invitations/preview', { token }, { ip: IPS.revoked });
+
+    expect(refused.status).toBe(410);
+    expect(problemDetailsSchema.parse(await refused.json()).detail).toBe(UNUSABLE);
+
+    /*
+      Et une seconde révocation ne peut pas réussir : l'écriture est
+      conditionnelle, donc c'est elle qui rend le 404, et non une lecture
+      préalable.
+    */
+    const again = await postAsAdmin(`/invitations/${invited.id}/revoke`);
+
+    expect(again.status).toBe(404);
+  });
+
+  it('interdit la mise en cache de la liste, qui porte des adresses', async () => {
+    const listed = await fetch(`${baseUrl}/invitations`, { headers: { cookie: adminCookie } });
+
+    expect(listed.status).toBe(200);
+    // Jusqu'à deux cents adresses e-mail : ni le disque du poste ni un
+    // intermédiaire n'ont à en garder une copie (security.md).
+    expect(listed.headers.get('cache-control')).toBe('no-store');
   });
 
   it('garde les deux autres barrières sur les routes exemptées du jeton CSRF', async () => {

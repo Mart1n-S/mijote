@@ -512,7 +512,7 @@ describe.skipIf(!reachable)('la connexion, contre une vraie base', () => {
     const body = sessionResponseSchema.parse(await verified.json());
 
     expect(body.account.id).toBe(adminId);
-    expect(body.twoFactor).toEqual({ active: true });
+    expect(body.twoFactor).toEqual({ active: true, adminUnlocked: true });
 
     const sessionToken = cookieValue(verified, 'mijote_session');
     const sessionCsrf = cookieValue(verified, CSRF_COOKIE);

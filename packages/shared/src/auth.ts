@@ -52,6 +52,15 @@ export type LoginInput = z.infer<typeof loginSchema>;
 export const twoFactorStateSchema = z.object({
   /** Inscrite et confirmée par un premier code. */
   active: z.boolean(),
+  /**
+   * Un code a été validé dans **cette** session.
+   *
+   * Les routes d'administration l'exigent, et une session reprise par le
+   * cookie de mémorisation ne l'a pas : elle rouvre l'application, pas
+   * l'administration (ADR 0012). C'est ce qui conduit l'interface à l'écran de
+   * déverrouillage plutôt qu'à un refus.
+   */
+  adminUnlocked: z.boolean(),
 });
 
 export type TwoFactorState = z.infer<typeof twoFactorStateSchema>;

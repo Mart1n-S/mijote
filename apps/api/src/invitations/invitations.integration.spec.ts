@@ -476,7 +476,7 @@ describe.skipIf(!reachable)('les invitations, contre une vraie base', () => {
     // Son propre foyer, et non celui de l'administrateur : l'invitation est un
     // ticket d'inscription, elle ne rattache à rien (ADR 0013).
     expect(body.account.householdId).not.toBe(householdId);
-    expect(body.twoFactor).toEqual({ active: false });
+    expect(body.twoFactor).toEqual({ active: false, adminUnlocked: false });
 
     // La session est ouverte : le cookie posé répond sans repasser par le
     // formulaire de connexion.

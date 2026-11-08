@@ -543,7 +543,7 @@ describe('la connexion avec un second facteur', () => {
     const opened = await submitCode(token, currentCode());
 
     expect(opened.account.id).toBe(ACCOUNT.id);
-    expect(opened.twoFactor).toEqual({ active: true });
+    expect(opened.twoFactor).toEqual({ active: true, adminUnlocked: true });
     expect(sessions.rows.size).toBe(1);
     // L'attente est détruite, et son cookie effacé.
     expect(waiting.rows.size).toBe(0);

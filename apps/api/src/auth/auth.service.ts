@@ -192,7 +192,7 @@ export class AuthService {
 
     return {
       account: toSessionAccount(account),
-      twoFactor: { active: false },
+      twoFactor: { active: false, adminUnlocked: false },
       cookies,
     };
   }
@@ -229,7 +229,8 @@ export class AuthService {
 
     return {
       account: toSessionAccount(waiting.account),
-      twoFactor: { active: true },
+      // La session naît déverrouillée : le code vient d'être validé.
+      twoFactor: { active: true, adminUnlocked: true },
       cookies,
     };
   }
@@ -350,7 +351,7 @@ export class AuthService {
 
     return {
       account: toSessionAccount(found),
-      twoFactor: { active: false },
+      twoFactor: { active: false, adminUnlocked: false },
       cookies,
     };
   }
@@ -372,7 +373,10 @@ export class AuthService {
       if (authenticated !== undefined) {
         return {
           account: toSessionAccount(authenticated.account),
-          twoFactor: { active: await this.twoFactor.isActive(authenticated.account.id) },
+          twoFactor: {
+            active: await this.twoFactor.isActive(authenticated.account.id),
+            adminUnlocked: authenticated.session.adminUnlockedAt !== null,
+          },
           cookies: [csrfCookie(authenticated.session.csrfSecret)],
         };
       }
@@ -415,7 +419,9 @@ export class AuthService {
 
     return {
       account: toSessionAccount(account),
-      twoFactor: { active: await this.twoFactor.isActive(account.id) },
+      // Jamais déverrouillée : la mémorisation rouvre l'application, et c'est
+      // tout (ADR 0012).
+      twoFactor: { active: await this.twoFactor.isActive(account.id), adminUnlocked: false },
       cookies,
     };
   }

@@ -72,7 +72,7 @@ function sessionWithTwoFactor(): Response {
         householdId: '22222222-2222-4222-8222-222222222222',
         role: 'admin',
       },
-      twoFactor: { active: true },
+      twoFactor: { active: true, adminUnlocked: true },
     }),
     { status: 200, headers: { 'content-type': 'application/json' } },
   );

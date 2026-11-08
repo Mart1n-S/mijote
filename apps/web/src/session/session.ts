@@ -3,6 +3,7 @@ import {
   sessionResponseSchema,
   type LoginInput,
   type SessionAccount,
+  type TwoFactorState,
 } from '@mijote/shared';
 import { computed, type ComputedRef, ref } from 'vue';
 
@@ -21,6 +22,9 @@ const account = ref<SessionAccount | undefined>(undefined);
 /** La double authentification du compte connecté, telle que l'API la dit. */
 const twoFactorActive = ref(false);
 
+/** Un code a-t-il été validé dans cette session ? */
+const adminUnlocked = ref(false);
+
 /** L'appel en cours, pour que plusieurs navigations ne le lancent qu'une fois. */
 let pending: Promise<void> | undefined;
 let loaded = false;
@@ -35,6 +39,18 @@ export const isAuthenticated: ComputedRef<boolean> = computed(() => account.valu
 export const isTwoFactorActive: ComputedRef<boolean> = computed(() => twoFactorActive.value);
 
 /**
+ * Un administrateur qui doit taper un code avant d'entrer en administration.
+ *
+ * C'est le cas d'une session reprise par le cookie de mémorisation : elle vaut
+ * pour l'application, pas pour l'administration (ADR 0012). L'interface le
+ * conduit alors à l'écran de déverrouillage, plutôt que de le laisser se faire
+ * refuser par le serveur.
+ */
+export const mustUnlockAdmin: ComputedRef<boolean> = computed(
+  () => account.value?.role === 'admin' && twoFactorActive.value && !adminUnlocked.value,
+);
+
+/**
  * Un administrateur sans second facteur : il garde l'application, mais aucune
  * route d'administration ne l'accepte, et l'interface le conduit à l'activer.
  */
@@ -42,15 +58,17 @@ export const mustActivateTwoFactor: ComputedRef<boolean> = computed(
   () => account.value?.role === 'admin' && !twoFactorActive.value,
 );
 
-function remember(session: { account: SessionAccount; twoFactor: { active: boolean } }): void {
+function remember(session: { account: SessionAccount; twoFactor: TwoFactorState }): void {
   account.value = session.account;
   twoFactorActive.value = session.twoFactor.active;
+  adminUnlocked.value = session.twoFactor.adminUnlocked;
   loaded = true;
 }
 
 function forget(): void {
   account.value = undefined;
   twoFactorActive.value = false;
+  adminUnlocked.value = false;
 }
 
 async function load(): Promise<void> {

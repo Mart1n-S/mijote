@@ -48,7 +48,7 @@ function respondWith(responses: Response[]): void {
 }
 
 function sessionResponse(): Response {
-  return new Response(JSON.stringify({ account: ACCOUNT, twoFactor: { active: false } }), {
+  return new Response(JSON.stringify({ account: ACCOUNT, twoFactor: { active: false, adminUnlocked: false } }), {
     status: 200,
     headers: { 'content-type': 'application/json' },
   });
@@ -171,7 +171,7 @@ describe('le second facteur', () => {
         status: 200,
         headers: { 'content-type': 'application/json' },
       }),
-      new Response(JSON.stringify({ account: ACCOUNT, twoFactor: { active: true } }), {
+      new Response(JSON.stringify({ account: ACCOUNT, twoFactor: { active: true, adminUnlocked: true } }), {
         status: 200,
         headers: { 'content-type': 'application/json' },
       }),
@@ -195,7 +195,10 @@ describe('le second facteur', () => {
   it("dit qu'un administrateur sans second facteur doit l'activer", async () => {
     respondWith([
       new Response(
-        JSON.stringify({ account: { ...ACCOUNT, role: 'admin' }, twoFactor: { active: false } }),
+        JSON.stringify({
+          account: { ...ACCOUNT, role: 'admin' },
+          twoFactor: { active: false, adminUnlocked: false },
+        }),
         { status: 200, headers: { 'content-type': 'application/json' } },
       ),
     ]);

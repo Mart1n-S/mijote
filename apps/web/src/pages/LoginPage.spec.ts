@@ -84,7 +84,7 @@ function invalidCode(): Response {
 }
 
 function accepted(): Response {
-  return new Response(JSON.stringify({ account: ACCOUNT, twoFactor: { active: false } }), {
+  return new Response(JSON.stringify({ account: ACCOUNT, twoFactor: { active: false, adminUnlocked: false } }), {
     status: 200,
     headers: { 'content-type': 'application/json' },
   });

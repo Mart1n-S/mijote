@@ -83,8 +83,49 @@ overrides:
 # retirer cette exception le cas échéant.
 #   npm view workbox-build dependencies.glob
 #   npm view js-beautify dependencies.glob
+# Les alertes de pnpm audit qu'on laisse passer, et la raison de chacune.
+#
+# C'est la seule façon de faire taire une alerte dans ce dépôt, et security.md
+# demande qu'elle laisse une trace : l'avis, le chemin par lequel le paquet
+# arrive, pourquoi l'alerte ne nous atteint pas, et quand la revoir.
+#
+# Aucun des trois paquets n'est livré : ils servent au lint, aux tests ou à la
+# construction, et aucun n'entre dans le paquet servi au navigateur ni dans
+# l'API. Aucun ne reçoit d'entrée extérieure non plus : les motifs et les
+# fichiers qu'ils traitent sont les nôtres.
+#
+# Les trois ont été mesurées le 8 novembre 2026, exceptions retirées, pour
+# vérifier qu'elles servent encore : les trois alertes reviennent, donc aucune
+# n'a pu être supprimée.
+#
+# Réexamen : 8 février 2027. À cette date, vérifier si les paquets parents ont
+# bougé (une version corrigée en dépendance transitive suffit à retirer
+# l'entrée), et refaire la mesure ci-dessus.
 auditConfig:
   ignoreGhsas:
-    - GHSA-gcqx-w48m-w2h4 # deepmerge
-    - GHSA-g3hv-75wg-m249 # minimatch
-    - GHSA-3g3m-2fjr-6pw4 # glob
+    # deepmerge 4.3.1, faible : mergeObject() permet d'empoisonner le prototype
+    # des objets rendus. https://github.com/advisories/GHSA-gcqx-w48m-w2h4
+    #
+    # Aucune version corrigée n'existe à ce jour, donc rien à mettre à jour.
+    # Chemin : apps/web > vite-plugin-pwa 2.0.0 > workbox-build 7.4.1 >
+    # @rollup/plugin-node-resolve > deepmerge. Il ne tourne qu'à la
+    # construction de la PWA, et ne fusionne que nos propres options.
+    - GHSA-gcqx-w48m-w2h4
+    # minimatch 10.2.6, moyenne : déni de service par amplification des
+    # globparts. https://github.com/advisories/GHSA-g3hv-75wg-m249
+    #
+    # Corrigée dans minimatch 11.0.1, qu'eslint 10.13.0 n'emploie pas encore.
+    # Chemin : eslint > minimatch (et eslint > @eslint/config-array >
+    # minimatch). Les motifs viennent de notre configuration de lint, pas d'une
+    # entrée extérieure, et le lint ne tourne que sur nos postes et en CI.
+    - GHSA-g3hv-75wg-m249
+    # glob 11.1.0 et 13.0.6, moyenne : l'annulation par AbortSignal peut être
+    # contournée, donc un parcours de fichiers continue après son délai.
+    # https://github.com/advisories/GHSA-3g3m-2fjr-6pw4
+    #
+    # Corrigée dans glob 14.0.2, qu'aucun des deux parents n'emploie encore.
+    # Chemins : apps/web > vite-plugin-pwa 2.0.0 > workbox-build 7.4.1 > glob,
+    # et apps/web > @vue/test-utils 2.5.1 > js-beautify > glob. Construction et
+    # tests seulement, sur les fichiers du dépôt, et sans délai à contourner :
+    # nous n'appelons pas glob nous-mêmes.
+    - GHSA-3g3m-2fjr-6pw4

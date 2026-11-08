@@ -154,6 +154,37 @@ export async function logIn(input: LoginInput): Promise<LogInOutcome> {
   return 'session';
 }
 
+/**
+ * Crée le compte que cette invitation autorise, et ouvre sa session.
+ *
+ * Le jeton part dans le corps : il vient du fragment de l'adresse, qui n'est
+ * jamais envoyé au serveur, et il n'a pas à se retrouver dans une URL appelée
+ * (ADR 0013).
+ */
+export async function signUpWithInvitation(token: string, password: string): Promise<void> {
+  const response = await apiRequest('/invitations/accept', {
+    method: 'POST',
+    body: JSON.stringify({ token, password }),
+  });
+
+  remember(sessionResponseSchema.parse(await response.json()));
+}
+
+/**
+ * Ouvre les droits d'administration de cette session, par un code.
+ *
+ * La session est relue ensuite : c'est le serveur qui dit si elle est
+ * déverrouillée, et l'interface ne doit pas le décider de son côté.
+ */
+export async function unlockAdmin(code: string): Promise<void> {
+  await apiRequest('/auth/two-factor/unlock', {
+    method: 'POST',
+    body: JSON.stringify({ code }),
+  });
+
+  await reloadSession();
+}
+
 /** Soumet le code du second facteur, et ouvre la session s'il est bon. */
 export async function submitTwoFactorCode(code: string): Promise<void> {
   const response = await apiRequest('/auth/two-factor', {

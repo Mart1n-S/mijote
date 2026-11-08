@@ -1,6 +1,10 @@
 import type { RouteRecordRaw } from 'vue-router';
 
+import AdminPage from './pages/AdminPage.vue';
+import AdminUnlockPage from './pages/AdminUnlockPage.vue';
 import HomePage from './pages/HomePage.vue';
+import InvitationPage from './pages/InvitationPage.vue';
+import InvitationsPage from './pages/InvitationsPage.vue';
 import LoginPage from './pages/LoginPage.vue';
 import NotFoundPage from './pages/NotFoundPage.vue';
 import TwoFactorPage from './pages/TwoFactorPage.vue';
@@ -16,6 +20,15 @@ declare module 'vue-router' {
      * est privée, et le défaut doit être le plus fermé des deux.
      */
     public?: boolean;
+    /**
+     * Réservée à l'administration : rôle administrateur, second facteur actif,
+     * et code validé dans cette session (ADR 0012).
+     *
+     * La garde de navigation s'en sert pour conduire au bon écran, et la barre
+     * de navigation pour ne pas montrer l'entrée aux autres comptes. Ce qui
+     * protège les données reste le serveur.
+     */
+    admin?: boolean;
   }
 }
 
@@ -67,6 +80,44 @@ export function createRoutes(withDesignSystem: boolean): RouteRecordRaw[] {
     name: 'two-factor',
     component: TwoFactorPage,
     meta: { title: 'Double authentification' },
+  });
+
+  /*
+    L'inscription par invitation : ouverte, et la seule porte d'entrée de la V1.
+    Le jeton voyage dans le fragment de l'adresse, que cette page lit puis
+    efface (ADR 0013).
+  */
+  routes.push({
+    path: '/invitation',
+    name: 'invitation',
+    component: InvitationPage,
+    meta: { title: 'Créer votre compte', public: true },
+  });
+
+  /*
+    L'espace d'administration. Seule l'entrée figure dans la navigation, et
+    seulement pour un administrateur : les autres pages s'atteignent depuis
+    elle.
+  */
+  routes.push({
+    path: '/administration',
+    name: 'admin',
+    component: AdminPage,
+    meta: { title: 'Administration', navLabel: 'Administration', admin: true },
+  });
+
+  routes.push({
+    path: '/administration/deverrouillage',
+    name: 'admin-unlock',
+    component: AdminUnlockPage,
+    meta: { title: "Déverrouiller l'administration", admin: true },
+  });
+
+  routes.push({
+    path: '/administration/invitations',
+    name: 'admin-invitations',
+    component: InvitationsPage,
+    meta: { title: 'Invitations', admin: true },
   });
 
   if (withDesignSystem && designSystemPage !== undefined) {

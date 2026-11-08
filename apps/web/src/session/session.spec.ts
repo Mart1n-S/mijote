@@ -48,10 +48,13 @@ function respondWith(responses: Response[]): void {
 }
 
 function sessionResponse(): Response {
-  return new Response(JSON.stringify({ account: ACCOUNT, twoFactor: { active: false, adminUnlocked: false } }), {
-    status: 200,
-    headers: { 'content-type': 'application/json' },
-  });
+  return new Response(
+    JSON.stringify({ account: ACCOUNT, twoFactor: { active: false, adminUnlocked: false } }),
+    {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    },
+  );
 }
 
 function unauthorized(): Response {
@@ -171,10 +174,13 @@ describe('le second facteur', () => {
         status: 200,
         headers: { 'content-type': 'application/json' },
       }),
-      new Response(JSON.stringify({ account: ACCOUNT, twoFactor: { active: true, adminUnlocked: true } }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      }),
+      new Response(
+        JSON.stringify({ account: ACCOUNT, twoFactor: { active: true, adminUnlocked: true } }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        },
+      ),
     ]);
 
     await logIn({ email: ACCOUNT.email, password: 'bon', remember: false });

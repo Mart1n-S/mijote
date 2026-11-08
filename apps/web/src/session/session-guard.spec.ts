@@ -20,16 +20,40 @@ const ACCOUNT = {
   role: 'user',
 };
 
+/** Le compte et son second facteur, tels que GET /auth/session les dirait. */
+function respondWith(session: { role: string; active: boolean; adminUnlocked: boolean }): void {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            account: { ...ACCOUNT, role: session.role },
+            twoFactor: { active: session.active, adminUnlocked: session.adminUnlocked },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
+      ),
+    ),
+  );
+}
+
 function respondAs(connected: boolean): void {
   vi.stubGlobal(
     'fetch',
     vi.fn(() =>
       Promise.resolve(
         connected
-          ? new Response(JSON.stringify({ account: ACCOUNT, twoFactor: { active: false, adminUnlocked: false } }), {
-              status: 200,
-              headers: { 'content-type': 'application/json' },
-            })
+          ? new Response(
+              JSON.stringify({
+                account: ACCOUNT,
+                twoFactor: { active: false, adminUnlocked: false },
+              }),
+              {
+                status: 200,
+                headers: { 'content-type': 'application/json' },
+              },
+            )
           : new Response(
               JSON.stringify({
                 type: 'about:blank',
@@ -177,5 +201,77 @@ describe('la garde de session', () => {
     await router.push('/connexion');
 
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("la garde de l'administration", () => {
+  /*
+    Trois conditions, et un écran par condition qui peut se corriger : le rôle
+    n'en a pas, le second facteur et le déverrouillage en ont un (ADR 0012).
+
+    Ce n'est pas ce qui protège l'administration : le serveur refuse ces routes
+    de son côté, et ces tests ne mesurent que l'écran montré.
+  */
+  it('mène un compte ordinaire sur la page introuvable', async () => {
+    respondWith({ role: 'user', active: false, adminUnlocked: false });
+
+    const router = createGuardedRouter();
+
+    await router.push('/administration');
+
+    expect(router.currentRoute.value.name).toBe('not-found');
+  });
+
+  it("conduit un administrateur sans second facteur à l'activer", async () => {
+    respondWith({ role: 'admin', active: false, adminUnlocked: false });
+
+    const router = createGuardedRouter();
+
+    await router.push('/administration/invitations');
+
+    expect(router.currentRoute.value.name).toBe('two-factor');
+  });
+
+  it("conduit au déverrouillage, en gardant l'adresse demandée", async () => {
+    // Le cas d'une session rouverte par le cookie de mémorisation.
+    respondWith({ role: 'admin', active: true, adminUnlocked: false });
+
+    const router = createGuardedRouter();
+
+    await router.push('/administration/invitations');
+
+    expect(router.currentRoute.value.name).toBe('admin-unlock');
+    expect(router.currentRoute.value.query['suivant']).toBe('/administration/invitations');
+  });
+
+  it('laisse entrer un administrateur déverrouillé', async () => {
+    respondWith({ role: 'admin', active: true, adminUnlocked: true });
+
+    const router = createGuardedRouter();
+
+    await router.push('/administration/invitations');
+
+    expect(router.currentRoute.value.name).toBe('admin-invitations');
+  });
+
+  it("écarte l'écran de déverrouillage quand il n'y a plus rien à déverrouiller", async () => {
+    respondWith({ role: 'admin', active: true, adminUnlocked: true });
+
+    const router = createGuardedRouter();
+
+    await router.push('/administration/deverrouillage');
+
+    expect(router.currentRoute.value.name).toBe('admin');
+  });
+
+  it("laisse l'écran de déverrouillage à qui doit y passer", async () => {
+    // Sans cette exception, la garde s'y renverrait en boucle.
+    respondWith({ role: 'admin', active: true, adminUnlocked: false });
+
+    const router = createGuardedRouter();
+
+    await router.push('/administration/deverrouillage');
+
+    expect(router.currentRoute.value.name).toBe('admin-unlock');
   });
 });

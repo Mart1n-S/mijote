@@ -338,11 +338,23 @@ export class AuthService {
    * invité comme administrateur devra d'abord inscrire son second facteur, puis
    * se déverrouiller par un code (ADR 0012).
    */
-  async openSessionFor(accountId: string): Promise<AuthenticatedResponse> {
+  async openSessionFor(
+    accountId: string,
+    presentedSession?: string,
+  ): Promise<AuthenticatedResponse> {
     const found = await this.accounts.findAccountById(accountId);
 
     if (found === undefined) {
       throw new Error("le compte qui vient d'être créé est introuvable");
+    }
+
+    /*
+      La session précédente de ce navigateur est fermée, comme à la connexion :
+      le cookie de session va être remplacé, et une session que plus aucun
+      cookie ne désigne ne peut plus être fermée par personne.
+    */
+    if (presentedSession !== undefined) {
+      await this.sessions.closePresented(presentedSession);
     }
 
     const cookies = await this.openSession(accountId, false);

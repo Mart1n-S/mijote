@@ -383,6 +383,20 @@ describe('les réglages lus au démarrage', () => {
     expect(() => readAppBaseUrl({ APP_BASE_URL: 'file:///etc/passwd' })).toThrow(/http/);
   });
 
+  it("refuse une adresse publique qu'on ne saurait pas compléter", () => {
+    /*
+      Le lien se construit en ajoutant `/invitation#<jeton>` : une chaîne de
+      requête ou un fragment donnerait une adresse cassée, et un jeton qui ne
+      mène nulle part.
+    */
+    expect(() => readAppBaseUrl({ APP_BASE_URL: 'https://mijote.local/?x=1' })).toThrow(
+      /paramètre de requête ni fragment/,
+    );
+    expect(() => readAppBaseUrl({ APP_BASE_URL: 'https://mijote.local/#ici' })).toThrow(
+      /paramètre de requête ni fragment/,
+    );
+  });
+
   it('enlève la barre oblique finale, que les liens rajoutent', () => {
     expect(readAppBaseUrl({ APP_BASE_URL: 'https://mijote.local//' })).toBe('https://mijote.local');
   });
@@ -555,9 +569,9 @@ describe('les invitations', () => {
       const invitation = await service.create(ADMIN, { email: EMAIL, role: 'user' });
       const token = tokenOf(first(mailer.sent, 'e-mail envoyé'));
 
-      await service.revoke(invitation.id);
+      await service.revoke(ADMIN, invitation.id);
 
-      await expect(service.preview(token)).rejects.toThrow(UNUSABLE);
+      await expect(service.preview(token, IP)).rejects.toThrow(UNUSABLE);
       await expect(service.accept(token, PASSWORD, IP)).rejects.toThrow(UNUSABLE);
       expect(accounts.created).toHaveLength(0);
     });
@@ -565,9 +579,24 @@ describe('les invitations', () => {
     it("refuse de révoquer ce qui ne peut plus l'être", async () => {
       const used = invitations.seed({ token: 'déjà-servi', usedAt: new Date() });
 
-      const refusal = await refusalOf(() => service.revoke(used.id));
+      const refusal = await refusalOf(() => service.revoke(ADMIN, used.id));
 
       expect(refusal.getStatus()).toBe(404);
+    });
+
+    it('nomme qui a révoqué, et pas la personne invitée', async () => {
+      const invitation = await service.create(ADMIN, { email: EMAIL, role: 'user' });
+
+      await service.revoke(ADMIN, invitation.id);
+
+      /*
+        Une action d'administration est attribuée (security.md) : sans cela,
+        plusieurs administrateurs partageant les invitations, une révocation
+        serait inattribuable.
+      */
+      expect(log.dump()).toContain(ADMIN.id);
+      expect(log.dump()).toContain(invitation.id);
+      expect(log.dump()).not.toContain(EMAIL);
     });
   });
 
@@ -575,10 +604,50 @@ describe('les invitations', () => {
     it("ne dit que l'adresse invitée", async () => {
       await service.create(ADMIN, { email: EMAIL, role: 'admin' });
 
-      const preview = await service.preview(tokenOf(first(mailer.sent, 'e-mail envoyé')));
+      const preview = await service.preview(tokenOf(first(mailer.sent, 'e-mail envoyé')), IP);
 
       // Ni le rôle, ni qui a invité, ni les dates : la page n'en a pas besoin.
       expect(preview).toEqual({ email: EMAIL });
+    });
+
+    it("refuse les cinq mêmes cas que l'acceptation", async () => {
+      /*
+        Les mêmes cinq, et le même message : sinon l'aperçu dirait oui à un
+        lien que l'acceptation refusera, et l'invité taperait un mot de passe
+        pour rien.
+      */
+      const now = Date.now();
+
+      invitations.seed({ token: 'expiré', expiresAt: new Date(now - HOUR_MS) });
+      invitations.seed({ token: 'révoqué', revokedAt: new Date(now) });
+      invitations.seed({ token: 'utilisé', usedAt: new Date(now) });
+      invitations.seed({ token: 'prise', email: 'prise@exemple.test' });
+      accounts.taken.add('prise@exemple.test');
+
+      const cases = ['jamais-émis', 'expiré', 'révoqué', 'utilisé', 'prise'];
+
+      for (const [index, token] of cases.entries()) {
+        const refusal = await refusalOf(() => service.preview(token, `198.51.100.${index + 1}`));
+
+        expect(refusal.getStatus(), token).toBe(410);
+        expect(refusal.message, token).toBe(UNUSABLE);
+      }
+    });
+
+    it('est bornée elle aussi, sous le même motif', async () => {
+      /*
+        Elle ne hache rien, mais elle lit en base pour un inconnu : la seule
+        route publique sans compteur serait la seule à pouvoir être sollicitée
+        sans borne.
+      */
+      for (let tried = 0; tried < 5; tried += 1) {
+        await service.preview(`jeton-inventé-${tried}`, IP).catch(() => undefined);
+      }
+
+      const refusal = await refusalOf(() => service.preview('encore-un', IP));
+
+      expect(refusal.getStatus()).toBe(429);
+      expect(attempts.rows.every((row) => row.purpose === 'invitation')).toBe(true);
     });
   });
 
@@ -592,7 +661,10 @@ describe('les invitations', () => {
       expect(accounts.created).toEqual([
         { email: EMAIL, password: PASSWORD, role: 'admin', householdName: 'Mon foyer' },
       ]);
-      expect(accepted.email).toBe(EMAIL);
+      // Le service ne rend que l'identifiant : l'adresse n'a pas à traverser
+      // cette frontière pour n'y servir à personne.
+      expect(Object.keys(accepted)).toEqual(['accountId']);
+      expect(accepted.accountId).toMatch(/^[0-9a-f-]{36}$/);
       expect(first(invitations.rows, 'invitation écrite').usedAt).not.toBeNull();
       expect(log.dump()).not.toContain(EMAIL);
       expect(log.dump()).not.toContain(PASSWORD);

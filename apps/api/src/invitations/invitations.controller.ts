@@ -12,10 +12,11 @@ import {
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Req, Res } from '@nestjs/common';
 import { z } from 'zod';
 
+import { SESSION_COOKIE } from '../auth/auth.cookies.js';
 import { AuthService } from '../auth/auth.service.js';
 import { type CookieSink } from '../auth/auth.controller.js';
 import { Public } from '../auth/public.decorator.js';
-import { readClientIp, requireAuthenticated } from '../auth/request-context.js';
+import { readClientIp, readRequestCookie, requireAuthenticated } from '../auth/request-context.js';
 import { Roles } from '../auth/roles.decorator.js';
 import { ZodValidationPipe } from '../errors/zod-validation.pipe.js';
 
@@ -36,6 +37,18 @@ import { InvitationsService } from './invitations.service.js';
 
 const idSchema = z.object({ id: z.uuid() });
 
+/**
+ * Interdit la mise en cache d'une réponse.
+ *
+ * Les cinq routes la portent : chacune rend au moins une adresse e-mail, et
+ * une liste d'administration en rend jusqu'à deux cents. Ni le disque du poste
+ * ni un intermédiaire n'ont à en garder une copie, comme pour la session
+ * (`auth.controller.ts`).
+ */
+function noStore(response: CookieSink): void {
+  response.setHeader('Cache-Control', 'no-store');
+}
+
 @Controller('invitations')
 export class InvitationsController {
   constructor(
@@ -49,13 +62,18 @@ export class InvitationsController {
   async create(
     @Body(new ZodValidationPipe(createInvitationSchema)) body: CreateInvitationInput,
     @Req() request: unknown,
+    @Res({ passthrough: true }) response: CookieSink,
   ): Promise<Invitation> {
+    noStore(response);
+
     return this.invitations.create(requireAuthenticated(request).account, body);
   }
 
   @Roles('admin')
   @Get()
-  async list(): Promise<InvitationList> {
+  async list(@Res({ passthrough: true }) response: CookieSink): Promise<InvitationList> {
+    noStore(response);
+
     return { invitations: await this.invitations.list() };
   }
 
@@ -64,8 +82,11 @@ export class InvitationsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async revoke(
     @Param(new ZodValidationPipe(idSchema)) parameters: z.infer<typeof idSchema>,
+    @Req() request: unknown,
   ): Promise<void> {
-    await this.invitations.revoke(parameters.id);
+    // L'acteur est passé au service, qui l'écrit au journal : une action
+    // d'administration est attribuée (security.md).
+    await this.invitations.revoke(requireAuthenticated(request).account, parameters.id);
   }
 
   /**
@@ -80,12 +101,12 @@ export class InvitationsController {
   @HttpCode(HttpStatus.OK)
   async preview(
     @Body(new ZodValidationPipe(invitationTokenSchema)) body: z.infer<typeof invitationTokenSchema>,
+    @Req() request: unknown,
     @Res({ passthrough: true }) response: CookieSink,
   ): Promise<InvitationPreview> {
-    // La réponse porte l'adresse invitée : elle ne se met pas en cache.
-    response.setHeader('Cache-Control', 'no-store');
+    noStore(response);
 
-    return this.invitations.preview(body.token);
+    return this.invitations.preview(body.token, readClientIp(request));
   }
 
   /**
@@ -104,9 +125,18 @@ export class InvitationsController {
     @Res({ passthrough: true }) response: CookieSink,
   ): Promise<SessionResponse> {
     const created = await this.invitations.accept(body.token, body.password, readClientIp(request));
-    const opened = await this.auth.openSessionFor(created.accountId);
+    /*
+      La session précédente de ce navigateur est fermée, comme à la connexion :
+      ce chemin est public, donc quelqu'un de déjà connecté peut ouvrir un lien
+      d'invitation. Sans cela, sa session resterait valable côté serveur alors
+      que son cookie vient d'être remplacé, et plus rien ne pourrait la fermer.
+    */
+    const opened = await this.auth.openSessionFor(
+      created.accountId,
+      readRequestCookie(request, SESSION_COOKIE),
+    );
 
-    response.setHeader('Cache-Control', 'no-store');
+    noStore(response);
     response.setHeader('Set-Cookie', opened.cookies);
 
     return { account: opened.account, twoFactor: opened.twoFactor };

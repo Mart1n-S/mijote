@@ -8,7 +8,7 @@ import {
   type NewAccount,
 } from '../accounts/account-creation.js';
 import { AccountsService } from '../accounts/accounts.service.js';
-import { AttemptsService } from '../auth/attempts.service.js';
+import { type AttemptKeys, AttemptsService } from '../auth/attempts.service.js';
 import type { AuthLog } from '../auth/auth.log.js';
 import type { AccountRecord } from '../auth/auth.repository.js';
 import { ProblemException } from '../errors/problem.exception.js';
@@ -72,6 +72,18 @@ export function readAppBaseUrl(env: NodeJS.ProcessEnv): string {
 
   if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
     throw new Error('APP_BASE_URL doit être une adresse http ou https. Voir .env.example.');
+  }
+
+  /*
+    Ni chaîne de requête ni fragment : les liens se construisent en ajoutant
+    `/invitation#<jeton>`, donc une telle valeur produirait une adresse cassée
+    (`https://hôte/?x=1/invitation#...`). Cette fonction décide du domaine où
+    part un jeton : autant qu'elle refuse ce qu'elle ne sait pas construire.
+  */
+  if (parsed.search !== '' || parsed.hash !== '') {
+    throw new Error(
+      'APP_BASE_URL ne doit porter ni paramètre de requête ni fragment. Voir .env.example.',
+    );
   }
 
   // Sans barre oblique finale : les liens en ajoutent une.
@@ -229,7 +241,7 @@ export class InvitationsService {
     return (await this.invitations.list(LIST_LIMIT)).map((record) => this.toView(record, now));
   }
 
-  async revoke(id: string): Promise<void> {
+  async revoke(actor: AccountRecord, id: string): Promise<void> {
     if (!(await this.invitations.revoke(id, new Date()))) {
       /*
         Déjà consommée, déjà révoquée, ou inexistante : le même refus. Un
@@ -239,7 +251,13 @@ export class InvitationsService {
       throw new ProblemException(HttpStatus.NOT_FOUND, NOT_PENDING);
     }
 
-    this.logger.info({ invitationId: id }, 'invitation révoquée');
+    /*
+      Qui a révoqué, et pas seulement quoi : c'est une action d'administration,
+      donc elle est attribuée, comme l'envoi l'est par `invitedBy`
+      (security.md). Les administrateurs administrent les invitations en
+      commun, donc sans ce champ une révocation serait inattribuable.
+    */
+    this.logger.info({ invitationId: id, revokedBy: actor.id }, 'invitation révoquée');
   }
 
   /**
@@ -248,8 +266,11 @@ export class InvitationsService {
    *
    * Rien d'autre ne sort : ni le rôle, ni qui a invité, ni la date.
    */
-  async preview(token: string): Promise<{ email: string }> {
-    const record = await this.live(token);
+  async preview(token: string, clientIp: string): Promise<{ email: string }> {
+    const keys = await this.guard(clientIp);
+    const record = await this.usable(keys, token);
+
+    await this.attempts.record(keys, 'succeeded', 'invitation');
 
     return { email: record.email };
   }
@@ -262,39 +283,9 @@ export class InvitationsService {
    * créer deux comptes, là où créer d'abord laisserait la seconde échouer sur
    * l'unicité de l'adresse après avoir haché un mot de passe.
    */
-  async accept(
-    token: string,
-    password: string,
-    clientIp: string,
-  ): Promise<{ accountId: string; householdId: string; email: string }> {
-    /*
-      La limitation porte sur l'adresse IP, et sur elle seule : le jeton est
-      hors de portée d'une recherche exhaustive, mais cette route hache un mot
-      de passe, donc elle ne doit pas devenir un levier d'épuisement mémoire.
-
-      L'IP est passée comme sujet **et** comme IP : les deux compteurs de
-      `AttemptsService` tiennent alors la même valeur, et la borne effective est
-      la plus basse des deux, cinq essais ratés par quart d'heure. Personne
-      n'en fait plus d'un ou deux de bonne foi.
-    */
-    const keys = this.attempts.keysFor(clientIp, clientIp);
-
-    if (await this.attempts.isBlocked(keys, 'invitation')) {
-      await this.attempts.record(keys, 'blocked', 'invitation');
-
-      throw new ProblemException(HttpStatus.TOO_MANY_REQUESTS, TOO_MANY_ATTEMPTS);
-    }
-
-    const record = await this.refuseAndCount(keys, () => this.live(token));
-
-    /*
-      L'adresse a pu obtenir un compte entre l'envoi et l'acceptation. Le refus
-      est le même que pour un lien expiré : dire « un compte existe déjà »
-      apprendrait à qui tient le lien qu'il en existe un.
-    */
-    if (await this.accounts.isEmailTaken(record.email)) {
-      throw await this.countedRefusal(keys);
-    }
+  async accept(token: string, password: string, clientIp: string): Promise<{ accountId: string }> {
+    const keys = await this.guard(clientIp);
+    const record = await this.usable(keys, token);
 
     if (!(await this.invitations.consume(record.id, new Date()))) {
       throw await this.countedRefusal(keys);
@@ -314,7 +305,9 @@ export class InvitationsService {
       'invitation acceptée',
     );
 
-    return { ...created, email: record.email };
+    // Le seul identifiant, et rien de plus : l'adresse n'a aucune raison de
+    // traverser une frontière de module pour n'y servir à personne.
+    return { accountId: created.accountId };
   }
 
   /**
@@ -327,14 +320,68 @@ export class InvitationsService {
   async purge(): Promise<void> {
     const before = new Date(Date.now() - FINISHED_RETENTION_DAYS * 24 * 60 * 60 * 1000);
 
-    await this.invitations.purgeFinished(before);
+    try {
+      await this.invitations.purgeFinished(before);
+    } catch (error) {
+      /*
+        L'erreur s'arrête ici, et c'est voulu : la purge vient après un e-mail
+        parti et une ligne écrite. La laisser remonter rendrait un 500 à
+        l'administrateur pour une invitation qui est, elle, bien chez l'invité.
+      */
+      this.logger.warn({ reason: String(error) }, 'purge des invitations impossible');
+    }
+  }
+
+  /**
+   * La limitation des deux routes publiques, et les clés qui comptent.
+   *
+   * Elle porte sur l'adresse IP, et sur elle seule : le jeton est hors de
+   * portée d'une recherche exhaustive, mais l'acceptation hache un mot de
+   * passe et l'aperçu lit en base, et aucune des deux n'a à pouvoir être
+   * sollicitée sans borne par un inconnu.
+   *
+   * L'IP est passée comme sujet **et** comme IP : les deux compteurs de
+   * `AttemptsService` tiennent alors la même valeur, et la borne effective est
+   * la plus basse des deux, cinq essais ratés par quart d'heure. Personne n'en
+   * fait plus d'un ou deux de bonne foi.
+   */
+  private async guard(clientIp: string): Promise<AttemptKeys> {
+    const keys = this.attempts.keysFor(clientIp, clientIp);
+
+    if (await this.attempts.isBlocked(keys, 'invitation')) {
+      await this.attempts.record(keys, 'blocked', 'invitation');
+
+      throw new ProblemException(HttpStatus.TOO_MANY_REQUESTS, TOO_MANY_ATTEMPTS);
+    }
+
+    return keys;
+  }
+
+  /**
+   * L'invitation que ce jeton désigne, si elle vaut encore quelque chose.
+   *
+   * Les cinq cas sont traités ici, pour les deux routes publiques : un lien
+   * inconnu, expiré, révoqué, déjà utilisé, ou dont l'adresse a entre-temps un
+   * compte. Le même refus pour les cinq, et au même endroit, pour que l'aperçu
+   * ne dise pas oui à ce que l'acceptation refusera.
+   */
+  private async usable(keys: AttemptKeys, token: string): Promise<InvitationRecord> {
+    const record = await this.refuseAndCount(keys, () => this.live(token));
+
+    /*
+      L'adresse a pu obtenir un compte entre l'envoi et la lecture du lien. Le
+      refus est le même que pour un lien expiré : dire « un compte existe
+      déjà » apprendrait à qui tient le lien qu'il en existe un.
+    */
+    if (await this.accounts.isEmailTaken(record.email)) {
+      throw await this.countedRefusal(keys);
+    }
+
+    return record;
   }
 
   /** Compte l'échec, et rend le refus à lever. */
-  private async countedRefusal(keys: {
-    emailFingerprint: string;
-    ipFingerprint: string;
-  }): Promise<ProblemException> {
+  private async countedRefusal(keys: AttemptKeys): Promise<ProblemException> {
     await this.attempts.record(keys, 'failed', 'invitation');
 
     return new ProblemException(HttpStatus.GONE, UNUSABLE);
@@ -342,7 +389,7 @@ export class InvitationsService {
 
   /** Compte l'échec quand l'appel refuse, et laisse passer le refus. */
   private async refuseAndCount<Result>(
-    keys: { emailFingerprint: string; ipFingerprint: string },
+    keys: AttemptKeys,
     run: () => Promise<Result>,
   ): Promise<Result> {
     try {

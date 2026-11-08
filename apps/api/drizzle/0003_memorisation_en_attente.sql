@@ -1,0 +1,1 @@
+ALTER TABLE "pending_login" ADD COLUMN "remember" boolean DEFAULT false NOT NULL;

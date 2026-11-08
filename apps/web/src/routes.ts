@@ -3,6 +3,7 @@ import type { RouteRecordRaw } from 'vue-router';
 import HomePage from './pages/HomePage.vue';
 import LoginPage from './pages/LoginPage.vue';
 import NotFoundPage from './pages/NotFoundPage.vue';
+import TwoFactorPage from './pages/TwoFactorPage.vue';
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -54,6 +55,18 @@ export function createRoutes(withDesignSystem: boolean): RouteRecordRaw[] {
     name: 'login',
     component: LoginPage,
     meta: { title: 'Connexion', public: true },
+  });
+
+  /*
+    La double authentification : une page de compte, qui demande une session.
+    Elle ne figure pas dans la navigation : on y arrive par l'invitation de
+    l'en-tête quand elle manque, ou par un lien direct.
+  */
+  routes.push({
+    path: '/securite/double-authentification',
+    name: 'two-factor',
+    component: TwoFactorPage,
+    meta: { title: 'Double authentification' },
   });
 
   if (withDesignSystem && designSystemPage !== undefined) {

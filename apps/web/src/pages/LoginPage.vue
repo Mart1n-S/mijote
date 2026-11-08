@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { loginSchema } from '@mijote/shared';
-import { ref } from 'vue';
+import { nextTick, ref, useTemplateRef } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { ApiError } from '../api/client';
@@ -8,31 +8,64 @@ import BaseAlert from '../components/base/BaseAlert.vue';
 import BaseButton from '../components/base/BaseButton.vue';
 import BaseCheckbox from '../components/base/BaseCheckbox.vue';
 import BaseField from '../components/base/BaseField.vue';
-import { logIn } from '../session/session';
+import { logIn, submitTwoFactorCode } from '../session/session';
 import { NEXT_QUERY, safeNextPath } from '../session/session-guard';
 
 const route = useRoute();
 const router = useRouter();
 
+/*
+  Deux étapes dans une page : le mot de passe, puis le code quand le compte a
+  un second facteur. Entre les deux, aucune session n'est ouverte : l'attente
+  vit côté serveur et son cookie la porte (ADR 0012).
+*/
+const step = ref<'password' | 'code'>('password');
+
 const email = ref('');
 const password = ref('');
 const remember = ref(false);
+const code = ref('');
 const emailError = ref('');
 const passwordError = ref('');
+const codeError = ref('');
 const formError = ref('');
 const submitting = ref(false);
 
+/** Le bloc de la seconde étape, pour y amener le focus quand elle arrive. */
+const codeStep = useTemplateRef<HTMLElement>('codeStep');
+
 /*
   Les messages sont écrits ici, en français, et non repris de zod : la locale
-  française de zod est posée côté API, dans le pipe de validation, et ces deux
+  française de zod est posée côté API, dans le pipe de validation, et ces
   phrases-là sont les seules que cet écran a besoin de dire. Le schéma partagé
   reste la règle, il n'est que sa formulation qui change.
 */
 const INVALID_EMAIL = 'Indiquez une adresse e-mail valide.';
 const MISSING_PASSWORD = 'Indiquez votre mot de passe.';
+const MISSING_CODE = 'Indiquez le code de votre application, ou un code de secours.';
 
 /** Le message montré quand la connexion échoue pour une raison inattendue. */
 const UNEXPECTED_FAILURE = "La connexion n'a pas pu aboutir. Réessayez dans un instant.";
+
+/** Là où on allait avant d'être renvoyé ici. */
+async function goOn(): Promise<void> {
+  /*
+    replace et non push : la page de connexion n'a pas à rester dans
+    l'historique, où le bouton Retour y ramènerait une fois connecté.
+  */
+  await router.replace({ path: safeNextPath(route.query[NEXT_QUERY]) });
+}
+
+/** Ce que dit une erreur d'API, ou une phrase de repli. */
+function messageOf(error: unknown): string {
+  /*
+    Le message vient de l'API, qui l'écrit en français et le fait exprès
+    identique pour une adresse inconnue et un mot de passe faux, comme pour un
+    code faux et un code déjà consommé : cet écran ne doit rien y ajouter qui
+    distinguerait les cas.
+  */
+  return error instanceof ApiError ? error.userMessage : UNEXPECTED_FAILURE;
+}
 
 async function submit(): Promise<void> {
   emailError.value = '';
@@ -62,19 +95,51 @@ async function submit(): Promise<void> {
   submitting.value = true;
 
   try {
-    await logIn(parsed.data);
-    /*
-      replace et non push : la page de connexion n'a pas à rester dans
-      l'historique, où le bouton Retour y ramènerait une fois connecté.
-    */
-    await router.replace({ path: safeNextPath(route.query[NEXT_QUERY]) });
+    if ((await logIn(parsed.data)) === 'two-factor') {
+      step.value = 'code';
+
+      // Le focus suit l'écran : sans cela, il resterait sur un bouton qui
+      // n'est plus là.
+      await nextTick();
+      codeStep.value?.querySelector('input')?.focus();
+
+      return;
+    }
+
+    await goOn();
   } catch (error) {
-    /*
-      Le message vient de l'API, qui l'écrit en français et le fait exprès
-      identique pour une adresse inconnue et un mot de passe faux : cet écran ne
-      doit donc rien y ajouter qui distinguerait les deux cas.
-    */
-    formError.value = error instanceof ApiError ? error.userMessage : UNEXPECTED_FAILURE;
+    formError.value = messageOf(error);
+  } finally {
+    submitting.value = false;
+  }
+}
+
+/** Repart du mot de passe, l'attente du code ayant expiré ou été épuisée. */
+function restart(): void {
+  step.value = 'password';
+  password.value = '';
+  code.value = '';
+  codeError.value = '';
+  formError.value = '';
+}
+
+async function submitCode(): Promise<void> {
+  codeError.value = '';
+  formError.value = '';
+
+  if (code.value.trim() === '') {
+    codeError.value = MISSING_CODE;
+
+    return;
+  }
+
+  submitting.value = true;
+
+  try {
+    await submitTwoFactorCode(code.value);
+    await goOn();
+  } catch (error) {
+    formError.value = messageOf(error);
   } finally {
     submitting.value = false;
   }
@@ -84,7 +149,7 @@ async function submit(): Promise<void> {
 <template>
   <h1>Connexion</h1>
 
-  <form class="login" novalidate @submit.prevent="submit">
+  <form v-if="step === 'password'" class="login" novalidate @submit.prevent="submit">
     <!-- L'erreur du formulaire vit dans le formulaire, et non dans la page :
          c'est de lui qu'elle parle, et le bandeau d'état du service a déjà sa
          propre région dans le gabarit.
@@ -92,6 +157,7 @@ async function submit(): Promise<void> {
          La région aria-live est montée avec la page, avant tout message : sinon
          l'arrivée du message ne serait pas annoncée (voir BaseAlert). -->
     <BaseAlert variant="error" :message="formError" />
+
     <BaseField
       v-model="email"
       label="Adresse e-mail"
@@ -122,6 +188,43 @@ async function submit(): Promise<void> {
       Se connecter
     </BaseButton>
   </form>
+
+  <div v-else ref="codeStep">
+    <form class="login" novalidate @submit.prevent="submitCode">
+      <BaseAlert variant="error" :message="formError" />
+
+      <h2>Code de vérification</h2>
+
+      <p class="login__hint">
+        Ouvrez votre application d'authentification et recopiez le code à six chiffres. Un code de
+        secours fonctionne aussi, numéro compris.
+      </p>
+
+      <!-- Pas d'`inputmode="numeric"` ici, contrairement à l'écran
+           d'activation : un code de secours est fait de lettres, et un clavier
+           limité aux chiffres rendrait le chemin du téléphone perdu intapable
+           sur mobile. -->
+      <BaseField
+        v-model="code"
+        label="Code"
+        name="code"
+        autocomplete="one-time-code"
+        autocapitalize="characters"
+        spellcheck="false"
+        required
+        :error="codeError"
+      />
+
+      <BaseButton type="submit" :loading="submitting" loading-label="vérification en cours">
+        Vérifier
+      </BaseButton>
+
+      <!-- L'attente expire au bout de cinq minutes, et meurt au cinquième essai
+           raté : le message dit alors de recommencer, et ceci est le moyen de le
+           faire. Sans lui, l'écran ne garderait qu'un bouton qui échoue. -->
+      <BaseButton variant="secondary" @click="restart">Recommencer la connexion</BaseButton>
+    </form>
+  </div>
 </template>
 
 <style scoped>
@@ -133,5 +236,11 @@ async function submit(): Promise<void> {
   max-width: 24rem;
   margin-top: var(--space-5);
   gap: var(--space-4);
+}
+
+.login__hint {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
 }
 </style>

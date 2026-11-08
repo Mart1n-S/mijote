@@ -1,4 +1,15 @@
-import { index, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  index,
+  integer,
+  pgEnum,
+  pgTable,
+  smallint,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
 
 /*
   Schéma Drizzle. Le lot 1 n'a de tables que pour les comptes et leur session :
@@ -12,6 +23,19 @@ export const accountRole = pgEnum('account_role', ['user', 'admin']);
 
 /** L'issue d'une tentative de connexion, telle que la limitation la compte. */
 export const loginOutcome = pgEnum('login_outcome', ['succeeded', 'failed', 'blocked']);
+
+/**
+ * Ce qui était vérifié par une tentative.
+ *
+ * Les trois compteurs restent séparés : cinq mots de passe faux à la
+ * connexion, cinq codes faux et cinq mots de passe faux à la réauthentification
+ * sont trois histoires différentes.
+ *
+ * `reauth` en particulier ne doit pas compter avec `password` : les deux ont la
+ * même adresse IP, et un porteur de session volée pourrait sinon épuiser le
+ * compteur de la connexion et verrouiller le vrai propriétaire dehors.
+ */
+export const loginPurpose = pgEnum('login_purpose', ['password', 'code', 'reauth']);
 
 /** Un foyer. Un compte en fait partie, et tout ce qui est partagé lui appartient. */
 export const household = pgTable('household', {
@@ -62,6 +86,16 @@ export const session = pgTable(
     lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
     /** Limite absolue, indépendante de l'activité. */
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    /*
+      Quand le second facteur a été validé **dans cette session**, et donc
+      depuis quand elle a les droits d'administration. Nul, la session vaut
+      pour l'application mais aucune route d'administration ne l'accepte.
+
+      C'est ce qui permet au cookie de mémorisation de rouvrir l'application
+      sans rouvrir l'administration (ADR 0012) : une session reprise naît avec
+      cette colonne nulle.
+    */
+    adminUnlockedAt: timestamp('admin_unlocked_at', { withTimezone: true }),
   },
   (table) => [
     uniqueIndex('session_token_hash_unique').on(table.tokenHash),
@@ -113,10 +147,116 @@ export const loginAttempt = pgTable(
     emailFingerprint: text('email_fingerprint').notNull(),
     ipFingerprint: text('ip_fingerprint').notNull(),
     outcome: loginOutcome('outcome').notNull(),
+    /*
+      Au stade du code, le compte est déjà connu : l'empreinte porte alors sur
+      son identifiant et non sur une adresse soumise. La colonne dit lequel des
+      deux, pour que les deux compteurs ne se confondent pas.
+    */
+    purpose: loginPurpose('purpose').notNull().default('password'),
     attemptedAt: timestamp('attempted_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index('login_attempt_email_idx').on(table.emailFingerprint, table.attemptedAt),
     index('login_attempt_ip_idx').on(table.ipFingerprint, table.attemptedAt),
+  ],
+);
+
+/**
+ * La double authentification d'un compte. Une ligne par compte, au plus.
+ *
+ * Elle existe dès que quelqu'un commence l'inscription de son application :
+ * `activated_at` nul veut dire « secret engendré, jamais confirmé », et un
+ * nouveau `setup` l'écrase.
+ */
+export const accountTwoFactor = pgTable('account_two_factor', {
+  accountId: uuid('account_id')
+    .primaryKey()
+    .references(() => account.id, { onDelete: 'cascade' }),
+  /*
+    Le secret TOTP, **chiffré et non haché** : il doit être relu à chaque
+    vérification. AES-256-GCM, avec une clé distincte du poivre et
+    l'identifiant du compte en donnée authentifiée associée, de sorte qu'une
+    ligne recopiée vers un autre compte ne se déchiffre pas. Format et raisons
+    dans security/encryption.ts et l'ADR 0012.
+  */
+  secretCipher: text('secret_cipher').notNull(),
+  /** Nul tant que le premier code n'a pas confirmé l'inscription. */
+  activatedAt: timestamp('activated_at', { withTimezone: true }),
+  /*
+    Le dernier pas de 30 secondes accepté. Un code dont le pas ne lui est pas
+    strictement supérieur est refusé : c'est ce qui ferme le rejeu dans la
+    fenêtre, sans avoir à retenir les codes vus ni à les purger.
+
+    `integer` suffit : un pas vaut l'heure Unix divisée par 30, donc la borne
+    de 2^31 est atteinte vers l'an 4000.
+  */
+  lastUsedStep: integer('last_used_step'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Les codes de secours, dix par compte, à usage unique.
+ *
+ * Le numéro est porté en clair par le code affiché : il dit quelle ligne
+ * vérifier, et évite de hacher les dix à chaque essai (une seconde et 640 Mio
+ * de mémoire, voir l'ADR 0012). Ce n'est pas un secret.
+ */
+export const twoFactorBackupCode = pgTable(
+  'two_factor_backup_code',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => account.id, { onDelete: 'cascade' }),
+    position: smallint('position').notNull(),
+    /*
+      Empreinte Argon2id, et non SHA-256 comme les jetons de session : un code
+      de secours fait 55 bits, donc il se casse hors ligne sur une base volée
+      là où 32 octets tirés au hasard ne se cassent pas.
+    */
+    codeHash: text('code_hash').notNull(),
+    /** Consommé une fois, la ligne reste : elle dit qu'il a servi, et quand. */
+    usedAt: timestamp('used_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('two_factor_backup_code_position_unique').on(table.accountId, table.position),
+  ],
+);
+
+/**
+ * L'attente entre un mot de passe validé et le second facteur.
+ *
+ * Ce n'est pas une session, et c'est tout l'intérêt : la garde de session ne
+ * connaît que « une session ou rien », donc ce cookie ne peut rien autoriser
+ * par mégarde. La ligne est détruite au moment où la vraie session s'ouvre,
+ * qui reçoit un jeton neuf : aucune fixation possible (ADR 0012).
+ */
+export const pendingLogin = pgTable(
+  'pending_login',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => account.id, { onDelete: 'cascade' }),
+    /** Empreinte SHA-256 du jeton du cookie, jamais le jeton. */
+    tokenHash: text('token_hash').notNull(),
+    /** Son propre secret CSRF : la soumission du code garde les trois barrières. */
+    csrfSecret: text('csrf_secret').notNull(),
+    /** Essais déjà faits sur cette attente. Au-delà de cinq, elle est détruite. */
+    attempts: integer('attempts').notNull().default(0),
+    /*
+      « Se souvenir de moi » est demandé au mot de passe, mais la session ne
+      s'ouvre qu'après le code : le choix attend donc ici. Le poser plus tôt
+      reviendrait à remettre un jeton de trente jours à qui n'a pas encore
+      prouvé son second facteur.
+    */
+    remember: boolean('remember').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    uniqueIndex('pending_login_token_hash_unique').on(table.tokenHash),
+    index('pending_login_expires_at_idx').on(table.expiresAt),
   ],
 );

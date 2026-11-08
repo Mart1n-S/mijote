@@ -32,8 +32,59 @@ function stubResponse(response: Response): void {
   );
 }
 
+/** Plusieurs réponses, dans l'ordre : le mot de passe, puis le code. */
+function stubResponses(responses: Response[]): void {
+  const queue = [...responses];
+
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(() => {
+      const next = queue.shift();
+
+      if (next === undefined) {
+        throw new Error('un appel de plus que prévu');
+      }
+
+      return Promise.resolve(next);
+    }),
+  );
+}
+
+function twoFactorRequired(): Response {
+  return new Response(JSON.stringify({ twoFactorRequired: true }), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  });
+}
+
+function pendingExpired(): Response {
+  return new Response(
+    JSON.stringify({
+      type: 'about:blank',
+      title: 'Authentification requise',
+      status: 401,
+      detail: 'La vérification a expiré. Recommencez la connexion.',
+      requestId: '00000000-0000-4000-8000-000000000000',
+    }),
+    { status: 401, headers: { 'content-type': PROBLEM_DETAILS_MEDIA_TYPE } },
+  );
+}
+
+function invalidCode(): Response {
+  return new Response(
+    JSON.stringify({
+      type: 'about:blank',
+      title: 'Authentification requise',
+      status: 401,
+      detail: 'Code incorrect ou expiré.',
+      requestId: '00000000-0000-4000-8000-000000000000',
+    }),
+    { status: 401, headers: { 'content-type': PROBLEM_DETAILS_MEDIA_TYPE } },
+  );
+}
+
 function accepted(): Response {
-  return new Response(JSON.stringify({ account: ACCOUNT }), {
+  return new Response(JSON.stringify({ account: ACCOUNT, twoFactor: { active: false } }), {
     status: 200,
     headers: { 'content-type': 'application/json' },
   });
@@ -60,7 +111,11 @@ async function mountPage(next = '/'): Promise<VueWrapper> {
   await router.push(`/connexion?suivant=${encodeURIComponent(next)}`);
   await router.isReady();
 
-  return mount(LoginPage, { global: { plugins: [router] } });
+  /*
+    Attaché au document : c'est la seule façon de mesurer où le focus est allé,
+    `document.activeElement` ne connaissant pas un composant monté hors du DOM.
+  */
+  return mount(LoginPage, { attachTo: document.body, global: { plugins: [router] } });
 }
 
 /** Remplit les deux champs, comme une personne le ferait. */
@@ -75,6 +130,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  document.body.innerHTML = '';
 });
 
 describe('LoginPage', () => {
@@ -193,5 +249,117 @@ describe('LoginPage', () => {
     // Sans cette remise à zéro, un refus condamnerait le formulaire : le bouton
     // resterait en « connexion en cours » et refuserait les clics.
     expect(wrapper.find('button').attributes('aria-disabled')).toBeUndefined();
+  });
+});
+
+describe('la seconde étape, quand un code est attendu', () => {
+  it('remplace le formulaire par le champ du code, et y amène le focus', async () => {
+    stubResponses([twoFactorRequired()]);
+
+    const wrapper = await mountPage();
+
+    await fill(wrapper, ACCOUNT.email, PASSWORD);
+    await wrapper.find('form').trigger('submit');
+    await flushPromises();
+
+    // Le mot de passe a disparu de l'écran, le code l'a remplacé.
+    expect(wrapper.find('input[type="password"]').exists()).toBe(false);
+    expect(wrapper.find('input[name="code"]').exists()).toBe(true);
+    expect(wrapper.find('h2').text()).toBe('Code de vérification');
+    /*
+      Pas de clavier numérique : un code de secours est fait de lettres, et cet
+      écran en accepte un. Le gestionnaire de mots de passe sait quand même
+      proposer le code reçu.
+    */
+    expect(wrapper.find('input[name="code"]').attributes('inputmode')).toBeUndefined();
+    expect(wrapper.find('input[name="code"]').attributes('autocomplete')).toBe('one-time-code');
+    /*
+      Le focus suit l'écran : sans cela il resterait sur un bouton qui n'est
+      plus là, et il faudrait retrouver le champ à la main.
+    */
+    expect(document.activeElement?.getAttribute('name')).toBe('code');
+    expect(isAuthenticated.value).toBe(false);
+  });
+
+  it('soumet le code et ramène où on allait', async () => {
+    stubResponses([twoFactorRequired(), accepted()]);
+
+    const wrapper = await mountPage('/une-page');
+
+    await fill(wrapper, ACCOUNT.email, PASSWORD);
+    await wrapper.find('form').trigger('submit');
+    await flushPromises();
+
+    await wrapper.find('input[name="code"]').setValue('123456');
+    await wrapper.find('form').trigger('submit');
+    await flushPromises();
+
+    const body: unknown = vi.mocked(fetch).mock.calls[1]?.[1]?.body;
+
+    expect(typeof body === 'string' ? JSON.parse(body) : undefined).toEqual({ code: '123456' });
+    expect(isAuthenticated.value).toBe(true);
+    expect(router.currentRoute.value.fullPath).toBe('/une-page');
+  });
+
+  it('montre le message du serveur sur un code refusé, et reste sur le champ', async () => {
+    stubResponses([twoFactorRequired(), invalidCode()]);
+
+    const wrapper = await mountPage();
+
+    await fill(wrapper, ACCOUNT.email, PASSWORD);
+    await wrapper.find('form').trigger('submit');
+    await flushPromises();
+
+    await wrapper.find('input[name="code"]').setValue('000000');
+    await wrapper.find('form').trigger('submit');
+    await flushPromises();
+
+    expect(wrapper.find('form [role="alert"]').text()).toContain('Code incorrect ou expiré.');
+    expect(wrapper.find('input[name="code"]').exists()).toBe(true);
+    expect(isAuthenticated.value).toBe(false);
+  });
+
+  it("laisse recommencer la connexion quand l'attente a expiré", async () => {
+    /*
+      L'attente meurt au bout de cinq minutes, ou au cinquième essai raté :
+      l'API dit alors de recommencer, et l'écran doit offrir le moyen de le
+      faire. Sans ce bouton, il ne resterait qu'un champ dont chaque envoi
+      échoue.
+    */
+    stubResponses([twoFactorRequired(), pendingExpired()]);
+
+    const wrapper = await mountPage();
+
+    await fill(wrapper, ACCOUNT.email, PASSWORD);
+    await wrapper.find('form').trigger('submit');
+    await flushPromises();
+
+    await wrapper.find('input[name="code"]').setValue('123456');
+    await wrapper.find('form').trigger('submit');
+    await flushPromises();
+
+    expect(wrapper.find('form [role="alert"]').text()).toContain('Recommencez la connexion');
+
+    await wrapper.find('button[type="button"]').trigger('click');
+
+    // Le formulaire du mot de passe est revenu, et le message a disparu.
+    expect(wrapper.find('input[type="password"]').exists()).toBe(true);
+    expect(wrapper.find('input[name="code"]').exists()).toBe(false);
+    expect(wrapper.find('form [role="alert"]').text()).toBe('');
+  });
+
+  it('refuse un code vide sans appeler le serveur', async () => {
+    stubResponses([twoFactorRequired()]);
+
+    const wrapper = await mountPage();
+
+    await fill(wrapper, ACCOUNT.email, PASSWORD);
+    await wrapper.find('form').trigger('submit');
+    await flushPromises();
+    await wrapper.find('form').trigger('submit');
+    await flushPromises();
+
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
+    expect(wrapper.text()).toContain('Indiquez le code');
   });
 });

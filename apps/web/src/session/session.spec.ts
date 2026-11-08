@@ -9,9 +9,12 @@ import {
   currentAccount,
   ensureSessionLoaded,
   isAuthenticated,
+  isTwoFactorActive,
   logIn,
   logOut,
+  mustActivateTwoFactor,
   resetSessionForTests,
+  submitTwoFactorCode,
 } from './session';
 
 /*
@@ -45,7 +48,7 @@ function respondWith(responses: Response[]): void {
 }
 
 function sessionResponse(): Response {
-  return new Response(JSON.stringify({ account: ACCOUNT }), {
+  return new Response(JSON.stringify({ account: ACCOUNT, twoFactor: { active: false } }), {
     status: 200,
     headers: { 'content-type': 'application/json' },
   });
@@ -143,6 +146,72 @@ describe('logIn', () => {
       logIn({ email: ACCOUNT.email, password: 'faux', remember: false }),
     ).rejects.toThrow();
     expect(isAuthenticated.value).toBe(false);
+  });
+});
+
+describe('le second facteur', () => {
+  it('ne retient aucune session quand un code est attendu', async () => {
+    respondWith([
+      new Response(JSON.stringify({ twoFactorRequired: true }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    ]);
+
+    expect(await logIn({ email: ACCOUNT.email, password: 'bon', remember: false })).toBe(
+      'two-factor',
+    );
+    // Aucune session n'est ouverte à ce moment-là : l'attente vit côté serveur.
+    expect(isAuthenticated.value).toBe(false);
+  });
+
+  it('ouvre la session quand le code est bon', async () => {
+    respondWith([
+      new Response(JSON.stringify({ twoFactorRequired: true }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+      new Response(JSON.stringify({ account: ACCOUNT, twoFactor: { active: true } }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    ]);
+
+    await logIn({ email: ACCOUNT.email, password: 'bon', remember: false });
+    await submitTwoFactorCode('123456');
+
+    expect(isAuthenticated.value).toBe(true);
+    expect(isTwoFactorActive.value).toBe(true);
+    expect(vi.mocked(fetch).mock.calls.at(-1)?.[0]).toBe('/api/auth/two-factor');
+  });
+
+  it('laisse remonter un code refusé, sans ouvrir de session', async () => {
+    respondWith([unauthorized()]);
+
+    await expect(submitTwoFactorCode('000000')).rejects.toThrow();
+    expect(isAuthenticated.value).toBe(false);
+  });
+
+  it("dit qu'un administrateur sans second facteur doit l'activer", async () => {
+    respondWith([
+      new Response(
+        JSON.stringify({ account: { ...ACCOUNT, role: 'admin' }, twoFactor: { active: false } }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    ]);
+
+    await ensureSessionLoaded();
+
+    expect(mustActivateTwoFactor.value).toBe(true);
+  });
+
+  it('ne demande rien à un compte ordinaire', async () => {
+    respondWith([sessionResponse()]);
+
+    await ensureSessionLoaded();
+
+    expect(mustActivateTwoFactor.value).toBe(false);
+    expect(isTwoFactorActive.value).toBe(false);
   });
 });
 

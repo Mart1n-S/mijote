@@ -87,6 +87,7 @@ beforeAll(async () => {
   process.env['MAIL_FROM'] = 'Mijote <no-reply@mijote.local>';
   // Un poivre de test, fait de zéros : il ne protège rien ici.
   process.env['SECURITY_PEPPER'] = Buffer.alloc(32).toString('base64');
+  process.env['SECURITY_TOTP_KEY'] = Buffer.alloc(32).toString('base64');
   delete process.env['TRUST_PROXY'];
 
   app = await NestFactory.create<NestExpressApplication>(TestAppModule, { logger: false });
@@ -240,6 +241,55 @@ describe('les barrières du CSRF', () => {
       qu'aucun CORS n'autorise l'autre site à lire la réponse.
     */
     expect(response.status).toBe(200);
+  });
+
+  it("n'exempte pas la soumission du code, qui porte son propre jeton", () => {
+    /*
+      L'attente de code a son propre secret CSRF, donc cette route peut
+      présenter un jeton comme n'importe quelle autre : elle n'a pas besoin
+      d'être exemptée, et la liste reste à une seule entrée.
+
+      Ses deux premières barrières ne s'observent pas ici : la garde de session
+      tourne avant celle du CSRF, et sans attente valide elle refuse en 401
+      avant tout. C'est auth.integration.spec.ts, où une vraie attente existe,
+      qui mesure le 415 et le 403.
+    */
+    expect(CSRF_EXEMPT_ROUTES.some((route) => route.path.includes('two-factor'))).toBe(false);
+  });
+
+  it('refuse la soumission du code sans attente, sans toucher la base', async () => {
+    const problem = await problemAt('/auth/two-factor', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin: baseUrl },
+      body: JSON.stringify({ code: '123456' }),
+    });
+
+    /*
+      Le cookie d'attente manque : 401, et le message ne dépend d'aucune donnée.
+      Si la base avait été interrogée, ce serait un 500, son port étant fermé.
+    */
+    expect(problem.status).toBe(401);
+    expect(problem.detail).toBe('La vérification a expiré. Recommencez la connexion.');
+  });
+
+  it('refuse les routes du second facteur sans session', async () => {
+    for (const [method, path] of [
+      ['POST', '/auth/two-factor/setup'],
+      ['POST', '/auth/two-factor/activate'],
+      ['POST', '/auth/two-factor/unlock'],
+      ['POST', '/auth/two-factor/disable'],
+    ] as const) {
+      const problem = await problemAt(path, {
+        method,
+        headers: { 'content-type': 'application/json', origin: baseUrl },
+        body: JSON.stringify({ password: 'peu importe', code: '123456' }),
+      });
+
+      expect(problem.status, `${method} ${path}`).toBe(401);
+      expect(problem.detail, `${method} ${path}`).toBe(
+        'Cette action demande une authentification.',
+      );
+    }
   });
 
   it('exempte la connexion, et elle seule', () => {

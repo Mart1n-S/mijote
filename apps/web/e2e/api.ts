@@ -19,6 +19,9 @@ const HEALTH_ROUTE = '**/api/health';
 const SESSION_ROUTE = '**/api/auth/session';
 const LOGIN_ROUTE = '**/api/auth/login';
 const LOGOUT_ROUTE = '**/api/auth/logout';
+const TWO_FACTOR_ROUTE = '**/api/auth/two-factor';
+const TWO_FACTOR_SETUP_ROUTE = '**/api/auth/two-factor/setup';
+const TWO_FACTOR_ACTIVATE_ROUTE = '**/api/auth/two-factor/activate';
 
 /** Le compte que les bouchons annoncent comme connecté. */
 export const STUB_ACCOUNT = {
@@ -33,6 +36,33 @@ export const STUB_PASSWORD = 'un mot de passe assez long';
 
 /** Le jeton CSRF que le faux serveur pose, comme le vrai le ferait. */
 const STUB_CSRF_TOKEN = 'jeton-csrf-de-test';
+
+/** Le code que le faux serveur accepte, et la clé qu'il fait inscrire. */
+export const STUB_CODE = '123456';
+export const STUB_TOTP_KEY = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
+
+/** Les dix codes de secours, tels que le vrai serveur les rendrait. */
+export const STUB_BACKUP_CODES = [
+  '1-ABCD-EFGH-JKLM',
+  '2-BCDE-FGHJ-KLMN',
+  '3-CDEF-GHJK-LMNP',
+  '4-DEFG-HJKL-MNPQ',
+  '5-EFGH-JKLM-NPQR',
+  '6-FGHJ-KLMN-PQRS',
+  '7-GHJK-LMNP-QRST',
+  '8-HJKL-MNPQ-RSTU',
+  '9-JKLM-NPQR-STUV',
+  '10-KLMN-PQRS-TUVW',
+];
+
+/** Le compte administrateur, qui doit inscrire une application. */
+export const STUB_ADMIN = { ...STUB_ACCOUNT, role: 'admin' };
+
+/*
+  Le message d'un code refusé, mot pour mot celui de l'API : le même pour un
+  code faux, un code de secours consommé et un numéro qui n'existe pas.
+*/
+const INVALID_CODE_BODY = problem(401, 'Authentification requise', 'Code incorrect ou expiré.');
 
 function problem(status: number, title: string, detail: string): string {
   return JSON.stringify({
@@ -89,7 +119,12 @@ async function respondProblem(
  */
 export async function stubHealthyApi(page: Page): Promise<void> {
   await respondJson(page, HEALTH_ROUTE, 200, JSON.stringify({ status: 'ok' }));
-  await respondJson(page, SESSION_ROUTE, 200, JSON.stringify({ account: STUB_ACCOUNT }));
+  await respondJson(
+    page,
+    SESSION_ROUTE,
+    200,
+    JSON.stringify({ account: STUB_ACCOUNT, twoFactor: { active: false } }),
+  );
 }
 
 /** Fait échouer l'API comme une API arrêtée le ferait, au format RFC 9457. */
@@ -153,7 +188,7 @@ export async function stubAnonymousApi(page: Page): Promise<StubbedAuth> {
         // retrouve. Pas de Secure ici, la prévisualisation étant en clair.
         'set-cookie': `${CSRF_COOKIE}=${STUB_CSRF_TOKEN}; Path=/; SameSite=Lax`,
       },
-      body: JSON.stringify({ account: STUB_ACCOUNT }),
+      body: JSON.stringify({ account: STUB_ACCOUNT, twoFactor: { active: false } }),
     });
   });
 
@@ -163,6 +198,102 @@ export async function stubAnonymousApi(page: Page): Promise<StubbedAuth> {
     await route.fulfill({
       status: 204,
       headers: { 'set-cookie': `${CSRF_COOKIE}=; Path=/; Max-Age=0` },
+    });
+  });
+
+  return recorded;
+}
+
+/** Ce que les bouchons du second facteur ont enregistré. */
+export interface StubbedTwoFactor {
+  /** Les corps des appels à /auth/two-factor, dans l'ordre. */
+  codes: unknown[];
+  /** Les corps des appels d'inscription et d'activation. */
+  setups: unknown[];
+  activations: unknown[];
+}
+
+/**
+ * Fait répondre l'API comme pour un compte qui a un second facteur.
+ *
+ * La connexion rend `twoFactorRequired` au lieu d'ouvrir une session, et la
+ * soumission du code n'accepte que `STUB_CODE`. Le cookie CSRF est posé dès la
+ * première réponse, comme le vrai le fait pour l'attente.
+ */
+export async function stubTwoFactorLogin(page: Page): Promise<StubbedTwoFactor> {
+  const recorded: StubbedTwoFactor = { codes: [], setups: [], activations: [] };
+
+  await respondJson(page, HEALTH_ROUTE, 200, JSON.stringify({ status: 'ok' }));
+  await respondProblem(page, SESSION_ROUTE, 401, ANONYMOUS);
+
+  await page.route(LOGIN_ROUTE, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: { 'set-cookie': `${CSRF_COOKIE}=${STUB_CSRF_TOKEN}; Path=/; SameSite=Lax` },
+      body: JSON.stringify({ twoFactorRequired: true }),
+    });
+  });
+
+  await page.route(TWO_FACTOR_ROUTE, async (route) => {
+    const body: unknown = route.request().postDataJSON();
+
+    recorded.codes.push(body);
+
+    const accepted =
+      typeof body === 'object' && body !== null && 'code' in body && body['code'] === STUB_CODE;
+
+    await route.fulfill(
+      accepted
+        ? {
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({ account: STUB_ACCOUNT, twoFactor: { active: true } }),
+          }
+        : { status: 401, contentType: PROBLEM_DETAILS_MEDIA_TYPE, body: INVALID_CODE_BODY },
+    );
+  });
+
+  return recorded;
+}
+
+/**
+ * Fait répondre l'API comme pour un administrateur sans second facteur.
+ *
+ * C'est l'état qui conduit à l'écran d'activation : la session existe, mais
+ * aucune route d'administration ne l'accepterait.
+ */
+export async function stubAdminWithoutTwoFactor(page: Page): Promise<StubbedTwoFactor> {
+  const recorded: StubbedTwoFactor = { codes: [], setups: [], activations: [] };
+
+  await respondJson(page, HEALTH_ROUTE, 200, JSON.stringify({ status: 'ok' }));
+  await respondJson(
+    page,
+    SESSION_ROUTE,
+    200,
+    JSON.stringify({ account: STUB_ADMIN, twoFactor: { active: false } }),
+  );
+
+  await page.route(TWO_FACTOR_SETUP_ROUTE, async (route) => {
+    recorded.setups.push(route.request().postDataJSON());
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        uri: `otpauth://totp/Mijote%3A${encodeURIComponent(STUB_ACCOUNT.email)}?secret=${STUB_TOTP_KEY}&issuer=Mijote`,
+        key: STUB_TOTP_KEY,
+      }),
+    });
+  });
+
+  await page.route(TWO_FACTOR_ACTIVATE_ROUTE, async (route) => {
+    recorded.activations.push(route.request().postDataJSON());
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ codes: STUB_BACKUP_CODES }),
     });
   });
 

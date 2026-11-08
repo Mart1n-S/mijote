@@ -15,6 +15,27 @@
       "when": 1793657851329,
       "tag": "0001_comptes_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794060040043,
+      "tag": "0002_double_authentification",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794063039847,
+      "tag": "0003_memorisation_en_attente",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794081086329,
+      "tag": "0004_motif_de_reauthentification",
+      "breakpoints": true
     }
   ]
 }

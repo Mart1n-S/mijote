@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { stubAnonymousApi, stubHealthyApi } from './api';
+import { stubAdminWithoutTwoFactor, stubAnonymousApi, stubHealthyApi, STUB_PASSWORD } from './api';
 
 /*
   Aucune page ne doit appeler un service tiers. La règle vient de deux
@@ -14,10 +14,19 @@ import { stubAnonymousApi, stubHealthyApi } from './api';
 
 /** Toutes les pages servies, y compris celles qui n'existent qu'en démo. */
 const PAGES = [
-  { path: '/', name: "page d'accueil", anonymous: false },
-  { path: '/connexion', name: 'page de connexion', anonymous: true },
-  { path: '/design-system', name: 'page de démonstration', anonymous: false },
-];
+  { path: '/', name: "page d'accueil", session: 'connecte' },
+  { path: '/connexion', name: 'page de connexion', session: 'anonyme' },
+  /*
+    La page d'activation dessine un QR code : c'est l'écran où une requête
+    tierce coûterait le plus cher, puisque l'URI du QR contient le secret.
+  */
+  {
+    path: '/securite/double-authentification',
+    name: 'page de double authentification',
+    session: 'admin',
+  },
+  { path: '/design-system', name: 'page de démonstration', session: 'connecte' },
+] as const;
 
 for (const page_ of PAGES) {
   test(`${page_.name} : aucune requête vers un service tiers`, async ({ page, baseURL }) => {
@@ -35,15 +44,29 @@ for (const page_ of PAGES) {
     // bien contrôlée comme celle de n'importe quelle autre.
     /*
       La page de connexion n'est atteignable que sans session : connecté, la
-      garde renvoie à l'accueil.
+      garde renvoie à l'accueil. Celle de la double authentification demande un
+      administrateur qui ne l'a pas encore activée.
     */
-    if (page_.anonymous) {
+    if (page_.session === 'anonyme') {
       await stubAnonymousApi(page);
+    } else if (page_.session === 'admin') {
+      await stubAdminWithoutTwoFactor(page);
     } else {
       await stubHealthyApi(page);
     }
 
     await page.goto(page_.path);
+
+    /*
+      La page d'activation s'arrête à l'étape du mot de passe : le QR code n'est
+      dessiné qu'après, et c'est lui qu'on veut voir ne rien demander à
+      personne. On avance donc d'une étape.
+    */
+    if (page_.session === 'admin') {
+      await page.getByLabel('Mot de passe').fill(STUB_PASSWORD);
+      await page.getByRole('button', { name: 'Continuer' }).click();
+      await expect(page.locator('img')).toBeVisible();
+    }
 
     // La police ne part au téléchargement qu'au moment où du texte l'utilise :
     // attendre ici, sinon le contrôle passerait avant la seule requête qui

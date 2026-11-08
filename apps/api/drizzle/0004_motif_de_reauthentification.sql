@@ -1,0 +1,1 @@
+ALTER TYPE "public"."login_purpose" ADD VALUE 'reauth';

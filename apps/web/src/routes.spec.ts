@@ -14,7 +14,12 @@ describe('createRoutes', () => {
     // L'égalité sur les noms et non un compte : la route de repli n'est pas
     // une page métier, mais elle fait nombre. Un écran ajouté par mégarde se
     // verrait ici.
-    expect(createRoutes(false).map((route) => route.name)).toEqual(['home', 'login', 'not-found']);
+    expect(createRoutes(false).map((route) => route.name)).toEqual([
+      'home',
+      'login',
+      'two-factor',
+      'not-found',
+    ]);
   });
 
   it('attrape une adresse inconnue', () => {
@@ -54,6 +59,16 @@ describe('createRoutes', () => {
 
     expect(login?.path).toBe('/connexion');
     expect(login?.meta?.navLabel).toBeUndefined();
+  });
+
+  it('place la double authentification sur une adresse française, hors navigation', () => {
+    const page = createRoutes(false).find((route) => route.name === 'two-factor');
+
+    expect(page?.path).toBe('/securite/double-authentification');
+    // Ce n'est pas une destination : on y arrive par l'invitation de l'en-tête.
+    expect(page?.meta?.navLabel).toBeUndefined();
+    // Et elle demande une session, comme tout le reste.
+    expect(page?.meta?.public).toBeUndefined();
   });
 
   it('donne un titre à chaque page', () => {

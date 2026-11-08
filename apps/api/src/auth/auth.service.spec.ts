@@ -8,12 +8,17 @@ import type { AuthLog } from './auth.log.js';
 import type {
   AccountRecord,
   LoginOutcome,
+  LoginPurpose,
+  PendingLoginRecord,
   RememberRecord,
   SessionRecord,
+  TwoFactorRecord,
 } from './auth.repository.js';
-import { type AccountStore, AuthService } from './auth.service.js';
+import { type AccountStore, type AuthenticatedResponse, AuthService } from './auth.service.js';
+import { PendingLoginService, type PendingLoginStore } from './pending-login.service.js';
 import { RememberService, type RememberStore } from './remember.service.js';
 import { SessionService, type SessionStore } from './session.service.js';
+import { TwoFactorService, type TwoFactorStore } from './two-factor.service.js';
 
 /*
   La connexion de bout en bout, sans HTTP et sans PostgreSQL : les vrais
@@ -59,6 +64,7 @@ class MemorySessions implements SessionStore {
     accountId: string;
     tokenHash: string;
     csrfSecret: string;
+    adminUnlockedAt?: Date;
     expiresAt: Date;
   }): Promise<SessionRecord> {
     this.next += 1;
@@ -69,6 +75,7 @@ class MemorySessions implements SessionStore {
       csrfSecret: input.csrfSecret,
       lastSeenAt: new Date(),
       expiresAt: input.expiresAt,
+      adminUnlockedAt: input.adminUnlockedAt ?? null,
     };
 
     this.rows.set(input.tokenHash, row);
@@ -95,6 +102,16 @@ class MemorySessions implements SessionStore {
     for (const [hash, row] of this.rows) {
       if (row.id === id) {
         this.rows.delete(hash);
+      }
+    }
+
+    return Promise.resolve();
+  }
+
+  unlockSession(id: string, at: Date): Promise<void> {
+    for (const [hash, row] of this.rows) {
+      if (row.id === id) {
+        this.rows.set(hash, { ...row, adminUnlockedAt: at });
       }
     }
 
@@ -159,14 +176,26 @@ class MemoryFamilies implements RememberStore {
 }
 
 class MemoryAttempts implements AttemptStore {
-  readonly rows: { emailFingerprint: string; ipFingerprint: string; outcome: LoginOutcome }[] = [];
+  readonly rows: {
+    emailFingerprint: string;
+    ipFingerprint: string;
+    outcome: LoginOutcome;
+    purpose: LoginPurpose;
+  }[] = [];
   purged = 0;
 
   countFailures(input: {
     emailFingerprint: string;
     ipFingerprint: string;
+    purpose: LoginPurpose;
   }): Promise<{ byEmail: number; byIp: number }> {
-    const failures = this.rows.filter((row) => row.outcome === 'failed');
+    /*
+      Le motif entre dans le filtre, comme dans le vrai dépôt : un code mal
+      tapé ne doit pas rapprocher du blocage de la connexion elle-même.
+    */
+    const failures = this.rows.filter(
+      (row) => row.outcome === 'failed' && row.purpose === input.purpose,
+    );
 
     return Promise.resolve({
       byEmail: failures.filter((row) => row.emailFingerprint === input.emailFingerprint).length,
@@ -178,6 +207,7 @@ class MemoryAttempts implements AttemptStore {
     emailFingerprint: string;
     ipFingerprint: string;
     outcome: LoginOutcome;
+    purpose: LoginPurpose;
   }): Promise<void> {
     this.rows.push(input);
 
@@ -188,6 +218,89 @@ class MemoryAttempts implements AttemptStore {
     this.purged += 1;
 
     return Promise.resolve();
+  }
+}
+
+/**
+ * L'attente de code, qui ne sert pas ici : aucun compte de ce fichier n'a de
+ * second facteur. Les parcours du second facteur vivent dans two-factor.spec.ts.
+ */
+class MemoryPendingLogins implements PendingLoginStore {
+  readonly rows = new Map<string, PendingLoginRecord>();
+
+  createPendingLogin(input: {
+    accountId: string;
+    tokenHash: string;
+    csrfSecret: string;
+    remember: boolean;
+    expiresAt: Date;
+  }): Promise<void> {
+    this.rows.set(input.tokenHash, {
+      id: `attente-${String(this.rows.size)}`,
+      accountId: input.accountId,
+      csrfSecret: input.csrfSecret,
+      attempts: 0,
+      remember: input.remember,
+      expiresAt: input.expiresAt,
+    });
+
+    return Promise.resolve();
+  }
+
+  findPendingLoginByTokenHash(
+    tokenHash: string,
+  ): Promise<{ pending: PendingLoginRecord; account: AccountRecord } | undefined> {
+    const pending = this.rows.get(tokenHash);
+    const owner = accounts.rows.get(pending?.accountId ?? '');
+
+    return Promise.resolve(
+      pending === undefined || owner === undefined ? undefined : { pending, account: owner },
+    );
+  }
+
+  countPendingAttempt(): Promise<number> {
+    return Promise.resolve(1);
+  }
+
+  deletePendingLogin(id: string): Promise<void> {
+    for (const [hash, row] of this.rows) {
+      if (row.id === id) {
+        this.rows.delete(hash);
+      }
+    }
+
+    return Promise.resolve();
+  }
+}
+
+/** Aucune double authentification : c'est le cas de tous les comptes ici. */
+class NoTwoFactor implements TwoFactorStore {
+  findTwoFactor(): Promise<TwoFactorRecord | undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  upsertInactiveTwoFactor(): Promise<boolean> {
+    return Promise.resolve(true);
+  }
+
+  activateTwoFactor(): Promise<boolean> {
+    return Promise.resolve(true);
+  }
+
+  deleteTwoFactor(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  claimTotpStep(): Promise<boolean> {
+    return Promise.resolve(true);
+  }
+
+  findBackupCode(): Promise<undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  consumeBackupCode(): Promise<boolean> {
+    return Promise.resolve(false);
   }
 }
 
@@ -205,6 +318,27 @@ class RecordingLog implements AuthLog {
   warn(object: object, message: string): void {
     this.lines.push({ object, message });
   }
+}
+
+/**
+ * La connexion, quand elle doit ouvrir une session.
+ *
+ * `login` rend désormais une union : ou la session, ou l'attente d'un code.
+ * Aucun compte de ce fichier n'a de second facteur, donc l'attente serait un
+ * défaut, et ce garde-fou le dit au lieu de laisser une assertion de type.
+ */
+async function loginWithSession(
+  input: { email: string; password: string; remember: boolean },
+  ip = IP,
+  presentedSession?: string,
+): Promise<AuthenticatedResponse> {
+  const result = await service.login(input, ip, presentedSession);
+
+  if ('twoFactorRequired' in result) {
+    throw new Error("un second facteur était attendu, alors qu'aucun n'est actif");
+  }
+
+  return result;
 }
 
 /** Le message d'une promesse qui doit échouer, sans faire de supposition. */
@@ -237,6 +371,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   process.env['SECURITY_PEPPER'] = PEPPER;
+  process.env['SECURITY_TOTP_KEY'] = Buffer.alloc(32).toString('base64');
   accounts = new MemoryAccounts();
   accounts.rows.set(ACCOUNT.id, { ...ACCOUNT });
   sessions = new MemorySessions();
@@ -248,13 +383,15 @@ beforeEach(() => {
     new SessionService(sessions),
     new RememberService(families, log),
     new AttemptsService(attempts),
+    new PendingLoginService(new MemoryPendingLogins()),
+    new TwoFactorService(new NoTwoFactor(), log),
     log,
   );
 });
 
 describe('login', () => {
   it('ouvre une session et pose deux cookies', async () => {
-    const { account, cookies } = await service.login(
+    const { account, cookies } = await loginWithSession(
       { email: EMAIL, password: PASSWORD, remember: false },
       IP,
     );
@@ -287,7 +424,7 @@ describe('login', () => {
   });
 
   it('pose en plus un cookie de trente jours quand on le lui demande', async () => {
-    const { cookies } = await service.login(
+    const { cookies } = await loginWithSession(
       { email: EMAIL, password: PASSWORD, remember: true },
       IP,
     );
@@ -368,7 +505,7 @@ describe('login', () => {
   });
 
   it("n'écrit ni mot de passe, ni adresse, ni jeton dans les journaux", async () => {
-    const { cookies } = await service.login(
+    const { cookies } = await loginWithSession(
       { email: EMAIL, password: PASSWORD, remember: true },
       IP,
     );
@@ -398,10 +535,10 @@ describe('login', () => {
       reconnecter en soupçonnant un vol ne fermerait rien, alors que c'est le
       premier réflexe.
     */
-    const first = await service.login({ email: EMAIL, password: PASSWORD, remember: false }, IP);
+    const first = await loginWithSession({ email: EMAIL, password: PASSWORD, remember: false }, IP);
     const token = cookie(first.cookies, 'mijote_session')?.split(';')[0]?.split('=')[1];
 
-    await service.login({ email: EMAIL, password: PASSWORD, remember: false }, IP, token);
+    await loginWithSession({ email: EMAIL, password: PASSWORD, remember: false }, IP, token);
 
     // Une seule session ouverte : la nouvelle.
     expect(sessions.rows.size).toBe(1);
@@ -415,7 +552,7 @@ describe('login', () => {
 
     expect(attempts.purged).toBe(0);
 
-    await service.login({ email: EMAIL, password: PASSWORD, remember: false }, IP);
+    await loginWithSession({ email: EMAIL, password: PASSWORD, remember: false }, IP);
 
     expect(attempts.purged).toBe(1);
   });
@@ -423,7 +560,7 @@ describe('login', () => {
 
 describe('current', () => {
   it('rend le compte et repose le cookie CSRF', async () => {
-    const { cookies } = await service.login(
+    const { cookies } = await loginWithSession(
       { email: EMAIL, password: PASSWORD, remember: false },
       IP,
     );
@@ -443,7 +580,7 @@ describe('current', () => {
   });
 
   it('reprend la session par le cookie de mémorisation, et le fait tourner', async () => {
-    const { cookies } = await service.login(
+    const { cookies } = await loginWithSession(
       { email: EMAIL, password: PASSWORD, remember: true },
       IP,
     );
@@ -468,8 +605,8 @@ describe('current', () => {
 });
 
 describe('logout', () => {
-  it('ferme la session, le jeton de mémorisation, et efface les trois cookies', async () => {
-    const opened = await service.login({ email: EMAIL, password: PASSWORD, remember: true }, IP);
+  it('ferme la session, le jeton de mémorisation, et efface les quatre cookies', async () => {
+    const opened = await loginWithSession({ email: EMAIL, password: PASSWORD, remember: true }, IP);
     const token = cookie(opened.cookies, 'mijote_session')?.split(';')[0]?.split('=')[1];
     const remember = cookie(opened.cookies, 'mijote_remember')?.split(';')[0]?.split('=')[1];
     const authenticated = await new SessionService(sessions).resolve(token ?? '');
@@ -482,7 +619,8 @@ describe('logout', () => {
 
     expect(sessions.rows.size).toBe(0);
     expect(families.rows.size).toBe(0);
-    expect(cleared).toHaveLength(3);
+    // Session, mémorisation, attente de code et jeton CSRF.
+    expect(cleared).toHaveLength(4);
 
     for (const header of cleared) {
       expect(header).toContain('Max-Age=0');

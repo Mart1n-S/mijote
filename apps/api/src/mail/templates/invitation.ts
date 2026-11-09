@@ -1,26 +1,6 @@
 import type { MailMessage } from '../mailer.js';
 
-import { emailLayout, escapeHtml } from './html.js';
-
-/*
-  L'échappement HTML ne dit rien du schéma d'une adresse : « javascript:alert(1) »
-  ne contient aucun des cinq caractères échappés et ressortirait intact dans le
-  href. Les clients de messagerie n'exécutent pas ce schéma, mais un aperçu HTML
-  le ferait, Mailpit compris.
-
-  Le commentaire de `invitationUrl` dit que l'adresse est construite par
-  l'application : ceci en fait une garantie au lieu d'une convention.
-*/
-function isWebUrl(value: string): boolean {
-  try {
-    const { protocol } = new URL(value);
-
-    return protocol === 'https:' || protocol === 'http:';
-  } catch {
-    // Une adresse qu'un navigateur ne saurait pas lire davantage.
-    return false;
-  }
-}
+import { emailLayout, escapeHtml, isWebUrl } from './html.js';
 
 /** Ce qu'une invitation a besoin de dire. */
 export interface InvitationEmail {

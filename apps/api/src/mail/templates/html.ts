@@ -29,6 +29,29 @@ export function escapeHtml(value: string): string {
 }
 
 /**
+ * Cette adresse est-elle une adresse du web ?
+ *
+ * L'échappement HTML ne dit rien du schéma d'une adresse : « javascript:alert(1) »
+ * ne contient aucun des cinq caractères échappés et ressortirait intact dans le
+ * `href`. Les clients de messagerie n'exécutent pas ce schéma, mais un aperçu
+ * HTML le ferait, Mailpit compris.
+ *
+ * Les deux gabarits qui portent un lien le vérifient, et c'est ce qui fait de
+ * « l'application construit cette adresse » une garantie au lieu d'une
+ * convention.
+ */
+export function isWebUrl(value: string): boolean {
+  try {
+    const { protocol } = new URL(value);
+
+    return protocol === 'https:' || protocol === 'http:';
+  } catch {
+    // Une adresse qu'un navigateur ne saurait pas lire davantage.
+    return false;
+  }
+}
+
+/**
  * L'enveloppe HTML commune à tous les e-mails.
  *
  * Aucune ressource distante : ni image, ni feuille de style, ni police. Ce

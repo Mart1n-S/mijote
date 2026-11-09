@@ -11,6 +11,7 @@ import { AccountsService } from '../accounts/accounts.service.js';
 import { type AttemptKeys, AttemptsService } from '../auth/attempts.service.js';
 import type { AuthLog } from '../auth/auth.log.js';
 import type { AccountRecord } from '../auth/auth.repository.js';
+import { readAppBaseUrl } from '../env.js';
 import { ProblemException } from '../errors/problem.exception.js';
 import { invitationEmail } from '../mail/templates/invitation.js';
 import { type Mailer, MAILER } from '../mail/mailer.js';
@@ -45,50 +46,6 @@ export const FINISHED_RETENTION_DAYS = 30;
 
 /** Combien la liste de l'administrateur en montre. */
 const LIST_LIMIT = 200;
-
-/**
- * Lit l'adresse publique de l'application, celle que porteront les liens.
- *
- * **Elle ne vient pas de la requête**, et c'est le point important : un en-tête
- * `Host` est écrit par le client. Construire le lien avec lui laisserait
- * quelqu'un faire partir un jeton d'invitation vers son propre domaine, en
- * demandant une invitation pour une adresse qu'il contrôle. C'est l'erreur
- * classique des e-mails de réinitialisation, et elle se paie par un compte.
- */
-export function readAppBaseUrl(env: NodeJS.ProcessEnv): string {
-  const raw = env['APP_BASE_URL']?.trim();
-
-  if (raw === undefined || raw === '') {
-    throw new Error("APP_BASE_URL est absente de l'environnement. Voir .env.example.");
-  }
-
-  let parsed: URL;
-
-  try {
-    parsed = new URL(raw);
-  } catch {
-    throw new Error(`APP_BASE_URL n'est pas une adresse lisible : ${raw}. Voir .env.example.`);
-  }
-
-  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
-    throw new Error('APP_BASE_URL doit être une adresse http ou https. Voir .env.example.');
-  }
-
-  /*
-    Ni chaîne de requête ni fragment : les liens se construisent en ajoutant
-    `/invitation#<jeton>`, donc une telle valeur produirait une adresse cassée
-    (`https://hôte/?x=1/invitation#...`). Cette fonction décide du domaine où
-    part un jeton : autant qu'elle refuse ce qu'elle ne sait pas construire.
-  */
-  if (parsed.search !== '' || parsed.hash !== '') {
-    throw new Error(
-      'APP_BASE_URL ne doit porter ni paramètre de requête ni fragment. Voir .env.example.',
-    );
-  }
-
-  // Sans barre oblique finale : les liens en ajoutent une.
-  return raw.replace(/\/+$/, '');
-}
 
 /**
  * Le seul message d'un lien qui ne vaut plus rien.

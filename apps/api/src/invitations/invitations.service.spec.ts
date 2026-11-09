@@ -15,7 +15,6 @@ import {
   type InvitationStore,
   MAX_PER_EMAIL_PER_DAY,
   MAX_PER_INVITER_PER_HOUR,
-  readAppBaseUrl,
   readTtlHours,
   statusOf,
 } from './invitations.service.js';
@@ -369,36 +368,6 @@ describe('les réglages lus au démarrage', () => {
     expect(() => readTtlHours({ INVITATION_TTL_HOURS: '721' })).toThrow(/entre 1 et 720/);
     expect(() => readTtlHours({ INVITATION_TTL_HOURS: '1.5' })).toThrow(/entre 1 et 720/);
     expect(() => readTtlHours({ INVITATION_TTL_HOURS: 'beaucoup' })).toThrow(/entre 1 et 720/);
-  });
-
-  it("refuse une adresse publique absente ou qui n'est pas du web", () => {
-    /*
-      Elle décide du domaine vers lequel part un jeton : une valeur douteuse
-      arrête le démarrage, elle ne se corrige pas à l'envoi.
-    */
-    expect(() => readAppBaseUrl({})).toThrow(/APP_BASE_URL.*\.env\.example/);
-    expect(() => readAppBaseUrl({ APP_BASE_URL: '   ' })).toThrow(/APP_BASE_URL/);
-    expect(() => readAppBaseUrl({ APP_BASE_URL: 'mijote.local' })).toThrow(/adresse lisible/);
-    expect(() => readAppBaseUrl({ APP_BASE_URL: 'javascript:alert(1)' })).toThrow(/http/);
-    expect(() => readAppBaseUrl({ APP_BASE_URL: 'file:///etc/passwd' })).toThrow(/http/);
-  });
-
-  it("refuse une adresse publique qu'on ne saurait pas compléter", () => {
-    /*
-      Le lien se construit en ajoutant `/invitation#<jeton>` : une chaîne de
-      requête ou un fragment donnerait une adresse cassée, et un jeton qui ne
-      mène nulle part.
-    */
-    expect(() => readAppBaseUrl({ APP_BASE_URL: 'https://mijote.local/?x=1' })).toThrow(
-      /paramètre de requête ni fragment/,
-    );
-    expect(() => readAppBaseUrl({ APP_BASE_URL: 'https://mijote.local/#ici' })).toThrow(
-      /paramètre de requête ni fragment/,
-    );
-  });
-
-  it('enlève la barre oblique finale, que les liens rajoutent', () => {
-    expect(readAppBaseUrl({ APP_BASE_URL: 'https://mijote.local//' })).toBe('https://mijote.local');
   });
 });
 

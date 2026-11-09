@@ -20,20 +20,24 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.spec.ts'],
     /*
-      Trente secondes pour les hooks, au lieu des dix par défaut.
+      Des délais plus larges que les défauts de Vitest (5 s par test, 10 s par
+      crochet), et la raison est une seule : **Argon2id**.
 
-      Les `beforeAll` des tests d'intégration préparent une vraie base et vident
-      une boîte Mailpit, et ils hachent au passage un mot de passe en Argon2id,
-      qui réserve 64 Mio et prend une centaine de millisecondes (ADR 0011). Avec
-      un fichier de test par worker, une cinquantaine de workers se disputent le
-      processeur au démarrage, et dix secondes ne suffisaient plus : le hook des
-      invitations échouait une fois sur deux sur le poste de développement, sans
-      que rien ne soit cassé.
+      Chaque hachage réserve 64 Mio et prend une centaine de millisecondes
+      (ADR 0011). Or certains tests en paient dix ou quinze : l'activation du
+      second facteur hache à elle seule dix codes de secours, un peu plus d'une
+      seconde (ADR 0012), et les crochets des tests d'intégration créent
+      plusieurs comptes. Avec un fichier de test par worker, une cinquantaine de
+      workers se disputent le processeur et la mémoire, et ces tests dépassaient
+      les cinq secondes par rafales, sans que rien ne soit cassé : un échec sur
+      deux exécutions, sur un test différent à chaque fois.
 
-      C'est la préparation qu'on allonge, pas les tests : `testTimeout` reste à
-      cinq secondes, donc un test qui attend vraiment quelque chose échoue
-      toujours vite.
+      Ces délais ne cachent donc pas une lenteur à corriger, ils disent le coût
+      d'un hachage qu'on a choisi lent exprès. Ce qu'ils protègent reste entier :
+      un test qui attend pour de bon, comme celui de l'envoyeur bloquant de la
+      réinitialisation, échoue toujours, quinze secondes plus tard.
     */
+    testTimeout: 15_000,
     hookTimeout: 30_000,
   },
 });

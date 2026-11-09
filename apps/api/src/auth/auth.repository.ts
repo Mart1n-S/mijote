@@ -643,6 +643,8 @@ export class AuthRepository {
     accountId: string;
     passwordHash: string;
     emailFingerprint: string;
+    /** Depuis quand effacer les échecs : la fenêtre qui bloque, et rien avant. */
+    failuresSince: Date;
   }): Promise<{ sessions: number; families: number }> {
     return this.database.transaction(async (transaction) => {
       await transaction
@@ -677,6 +679,11 @@ export class AuthRepository {
         Seul le motif `password` : `code` et `reauth` protègent le second
         facteur, que cette story ne touche pas. Les lignes `blocked` restent,
         pour la trace, et elles n'ont jamais été comptées (ADR 0014).
+
+        Et seulement la fenêtre qui bloque : les échecs plus anciens ne
+        comptent plus pour personne, et les effacer ferait perdre la trace de
+        ce qui s'est passé avant, que la purge emporte de toute façon au bout
+        d'un jour.
       */
       await transaction
         .delete(loginAttempt)
@@ -685,6 +692,7 @@ export class AuthRepository {
             eq(loginAttempt.emailFingerprint, input.emailFingerprint),
             eq(loginAttempt.purpose, 'password'),
             eq(loginAttempt.outcome, 'failed'),
+            gte(loginAttempt.attemptedAt, input.failuresSince),
           ),
         );
 

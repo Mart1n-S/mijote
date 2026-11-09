@@ -105,7 +105,9 @@ const ANONYMOUS = problem(
 */
 const UNUSABLE_LINK = problem(
   410,
-  'Ressource disparue',
+  // « Erreur » et non un titre choisi : le filtre n'a pas d'entrée pour 410, il
+  // sert donc son titre de repli (problem-details.filter.ts).
+  'Erreur',
   "Ce lien n'est plus valable. Demandez une nouvelle réinitialisation.",
 );
 

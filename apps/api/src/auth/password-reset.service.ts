@@ -10,7 +10,7 @@ import { passwordResetEmail } from '../mail/templates/password-reset.js';
 import { hashPassword } from '../security/passwords.js';
 import { createSecret, hashSecret } from '../security/tokens.js';
 
-import { type AttemptKeys, AttemptsService } from './attempts.service.js';
+import { ATTEMPT_WINDOW_MS, type AttemptKeys, AttemptsService } from './attempts.service.js';
 import type { AuthLog } from './auth.log.js';
 import { type AccountRecord, AuthRepository, type PasswordResetRecord } from './auth.repository.js';
 
@@ -99,6 +99,7 @@ export interface PasswordResetStore {
     accountId: string;
     passwordHash: string;
     emailFingerprint: string;
+    failuresSince: Date;
   }): Promise<{ sessions: number; families: number }>;
 }
 
@@ -222,8 +223,6 @@ export class PasswordResetService {
       throw await this.countedRefusal(keys);
     }
 
-    await this.attempts.record(keys, 'succeeded', 'reset');
-
     const closed = await this.resets.applyPasswordReset({
       accountId: account.id,
       passwordHash,
@@ -233,7 +232,21 @@ export class PasswordResetService {
         protégeaient (ADR 0014).
       */
       emailFingerprint: this.attempts.keysFor(account.email, clientIp).emailFingerprint,
+      /*
+        Et seulement ceux de la fenêtre de limitation : ce sont les seuls qui
+        bloquent. Les plus anciens ne servent plus qu'à comprendre après coup,
+        et la purge les emporte au bout d'un jour.
+      */
+      failuresSince: new Date(Date.now() - ATTEMPT_WINDOW_MS),
     });
+
+    /*
+      La tentative est écrite après l'écriture, et non avant : la fenêtre où un
+      arrêt brûle le jeton sans changer le mot de passe n'a pas de raison d'être
+      élargie d'une requête. Cette ligne n'est jamais relue, `isBlocked` ne
+      comptant que les échecs.
+    */
+    await this.attempts.record(keys, 'succeeded', 'reset');
 
     this.logger.info(
       {
@@ -277,11 +290,19 @@ export class PasswordResetService {
    * donnerait à une route publique le moyen de l'arrêter.
    */
   private detach(task: Promise<void>): void {
+    const forget = (): void => {
+      this.running.delete(task);
+    };
+
     this.running.add(task);
 
-    // Pas attendue, c'est le principe. Le `finally` ne peut pas rejeter, la
-    // tâche ne rejetant jamais.
-    void task.finally(() => this.running.delete(task));
+    /*
+      Pas attendue, c'est le principe. Les deux branches sont traitées, et non
+      un `finally` : celui-ci rend une promesse dérivée qui rejetterait avec la
+      tâche, sans personne pour la traiter. La garantie ne dépend donc pas de ce
+      que les tâches font de leurs erreurs.
+    */
+    void task.then(forget, forget);
   }
 
   /** Pose le jeton et envoie le lien, s'il y a un compte derrière cette adresse. */
@@ -388,6 +409,12 @@ export class PasswordResetService {
    * d'heure. C'est le procédé du motif `invitation` (ADR 0013).
    */
   private async guard(clientIp: string): Promise<AttemptKeys> {
+    /*
+      Les cinq essais et le quart d'heure viennent des plafonds de la connexion,
+      que `isBlocked` applique à tous les motifs : ils ne sont pas écrits ici,
+      contrairement aux trois plafonds de la demande. Les changer pour la
+      connexion les changerait donc aussi pour cette route.
+    */
     const keys = this.attempts.keysFor(clientIp, clientIp);
 
     if (await this.attempts.isBlocked(keys, 'reset')) {

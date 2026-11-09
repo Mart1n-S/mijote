@@ -48,7 +48,9 @@ function unusable(): Response {
   return new Response(
     JSON.stringify({
       type: 'about:blank',
-      title: 'Ressource disparue',
+      // « Erreur » et non un titre choisi : le filtre n'a pas d'entrée pour
+      // 410, il sert donc son titre de repli.
+      title: 'Erreur',
       status: 410,
       detail: "Ce lien n'est plus valable. Demandez une nouvelle réinitialisation.",
       requestId: '00000000-0000-4000-8000-000000000000',

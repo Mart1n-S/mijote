@@ -15,8 +15,14 @@ import { AuthRepository, type LoginOutcome, type LoginPurpose } from './auth.rep
   e-mail et une adresse IP sont des données personnelles (security.md).
 */
 
-/** Fenêtre glissante : les échecs plus anciens ne comptent plus. */
-const WINDOW_MS = 15 * 60 * 1000;
+/**
+ * Fenêtre glissante : les échecs plus anciens ne comptent plus.
+ *
+ * Exportée depuis la story #13 : la réinitialisation efface les échecs comptés
+ * sur l'adresse d'un compte, et n'a aucune raison d'effacer au-delà de ce qui
+ * bloque (ADR 0014).
+ */
+export const ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
 
 /*
   Cinq échecs par adresse, vingt par IP. L'écart est voulu : un foyer partage
@@ -90,7 +96,7 @@ export class AttemptsService {
   }
 
   async isBlocked(keys: AttemptKeys, purpose: LoginPurpose = 'password'): Promise<boolean> {
-    const since = new Date(Date.now() - WINDOW_MS);
+    const since = new Date(Date.now() - ATTEMPT_WINDOW_MS);
     const failures = await this.store.countFailures({ ...keys, since, purpose });
 
     return failures.byEmail >= MAX_FAILURES_PER_EMAIL || failures.byIp >= MAX_FAILURES_PER_IP;

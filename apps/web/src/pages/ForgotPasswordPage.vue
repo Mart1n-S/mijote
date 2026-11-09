@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { emailSchema } from '@mijote/shared';
-import { computed, ref } from 'vue';
+import { ref } from 'vue';
 import { RouterLink } from 'vue-router';
 
 import { ApiError } from '../api/client';
@@ -33,11 +33,6 @@ const SENT =
   'Si un compte existe pour cette adresse, un e-mail vient de partir. Pensez à regarder vos indésirables.';
 
 const UNEXPECTED_FAILURE = "La demande n'a pas pu aboutir. Réessayez dans un instant.";
-
-/** Ce que la région annonce : l'échec s'il y en a un, le retour sinon. */
-const announced = computed(() =>
-  formError.value === '' ? (sent.value ? SENT : '') : formError.value,
-);
 
 function messageOf(error: unknown): string {
   // Le message vient de l'API, qui l'écrit en français. Le seul qu'elle rende
@@ -73,11 +68,16 @@ async function submit(): Promise<void> {
 <template>
   <h1>Mot de passe oublié</h1>
 
-  <!-- Une seule région aria-live, montée avec la page avant tout message :
-       sinon l'arrivée du message ne serait pas annoncée (voir BaseAlert). Les
-       deux cas ne coexistent jamais, donc deux régions n'auraient rien
-       ajouté. -->
-  <BaseAlert :variant="formError === '' ? 'success' : 'error'" :message="announced" />
+  <!-- Deux régions aria-live, montées avec la page avant tout message : sinon
+       l'arrivée du message ne serait pas annoncée (voir BaseAlert).
+
+       Deux et non une seule, bien que les deux cas ne coexistent jamais : une
+       région dont la variante change en même temps que le message changerait
+       son `role` sous le lecteur d'écran au moment où il doit la lire, ce que
+       docs/design-system.md interdit. Le cas arrive pour de vrai ici, un 429
+       pouvant précéder une demande acceptée. -->
+  <BaseAlert variant="error" :message="formError" />
+  <BaseAlert variant="success" :message="sent ? SENT : ''" />
 
   <template v-if="sent">
     <p class="forgot__hint">

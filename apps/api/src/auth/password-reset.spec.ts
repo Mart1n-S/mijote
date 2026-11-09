@@ -5,7 +5,7 @@ import type { MailMessage, Mailer } from '../mail/mailer.js';
 import { verifyPassword } from '../security/passwords.js';
 import { hashSecret } from '../security/tokens.js';
 
-import { AttemptsService, type AttemptStore } from './attempts.service.js';
+import { ATTEMPT_WINDOW_MS, AttemptsService, type AttemptStore } from './attempts.service.js';
 import type { AuthLog } from './auth.log.js';
 import type { AccountRecord, LoginOutcome, LoginPurpose } from './auth.repository.js';
 import {
@@ -28,7 +28,8 @@ import {
   la suite des appels et l'absence d'attente, ce qui ne dérive pas.
 
   Ce que le SQL seul peut dire (l'index unique partiel, deux demandes vraiment
-  parallèles) se mesure dans auth.integration.spec.ts, contre une vraie base.
+  parallèles) se mesure dans password-reset.integration.spec.ts, contre une
+  vraie base.
 */
 
 const PEPPER = Buffer.alloc(32, 7).toString('base64');
@@ -91,7 +92,12 @@ class MemoryResets implements PasswordResetStore {
   /** Posée pour jouer la consommation perdue d'une soumission simultanée. */
   consumeFails = false;
   /** Ce que la transaction a reçu, dans l'ordre : c'est ce qu'elle a écrit. */
-  readonly applied: { accountId: string; passwordHash: string; emailFingerprint: string }[] = [];
+  readonly applied: {
+    accountId: string;
+    passwordHash: string;
+    emailFingerprint: string;
+    failuresSince: Date;
+  }[] = [];
   /** Deux appareils connectés, et deux appareils mémorisés, avant la réinitialisation. */
   sessions = 2;
   families = 2;
@@ -183,6 +189,7 @@ class MemoryResets implements PasswordResetStore {
     accountId: string;
     passwordHash: string;
     emailFingerprint: string;
+    failuresSince: Date;
   }): Promise<{ sessions: number; families: number }> {
     this.applied.push(input);
 
@@ -686,6 +693,16 @@ describe('la réinitialisation de mot de passe', () => {
       */
       expect(first(resets.applied, 'écriture').emailFingerprint).toBe(fingerprintOf(KNOWN));
       expect(first(resets.applied, 'écriture').emailFingerprint).not.toBe(fingerprintOf(IP));
+
+      /*
+        Et seulement ceux de la fenêtre qui bloque : les échecs plus anciens ne
+        comptent plus pour personne, et les effacer ferait perdre la trace de ce
+        qui s'est passé avant.
+      */
+      const since = first(resets.applied, 'écriture').failuresSince;
+
+      expect(Date.now() - since.getTime()).toBeGreaterThanOrEqual(ATTEMPT_WINDOW_MS);
+      expect(Date.now() - since.getTime()).toBeLessThan(ATTEMPT_WINDOW_MS + 5_000);
     });
 
     it('consomme le jeton, qui ne sert donc pas deux fois', async () => {

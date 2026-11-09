@@ -66,6 +66,7 @@ const RACED_EMAIL = `course-${randomUUID()}@exemple.test`;
 const DEVICES_EMAIL = `appareils-${randomUUID()}@exemple.test`;
 const TIMED_EMAIL = `mesure-${randomUUID()}@exemple.test`;
 const PURGED_EMAIL = `purge-${randomUUID()}@exemple.test`;
+const SUBMITTED_EMAIL = `soumis-${randomUUID()}@exemple.test`;
 const UNKNOWN_EMAIL = `personne-${randomUUID()}@exemple.test`;
 /** Une adresse voisine, dont les compteurs ne doivent pas bouger. */
 const NEIGHBOUR_EMAIL = `voisin-${randomUUID()}@exemple.test`;
@@ -78,6 +79,7 @@ const EMAILS = [
   DEVICES_EMAIL,
   TIMED_EMAIL,
   PURGED_EMAIL,
+  SUBMITTED_EMAIL,
   UNKNOWN_EMAIL,
   NEIGHBOUR_EMAIL,
 ];
@@ -356,6 +358,7 @@ describe.skipIf(!reachable)('la réinitialisation, contre une vraie base', () =>
     ids['devices'] = await createAccount(DEVICES_EMAIL);
     ids['timed'] = await createAccount(TIMED_EMAIL);
     ids['purged'] = await createAccount(PURGED_EMAIL);
+    ids['submitted'] = await createAccount(SUBMITTED_EMAIL);
     ids['neighbour'] = await createAccount(NEIGHBOUR_EMAIL);
 
     /*
@@ -439,6 +442,9 @@ describe.skipIf(!reachable)('la réinitialisation, contre une vraie base', () =>
         Le second message de ce parcours, parti détaché après la réponse : c'est
         la seule chose qui avertit le titulaire légitime quand ce n'était pas
         lui.
+
+        Ce cas et le suivant continuent le parcours ci-dessus, dont ils relisent
+        la boîte : les relancer seuls, ou les réordonner, les fait échouer.
       */
       const text = await waitForMail(USER_EMAIL, CHANGED_NEEDLE);
 
@@ -588,10 +594,16 @@ describe.skipIf(!reachable)('la réinitialisation, contre une vraie base', () =>
     });
 
     it("ne laisse passer qu'une seule soumission du même lien", async () => {
+      /*
+        Un compte à lui, comme le test de purge : le test précédent laisse
+        derrière lui un jeton vivant ou non selon l'entrelacement qu'il a
+        obtenu, et l'index unique partiel refuserait l'insertion ci-dessous
+        dans l'un des deux cas.
+      */
       const token = 'un-jeton-pour-deux-soumissions';
 
       await database.insert(passwordReset).values({
-        accountId: ids['raced'] ?? '',
+        accountId: ids['submitted'] ?? '',
         tokenHash: hashSecret(token),
         expiresAt: new Date(Date.now() + 60_000),
       });
@@ -685,6 +697,18 @@ describe.skipIf(!reachable)('la réinitialisation, contre une vraie base', () =>
         outcome: 'failed',
         purpose: 'code',
       });
+      /*
+        Et un échec de mot de passe hors fenêtre : il ne bloque plus personne,
+        donc il reste, et la trace de ce qui s'est passé avant n'est pas
+        effacée (ADR 0014).
+      */
+      await database.insert(loginAttempt).values({
+        emailFingerprint: print,
+        ipFingerprint: print,
+        outcome: 'failed',
+        purpose: 'password',
+        attemptedAt: new Date(Date.now() - 20 * 60 * 1000),
+      });
 
       await database.insert(passwordReset).values({
         accountId: ids['locked'] ?? '',
@@ -703,13 +727,18 @@ describe.skipIf(!reachable)('la réinitialisation, contre une vraie base', () =>
 
       expect(after.status).toBe(200);
 
+      const since = new Date(Date.now() - 15 * 60 * 1000);
       const remaining = await database
         .select()
         .from(loginAttempt)
         .where(and(eq(loginAttempt.emailFingerprint, print), eq(loginAttempt.outcome, 'failed')));
 
-      // Les `password` sont partis, le `code` est resté.
-      expect(remaining.map((row) => row.purpose)).toEqual(['code']);
+      // Les `password` de la fenêtre sont partis ; le `code` et le `password`
+      // hors fenêtre sont restés.
+      expect(remaining.map((row) => row.purpose).sort()).toEqual(['code', 'password']);
+      expect(
+        remaining.filter((row) => row.purpose === 'password' && row.attemptedAt > since),
+      ).toEqual([]);
       expect(
         await database
           .select()

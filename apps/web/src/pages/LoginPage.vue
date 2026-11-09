@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { loginSchema } from '@mijote/shared';
 import { nextTick, ref, useTemplateRef } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { RouterLink, useRoute, useRouter } from 'vue-router';
 
 import { ApiError } from '../api/client';
 import BaseAlert from '../components/base/BaseAlert.vue';
@@ -187,6 +187,13 @@ async function submitCode(): Promise<void> {
     <BaseButton type="submit" :loading="submitting" loading-label="connexion en cours">
       Se connecter
     </BaseButton>
+
+    <!-- Sans ce lien, la réinitialisation ne serait atteignable qu'en tapant
+         son adresse. Il n'est pas dans la seconde étape : à ce stade le mot de
+         passe est déjà bon, et c'est un code qui manque. -->
+    <p class="login__forgot">
+      <RouterLink to="/mot-de-passe-oublie">Mot de passe oublié ?</RouterLink>
+    </p>
   </form>
 
   <div v-else ref="codeStep">
@@ -242,5 +249,9 @@ async function submitCode(): Promise<void> {
   margin: 0;
   color: var(--color-text-muted);
   font-size: var(--text-sm);
+}
+
+.login__forgot {
+  margin: 0;
 }
 </style>

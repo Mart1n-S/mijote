@@ -2,11 +2,13 @@ import type { RouteRecordRaw } from 'vue-router';
 
 import AdminPage from './pages/AdminPage.vue';
 import AdminUnlockPage from './pages/AdminUnlockPage.vue';
+import ForgotPasswordPage from './pages/ForgotPasswordPage.vue';
 import HomePage from './pages/HomePage.vue';
 import InvitationPage from './pages/InvitationPage.vue';
 import InvitationsPage from './pages/InvitationsPage.vue';
 import LoginPage from './pages/LoginPage.vue';
 import NotFoundPage from './pages/NotFoundPage.vue';
+import ResetPasswordPage from './pages/ResetPasswordPage.vue';
 import TwoFactorPage from './pages/TwoFactorPage.vue';
 
 declare module 'vue-router' {
@@ -68,6 +70,29 @@ export function createRoutes(withDesignSystem: boolean): RouteRecordRaw[] {
     name: 'login',
     component: LoginPage,
     meta: { title: 'Connexion', public: true },
+  });
+
+  /*
+    Le mot de passe oublié : deux pages ouvertes, forcément, puisqu'elles sont
+    faites pour quelqu'un qui ne peut pas se connecter.
+
+    La seconde reçoit le jeton dans le fragment de l'adresse, qu'elle lit puis
+    efface, comme la page d'invitation (ADR 0014). Aucune des deux ne figure
+    dans la navigation : on y arrive par le lien de la page de connexion, ou par
+    celui de l'e-mail.
+  */
+  routes.push({
+    path: '/mot-de-passe-oublie',
+    name: 'forgot-password',
+    component: ForgotPasswordPage,
+    meta: { title: 'Mot de passe oublié', public: true },
+  });
+
+  routes.push({
+    path: '/mot-de-passe/reinitialisation',
+    name: 'reset-password',
+    component: ResetPasswordPage,
+    meta: { title: 'Nouveau mot de passe', public: true },
   });
 
   /*

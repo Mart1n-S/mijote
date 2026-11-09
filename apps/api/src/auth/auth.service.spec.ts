@@ -189,17 +189,26 @@ class MemoryAttempts implements AttemptStore {
     ipFingerprint: string;
     purpose: LoginPurpose;
   }): Promise<{ byEmail: number; byIp: number }> {
+    return this.countAttempts({ ...input, outcome: 'failed' });
+  }
+
+  countAttempts(input: {
+    emailFingerprint: string;
+    ipFingerprint: string;
+    purpose: LoginPurpose;
+    outcome: LoginOutcome;
+  }): Promise<{ byEmail: number; byIp: number }> {
     /*
       Le motif entre dans le filtre, comme dans le vrai dépôt : un code mal
       tapé ne doit pas rapprocher du blocage de la connexion elle-même.
     */
-    const failures = this.rows.filter(
-      (row) => row.outcome === 'failed' && row.purpose === input.purpose,
+    const matching = this.rows.filter(
+      (row) => row.outcome === input.outcome && row.purpose === input.purpose,
     );
 
     return Promise.resolve({
-      byEmail: failures.filter((row) => row.emailFingerprint === input.emailFingerprint).length,
-      byIp: failures.filter((row) => row.ipFingerprint === input.ipFingerprint).length,
+      byEmail: matching.filter((row) => row.emailFingerprint === input.emailFingerprint).length,
+      byIp: matching.filter((row) => row.ipFingerprint === input.ipFingerprint).length,
     });
   }
 

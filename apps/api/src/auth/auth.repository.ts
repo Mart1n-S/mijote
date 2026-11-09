@@ -7,6 +7,7 @@ import {
   account,
   accountTwoFactor,
   loginAttempt,
+  passwordReset,
   pendingLogin,
   rememberToken,
   session,
@@ -57,13 +58,17 @@ export type LoginOutcome = 'succeeded' | 'failed' | 'blocked';
 
 /**
  * Ce qui était vérifié : le mot de passe à la connexion, le code du second
- * facteur, le mot de passe redemandé à une réauthentification, ou le jeton
- * d'une invitation que l'on accepte.
+ * facteur, le mot de passe redemandé à une réauthentification, le jeton d'une
+ * invitation que l'on accepte, une demande de réinitialisation, ou le jeton de
+ * cette réinitialisation.
  *
  * Les comptages restent séparés par motif : une acceptation ratée ne doit pas
- * rapprocher qui que ce soit du blocage de la connexion.
+ * rapprocher qui que ce soit du blocage de la connexion, et une rafale de
+ * demandes de réinitialisation ne doit pas empêcher les vraies
+ * réinitialisations d'aboutir (ADR 0014).
  */
-export type LoginPurpose = 'password' | 'code' | 'reauth' | 'invitation';
+export type LoginPurpose =
+  'password' | 'code' | 'reauth' | 'invitation' | 'reset_request' | 'reset';
 
 /** La double authentification d'un compte, telle que le service la lit. */
 export interface TwoFactorRecord {
@@ -78,6 +83,20 @@ export interface BackupCodeRecord {
   id: string;
   codeHash: string;
   usedAt: Date | null;
+}
+
+/**
+ * Un jeton de réinitialisation, tel que le service le lit.
+ *
+ * L'empreinte n'en fait pas partie : le service la calcule pour chercher la
+ * ligne, il n'a jamais à la relire.
+ */
+export interface PasswordResetRecord {
+  id: string;
+  accountId: string;
+  expiresAt: Date;
+  usedAt: Date | null;
+  revokedAt: Date | null;
 }
 
 /** L'attente entre le mot de passe et le code. */
@@ -273,16 +292,35 @@ export class AuthRepository {
     since: Date;
     purpose: LoginPurpose;
   }): Promise<{ byEmail: number; byIp: number }> {
+    return this.countAttempts({ ...input, outcome: 'failed' });
+  }
+
+  /**
+   * Les tentatives d'une issue donnée, par sujet et par IP.
+   *
+   * La demande de réinitialisation compte ses **demandes acceptées** et non des
+   * échecs : elle n'échoue jamais du point de vue du client (ADR 0014). Les
+   * `blocked` ne sont comptées nulle part, ici comme ailleurs.
+   */
+  async countAttempts(input: {
+    emailFingerprint: string;
+    ipFingerprint: string;
+    since: Date;
+    purpose: LoginPurpose;
+    outcome: LoginOutcome;
+  }): Promise<{ byEmail: number; byIp: number }> {
     const [byEmail, byIp] = await Promise.all([
-      this.countFailuresWhere(
+      this.countAttemptsWhere(
         eq(loginAttempt.emailFingerprint, input.emailFingerprint),
         input.since,
         input.purpose,
+        input.outcome,
       ),
-      this.countFailuresWhere(
+      this.countAttemptsWhere(
         eq(loginAttempt.ipFingerprint, input.ipFingerprint),
         input.since,
         input.purpose,
+        input.outcome,
       ),
     ]);
 
@@ -495,6 +533,73 @@ export class AuthRepository {
     await this.database.update(session).set({ adminUnlockedAt: at }).where(eq(session.id, id));
   }
 
+  // La réinitialisation d'un mot de passe oublié (ADR 0014).
+
+  /**
+   * Révoque le jeton vivant de ce compte, puis en écrit un neuf.
+   *
+   * Les deux dans la même transaction, et dans cet ordre, pour la raison de
+   * l'ADR 0013 : l'index unique partiel n'autorise qu'un jeton vivant par
+   * compte, et son prédicat ne peut pas tenir compte de l'expiration, `now()`
+   * n'étant pas immuable. Un jeton expiré mais non révoqué occupe donc encore
+   * l'index, et c'est ici qu'il cède la place.
+   *
+   * **L'insertion peut échouer en violation d'unicité**, et c'est voulu : deux
+   * demandes simultanées ne voient ni l'une ni l'autre le jeton de sa voisine,
+   * et l'index fait perdre la seconde. L'appelant reconnaît ce conflit et
+   * s'arrête là, sans envoyer de second e-mail (ADR 0014).
+   */
+  async replaceLivePasswordReset(input: {
+    accountId: string;
+    tokenHash: string;
+    expiresAt: Date;
+    at: Date;
+  }): Promise<{ id: string }> {
+    return this.database.transaction(async (transaction) => {
+      await transaction
+        .update(passwordReset)
+        .set({ revokedAt: input.at })
+        .where(
+          and(
+            eq(passwordReset.accountId, input.accountId),
+            isNull(passwordReset.usedAt),
+            isNull(passwordReset.revokedAt),
+          ),
+        );
+
+      const [created] = await transaction
+        .insert(passwordReset)
+        .values({
+          accountId: input.accountId,
+          tokenHash: input.tokenHash,
+          expiresAt: input.expiresAt,
+        })
+        .returning({ id: passwordReset.id });
+
+      if (created === undefined) {
+        throw new Error("l'insertion du jeton de réinitialisation n'a rien renvoyé");
+      }
+
+      return created;
+    });
+  }
+
+  async findPasswordResetByTokenHash(tokenHash: string): Promise<PasswordResetRecord | undefined> {
+    const [row] = await this.database
+      .select({
+        id: passwordReset.id,
+        accountId: passwordReset.accountId,
+        expiresAt: passwordReset.expiresAt,
+        usedAt: passwordReset.usedAt,
+        revokedAt: passwordReset.revokedAt,
+      })
+      .from(passwordReset)
+      .where(eq(passwordReset.tokenHash, tokenHash))
+      .limit(1);
+
+    return row;
+  }
+
   /**
    * Efface ce qui est périmé : sessions, jetons de mémorisation et tentatives.
    *
@@ -508,26 +613,33 @@ export class AuthRepository {
       this.database.delete(rememberToken).where(lt(rememberToken.expiresAt, now)),
       this.database.delete(loginAttempt).where(lt(loginAttempt.attemptedAt, attemptRetention)),
       this.database.delete(pendingLogin).where(lt(pendingLogin.expiresAt, now)),
+      /*
+        Les jetons de réinitialisation n'ont besoin de rien de plus que leur
+        expiration : consommés ou révoqués, ils expirent de toute façon dans
+        l'heure, et la table ne porte aucune adresse e-mail (ADR 0014).
+      */
+      this.database.delete(passwordReset).where(lt(passwordReset.expiresAt, now)),
     ]);
   }
 
-  private async countFailuresWhere(
+  private async countAttemptsWhere(
     matches: SQL,
     since: Date,
     purpose: LoginPurpose,
+    outcome: LoginOutcome,
   ): Promise<number> {
     const [row] = await this.database
-      .select({ failures: count() })
+      .select({ attempts: count() })
       .from(loginAttempt)
       .where(
         and(
           matches,
-          eq(loginAttempt.outcome, 'failed'),
+          eq(loginAttempt.outcome, outcome),
           eq(loginAttempt.purpose, purpose),
           gte(loginAttempt.attemptedAt, since),
         ),
       );
 
-    return row?.failures ?? 0;
+    return row?.attempts ?? 0;
   }
 }

@@ -38,6 +38,13 @@ export interface AttemptStore {
     since: Date;
     purpose: LoginPurpose;
   }): Promise<{ byEmail: number; byIp: number }>;
+  countAttempts(input: {
+    emailFingerprint: string;
+    ipFingerprint: string;
+    since: Date;
+    purpose: LoginPurpose;
+    outcome: LoginOutcome;
+  }): Promise<{ byEmail: number; byIp: number }>;
   recordAttempt(input: {
     emailFingerprint: string;
     ipFingerprint: string;
@@ -95,6 +102,30 @@ export class AttemptsService {
     purpose: LoginPurpose = 'password',
   ): Promise<void> {
     await this.store.recordAttempt({ ...keys, outcome, purpose });
+  }
+
+  /**
+   * Compte les tentatives d'une issue donnée, dans une fenêtre donnée.
+   *
+   * `isBlocked` ne sait compter que des échecs, sur quinze minutes, contre les
+   * plafonds de la connexion. La demande de réinitialisation a besoin d'autre
+   * chose : elle n'échoue jamais du point de vue du client, donc ce sont ses
+   * **demandes acceptées** qu'il faut compter, sur une heure et sur un jour,
+   * contre ses propres plafonds (ADR 0014).
+   *
+   * Les plafonds restent chez l'appelant : ils n'ont pas de valeur ici, où
+   * rien ne dit de quelle route il s'agit.
+   */
+  async countRecent(
+    keys: AttemptKeys,
+    input: { purpose: LoginPurpose; outcome: LoginOutcome; windowMs: number },
+  ): Promise<{ byEmail: number; byIp: number }> {
+    return this.store.countAttempts({
+      ...keys,
+      since: new Date(Date.now() - input.windowMs),
+      purpose: input.purpose,
+      outcome: input.outcome,
+    });
   }
 
   /**

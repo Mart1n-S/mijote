@@ -2,12 +2,15 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 
 import { DatabaseModule } from '../db/database.module.js';
+import { MailModule } from '../mail/mail.module.js';
 
 import { AttemptsService } from './attempts.service.js';
 import { AuthController } from './auth.controller.js';
 import { AuthRepository } from './auth.repository.js';
 import { AuthService } from './auth.service.js';
 import { CsrfGuard } from './csrf.guard.js';
+import { PasswordResetController } from './password-reset.controller.js';
+import { PasswordResetService } from './password-reset.service.js';
 import { PendingLoginService } from './pending-login.service.js';
 import { RememberService } from './remember.service.js';
 import { RolesGuard } from './roles.guard.js';
@@ -16,8 +19,10 @@ import { SessionService } from './session.service.js';
 import { TwoFactorService } from './two-factor.service.js';
 
 @Module({
-  imports: [DatabaseModule],
-  controllers: [AuthController],
+  // MailModule : la réinitialisation d'un mot de passe envoie deux e-mails, le
+  // lien puis la notification du changement (ADR 0014).
+  imports: [DatabaseModule, MailModule],
+  controllers: [AuthController, PasswordResetController],
   providers: [
     AuthRepository,
     AttemptsService,
@@ -26,6 +31,7 @@ import { TwoFactorService } from './two-factor.service.js';
     PendingLoginService,
     TwoFactorService,
     AuthService,
+    PasswordResetService,
     /*
       Les trois gardes sont globales, dans cet ordre, qui est celui de leur
       déclaration : la session d'abord, parce que les deux suivantes ont besoin

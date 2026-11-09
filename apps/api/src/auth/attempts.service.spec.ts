@@ -27,15 +27,24 @@ class MemoryAttempts implements AttemptStore {
     ipFingerprint: string;
     since: Date;
   }): Promise<{ byEmail: number; byIp: number }> {
+    return this.countAttempts({ ...input, outcome: 'failed' });
+  }
+
+  countAttempts(input: {
+    emailFingerprint: string;
+    ipFingerprint: string;
+    since: Date;
+    outcome: LoginOutcome;
+  }): Promise<{ byEmail: number; byIp: number }> {
     this.lastSince = input.since;
 
-    const failures = this.rows.filter(
-      (row) => row.outcome === 'failed' && row.attemptedAt >= input.since,
+    const matching = this.rows.filter(
+      (row) => row.outcome === input.outcome && row.attemptedAt >= input.since,
     );
 
     return Promise.resolve({
-      byEmail: failures.filter((row) => row.emailFingerprint === input.emailFingerprint).length,
-      byIp: failures.filter((row) => row.ipFingerprint === input.ipFingerprint).length,
+      byEmail: matching.filter((row) => row.emailFingerprint === input.emailFingerprint).length,
+      byIp: matching.filter((row) => row.ipFingerprint === input.ipFingerprint).length,
     });
   }
 

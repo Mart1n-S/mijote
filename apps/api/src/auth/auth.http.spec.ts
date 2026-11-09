@@ -293,21 +293,54 @@ describe('les barrières du CSRF', () => {
     }
   });
 
-  it("n'exempte que les trois routes qui précèdent une session", () => {
+  it("n'exempte que les routes qui précèdent une session", () => {
     /*
       La liste est énumérée ici, mot pour mot. S'y ajouter une route demande de
       changer ce test, donc de dire pourquoi la route ne peut pas porter le
       jeton.
 
-      Les trois ont la même raison : elles sont appelées avant qu'une session
-      existe, donc aucun secret CSRF ne leur a été remis. Les deux autres
-      barrières, l'origine et le type de média, les protègent toujours.
+      Toutes ont la même raison : elles sont appelées avant qu'une session
+      existe, donc aucun secret CSRF ne leur a été remis. La demande de
+      réinitialisation est appelée par quelqu'un qui ne peut justement pas se
+      connecter (ADR 0014). Les deux autres barrières, l'origine et le type de
+      média, les protègent toujours.
     */
     expect(CSRF_EXEMPT_ROUTES).toEqual([
       { method: 'POST', path: '/auth/login' },
       { method: 'POST', path: '/invitations/preview' },
       { method: 'POST', path: '/invitations/accept' },
+      { method: 'POST', path: '/auth/password/forgot' },
     ]);
+  });
+
+  it('garde les deux autres barrières sur la demande de réinitialisation', async () => {
+    const forgot = (init: RequestInit): RequestInit => ({
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin: baseUrl },
+      body: JSON.stringify({ email: 'titulaire@exemple.test' }),
+      ...init,
+    });
+
+    /*
+      Elle fait partir un e-mail et écrit en base : une page d'un autre site n'a
+      rien à faire là, même si elle ne peut rien y détourner, aucune session
+      n'étant en jeu.
+    */
+    const wrongType = await problemAt(
+      '/auth/password/forgot',
+      forgot({ headers: { 'content-type': 'text/plain', origin: baseUrl } }),
+    );
+
+    expect(wrongType.status).toBe(415);
+
+    const wrongOrigin = await problemAt(
+      '/auth/password/forgot',
+      forgot({
+        headers: { 'content-type': 'application/json', origin: 'https://ailleurs.example' },
+      }),
+    );
+
+    expect(wrongOrigin.status).toBe(403);
   });
 
   it('ne se laisse pas contourner par une barre oblique en trop', async () => {

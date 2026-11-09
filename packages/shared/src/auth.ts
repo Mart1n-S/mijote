@@ -200,14 +200,20 @@ export const invitationListSchema = z.object({ invitations: z.array(invitationSc
 export type InvitationList = z.infer<typeof invitationListSchema>;
 
 /**
- * Le jeton d'une invitation, tel que la page d'inscription le présente.
+ * Un jeton opaque reçu dans le corps d'une requête.
  *
- * Il arrive dans le **corps** de la requête, jamais dans l'URL : un jeton dans
- * une adresse fuit par l'en-tête `Referer` et par les journaux du mandataire.
- * Le lien de l'e-mail le porte donc dans son fragment, que le navigateur ne
- * transmet jamais (ADR 0013).
+ * Il arrive dans le **corps**, jamais dans l'URL : un jeton dans une adresse
+ * fuit par l'en-tête `Referer` et par les journaux du mandataire. Le lien de
+ * l'e-mail le porte donc dans son fragment, que le navigateur ne transmet
+ * jamais (ADR 0013 pour l'invitation, ADR 0014 pour la réinitialisation).
+ *
+ * La borne haute ne décrit pas le jeton, qui fait 43 caractères : elle évite
+ * de faire hacher et chercher une chaîne quelconque.
  */
-export const invitationTokenSchema = z.object({ token: z.string().trim().min(1).max(200) });
+const opaqueTokenSchema = z.object({ token: z.string().trim().min(1).max(200) });
+
+/** Le jeton d'une invitation, tel que la page d'inscription le présente. */
+export const invitationTokenSchema = opaqueTokenSchema;
 
 /** Ce que la page d'inscription affiche avant de demander un mot de passe. */
 export const invitationPreviewSchema = z.object({ email: z.string() });
@@ -220,3 +226,35 @@ export const acceptInvitationSchema = invitationTokenSchema.extend({
 });
 
 export type AcceptInvitationInput = z.infer<typeof acceptInvitationSchema>;
+
+/*
+  La réinitialisation d'un mot de passe oublié.
+
+  Deux routes, et aucune réponse qui dise si l'adresse a un compte : la demande
+  répond toujours la même chose, et le même temps, l'envoi de l'e-mail ne
+  retenant pas la réponse (ADR 0014).
+*/
+
+/**
+ * Corps de la demande : l'adresse, et rien d'autre.
+ *
+ * Même schéma d'adresse qu'à la connexion, donc même normalisation : c'est la
+ * forme sous laquelle un compte se retrouve, et la demande ne doit pas dépendre
+ * de la façon de taper son adresse.
+ */
+export const forgotPasswordSchema = z.object({ email: emailSchema });
+
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+
+/**
+ * Corps de la réinitialisation : le jeton du lien, et le mot de passe choisi.
+ *
+ * Les mêmes règles de longueur qu'à la création d'un compte, et c'est le même
+ * schéma qui les porte des deux côtés : un mot de passe accepté par l'écran et
+ * refusé par le serveur n'aurait aucun moyen d'être corrigé.
+ */
+export const resetPasswordSchema = opaqueTokenSchema.extend({
+  password: z.string().min(MIN_PASSWORD_LENGTH).max(MAX_PASSWORD_LENGTH),
+});
+
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;

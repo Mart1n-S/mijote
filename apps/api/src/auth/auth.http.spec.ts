@@ -310,6 +310,7 @@ describe('les barrières du CSRF', () => {
       { method: 'POST', path: '/invitations/preview' },
       { method: 'POST', path: '/invitations/accept' },
       { method: 'POST', path: '/auth/password/forgot' },
+      { method: 'POST', path: '/auth/password/reset' },
     ]);
   });
 

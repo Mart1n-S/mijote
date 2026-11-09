@@ -5,12 +5,14 @@ import { isUniqueViolation, readPostgresCode } from '../db/postgres-error.js';
 import { readAppBaseUrl } from '../env.js';
 import { ProblemException } from '../errors/problem.exception.js';
 import { type Mailer, MAILER } from '../mail/mailer.js';
+import { passwordChangedEmail } from '../mail/templates/password-changed.js';
 import { passwordResetEmail } from '../mail/templates/password-reset.js';
+import { hashPassword } from '../security/passwords.js';
 import { createSecret, hashSecret } from '../security/tokens.js';
 
 import { type AttemptKeys, AttemptsService } from './attempts.service.js';
 import type { AuthLog } from './auth.log.js';
-import { type AccountRecord, AuthRepository } from './auth.repository.js';
+import { type AccountRecord, AuthRepository, type PasswordResetRecord } from './auth.repository.js';
 
 /*
   La réinitialisation d'un mot de passe oublié (ADR 0014).
@@ -66,12 +68,24 @@ const RESET_PATH = '/mot-de-passe/reinitialisation';
 
 const TOO_MANY_REQUESTS = 'Trop de demandes de réinitialisation. Réessayez dans un petit moment.';
 
+/**
+ * Le seul message d'un lien qui ne vaut plus rien.
+ *
+ * Inconnu, expiré, révoqué, déjà utilisé : les quatre reçoivent celui-ci. Les
+ * distinguer n'apprendrait rien d'utile à qui tient un lien mort, et « déjà
+ * utilisé » dirait à qui a trouvé un vieux lien que sa cible s'en est servie.
+ */
+const UNUSABLE = "Ce lien n'est plus valable. Demandez une nouvelle réinitialisation.";
+
+const TOO_MANY_ATTEMPTS = 'Trop de tentatives. Réessayez dans quelques minutes.';
+
 /** Ce que la réinitialisation lit des comptes, et rien de plus. */
 export interface ResetAccountStore {
   findAccountByEmail(email: string): Promise<AccountRecord | undefined>;
+  findAccountById(id: string): Promise<AccountRecord | undefined>;
 }
 
-/** Ce qu'elle écrit de ses jetons, et rien de plus. */
+/** Ce qu'elle lit et écrit de ses jetons, et rien de plus. */
 export interface PasswordResetStore {
   replaceLivePasswordReset(input: {
     accountId: string;
@@ -79,6 +93,42 @@ export interface PasswordResetStore {
     expiresAt: Date;
     at: Date;
   }): Promise<{ id: string }>;
+  findPasswordResetByTokenHash(tokenHash: string): Promise<PasswordResetRecord | undefined>;
+  consumePasswordReset(id: string, at: Date): Promise<boolean>;
+  applyPasswordReset(input: {
+    accountId: string;
+    passwordHash: string;
+    emailFingerprint: string;
+  }): Promise<{ sessions: number; families: number }>;
+}
+
+/**
+ * Ce jeton vaut-il encore quelque chose ?
+ *
+ * Un seul booléen pour les trois états morts : c'est ce qui garantit que les
+ * quatre refus sont indistinguables, le quatrième étant un jeton inconnu.
+ */
+function isLive(record: PasswordResetRecord, now: Date): boolean {
+  return (
+    record.usedAt === null &&
+    record.revokedAt === null &&
+    record.expiresAt.getTime() > now.getTime()
+  );
+}
+
+/**
+ * Ce qu'on garde d'un échec, et rien de plus.
+ *
+ * Le type et le code de PostgreSQL, **jamais le message** : Drizzle place la
+ * requête et ses paramètres dans le message de ses erreurs, et l'un de ces
+ * paramètres est une adresse e-mail (ADR 0010). C'est le même soin que
+ * `describeFailure` de `smtp.mailer.ts`, pour la même raison.
+ */
+function describeFailure(error: unknown): { type: string; code: string | undefined } {
+  return {
+    type: error instanceof Error ? error.name : typeof error,
+    code: readPostgresCode(error),
+  };
 }
 
 @Injectable()
@@ -135,10 +185,83 @@ export class PasswordResetService {
   }
 
   /**
+   * Réinitialise le mot de passe que ce jeton autorise à changer.
+   *
+   * L'ordre des étapes est celui-ci, et chacune a sa raison :
+   *
+   * 1. le jeton est résolu, et un jeton mort reçoit le refus unique ;
+   * 2. le mot de passe est haché **hors de toute transaction**, une centaine de
+   *    millisecondes n'ayant rien à faire dedans (ADR 0011) ;
+   * 3. le jeton est consommé par une requête conditionnelle, donc deux
+   *    soumissions simultanées ne peuvent pas passer toutes les deux ;
+   * 4. l'écriture et les révocations, dans une seule transaction.
+   *
+   * Le prix de cet ordre est celui de l'acceptation d'une invitation : si
+   * l'étape 4 échoue, le jeton est brûlé et le mot de passe n'a pas changé. La
+   * personne redemande. L'ordre inverse échangerait ce cas rare contre deux
+   * réinitialisations concurrentes dont on ne saurait pas laquelle a gagné.
+   *
+   * **Aucune session n'est ouverte**, et la double authentification n'est pas
+   * touchée : réinitialiser son mot de passe ne donne ni les droits
+   * d'administration, ni une dispense de second facteur (ADR 0014).
+   */
+  async reset(token: string, password: string, clientIp: string): Promise<void> {
+    const keys = await this.guard(clientIp);
+    const record = await this.usable(keys, token);
+    const account = await this.accounts.findAccountById(record.accountId);
+
+    if (account === undefined) {
+      // Le compte a disparu entre l'envoi et le lien : même refus que pour un
+      // jeton mort. La clé étrangère en cascade rend le cas presque impossible.
+      throw await this.countedRefusal(keys);
+    }
+
+    const passwordHash = await hashPassword(password);
+
+    if (!(await this.resets.consumePasswordReset(record.id, new Date()))) {
+      throw await this.countedRefusal(keys);
+    }
+
+    await this.attempts.record(keys, 'succeeded', 'reset');
+
+    const closed = await this.resets.applyPasswordReset({
+      accountId: account.id,
+      passwordHash,
+      /*
+        L'empreinte de l'adresse du compte : c'est sous elle que la connexion a
+        compté les échecs, et ils s'effacent avec le mot de passe qu'ils
+        protégeaient (ADR 0014).
+      */
+      emailFingerprint: this.attempts.keysFor(account.email, clientIp).emailFingerprint,
+    });
+
+    this.logger.info(
+      {
+        resetId: record.id,
+        accountId: account.id,
+        sessions: closed.sessions,
+        families: closed.families,
+      },
+      'mot de passe réinitialisé',
+    );
+
+    /*
+      La notification part détachée, pour une raison différente de celle de la
+      demande : le mot de passe est déjà changé et les sessions déjà fermées.
+      Échouer ici rendrait une erreur pour une opération qui a réussi, et la
+      personne croirait devoir recommencer avec un jeton consommé.
+    */
+    this.detach(this.notifyChanged(account));
+  }
+
+  /**
    * Attend les travaux détachés en cours. **Réservé aux tests.**
    *
    * En production personne n'attend : une route qui attendrait son envoi
    * redonnerait au temps de réponse le moyen de dire quels comptes existent.
+   *
+   * Un test qui bloque son envoyeur pour mesurer cette non-attente ne doit donc
+   * pas appeler ceci : le travail resterait en cours pour toujours.
    */
   async waitForDetachedWork(): Promise<void> {
     while (this.running.size > 0) {
@@ -211,6 +334,71 @@ export class PasswordResetService {
     }
   }
 
+  /** Prévient le titulaire que son mot de passe vient de changer. */
+  private async notifyChanged(account: AccountRecord): Promise<void> {
+    try {
+      await this.mailer.send(passwordChangedEmail({ to: account.email }));
+    } catch (error) {
+      /*
+        L'échec s'arrête ici : le mot de passe est changé, les sessions sont
+        fermées, et la réponse est partie. Il n'y a rien à défaire, et rien à
+        demander à la personne.
+      */
+      this.logger.warn(
+        { accountId: account.id, ...describeFailure(error) },
+        'notification de changement de mot de passe impossible',
+      );
+    }
+  }
+
+  /**
+   * Le jeton que ce lien désigne, s'il vaut encore quelque chose.
+   *
+   * Les quatre cas sont traités ici, au même endroit : inconnu, expiré,
+   * révoqué, déjà utilisé.
+   */
+  private async usable(keys: AttemptKeys, token: string): Promise<PasswordResetRecord> {
+    const record = await this.resets.findPasswordResetByTokenHash(hashSecret(token));
+
+    if (record === undefined || !isLive(record, new Date())) {
+      throw await this.countedRefusal(keys);
+    }
+
+    return record;
+  }
+
+  /** Compte l'échec, et rend le refus à lever. */
+  private async countedRefusal(keys: AttemptKeys): Promise<ProblemException> {
+    await this.attempts.record(keys, 'failed', 'reset');
+
+    return new ProblemException(HttpStatus.GONE, UNUSABLE);
+  }
+
+  /**
+   * La limitation de la réinitialisation elle-même.
+   *
+   * Elle porte sur l'adresse IP, et sur elle seule : le jeton est hors de
+   * portée d'une recherche exhaustive, mais cette route hache un mot de passe
+   * en Argon2id, donc elle réserve 64 Mio par essai, et personne n'a à pouvoir
+   * la solliciter sans borne.
+   *
+   * L'IP est passée comme sujet **et** comme IP, faute de sujet utile avant la
+   * résolution du jeton : les deux compteurs tiennent alors la même valeur, et
+   * la borne effective est la plus basse des deux, cinq essais ratés par quart
+   * d'heure. C'est le procédé du motif `invitation` (ADR 0013).
+   */
+  private async guard(clientIp: string): Promise<AttemptKeys> {
+    const keys = this.attempts.keysFor(clientIp, clientIp);
+
+    if (await this.attempts.isBlocked(keys, 'reset')) {
+      await this.attempts.record(keys, 'blocked', 'reset');
+
+      throw new ProblemException(HttpStatus.TOO_MANY_REQUESTS, TOO_MANY_ATTEMPTS);
+    }
+
+    return keys;
+  }
+
   /**
    * Abandonne le travail détaché, en disant pourquoi au journal.
    *
@@ -232,18 +420,8 @@ export class PasswordResetService {
       return;
     }
 
-    /*
-      Le type et le code de PostgreSQL, jamais le message : Drizzle place la
-      requête **et ses paramètres** dans le message de ses erreurs, et l'un de
-      ces paramètres est une adresse e-mail (ADR 0010, et le même soin que dans
-      `smtp.mailer.ts`).
-    */
     this.logger.warn(
-      {
-        accountId,
-        type: error instanceof Error ? error.name : typeof error,
-        code: readPostgresCode(error),
-      },
+      { accountId, ...describeFailure(error) },
       'envoi du lien de réinitialisation impossible',
     );
   }

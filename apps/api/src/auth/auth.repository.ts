@@ -601,6 +601,98 @@ export class AuthRepository {
   }
 
   /**
+   * Consomme un jeton, à condition qu'il soit vivant et non expiré.
+   *
+   * L'expiration est comparée ici, dans la même requête : la lire puis écrire
+   * laisserait deux réinitialisations simultanées passer toutes les deux, et on
+   * ne saurait pas lequel des deux mots de passe a gagné.
+   */
+  async consumePasswordReset(id: string, at: Date): Promise<boolean> {
+    const used = await this.database
+      .update(passwordReset)
+      .set({ usedAt: at })
+      .where(
+        and(
+          eq(passwordReset.id, id),
+          isNull(passwordReset.usedAt),
+          isNull(passwordReset.revokedAt),
+          gte(passwordReset.expiresAt, at),
+        ),
+      )
+      .returning({ id: passwordReset.id });
+
+    return used.length > 0;
+  }
+
+  /**
+   * Écrit le nouveau mot de passe et ferme tout ce que l'ancien avait ouvert.
+   *
+   * Une seule transaction, parce qu'on réinitialise souvent en soupçonnant un
+   * vol : un mot de passe changé sans que les sessions tombent laisserait le
+   * voleur dedans, et des sessions tombées sans que le mot de passe change
+   * déconnecteraient le propriétaire pour rien (ADR 0014).
+   *
+   * Les attentes de connexion sont dans la liste, et ce n'est pas du zèle : une
+   * attente est un mot de passe déjà validé qui n'attend plus qu'un code, donc
+   * un état que le mot de passe qu'on remplace a ouvert.
+   *
+   * La double authentification, elle, n'est pas touchée : réinitialiser un mot
+   * de passe ne désactive pas le second facteur.
+   */
+  async applyPasswordReset(input: {
+    accountId: string;
+    passwordHash: string;
+    emailFingerprint: string;
+  }): Promise<{ sessions: number; families: number }> {
+    return this.database.transaction(async (transaction) => {
+      await transaction
+        .update(account)
+        .set({ passwordHash: input.passwordHash })
+        .where(eq(account.id, input.accountId));
+
+      const closedSessions = await transaction
+        .delete(session)
+        .where(eq(session.accountId, input.accountId))
+        .returning({ id: session.id });
+
+      const closedFamilies = await transaction
+        .delete(rememberToken)
+        .where(eq(rememberToken.accountId, input.accountId))
+        .returning({ family: rememberToken.family });
+
+      await transaction.delete(pendingLogin).where(eq(pendingLogin.accountId, input.accountId));
+
+      // Les autres jetons du compte, qui ne valent plus rien. Celui qu'on vient
+      // de consommer porte sa date d'usage, donc il reste : il dit ce qui s'est
+      // passé, et il disparaîtra à son expiration.
+      await transaction
+        .delete(passwordReset)
+        .where(and(eq(passwordReset.accountId, input.accountId), isNull(passwordReset.usedAt)));
+
+      /*
+        Les échecs de connexion comptés sur l'adresse de ce compte s'effacent.
+        Sans cela, quelqu'un qui s'est trompé cinq fois avant de réinitialiser
+        resterait bloqué avec le mot de passe tout neuf qu'il vient de choisir.
+
+        Seul le motif `password` : `code` et `reauth` protègent le second
+        facteur, que cette story ne touche pas. Les lignes `blocked` restent,
+        pour la trace, et elles n'ont jamais été comptées (ADR 0014).
+      */
+      await transaction
+        .delete(loginAttempt)
+        .where(
+          and(
+            eq(loginAttempt.emailFingerprint, input.emailFingerprint),
+            eq(loginAttempt.purpose, 'password'),
+            eq(loginAttempt.outcome, 'failed'),
+          ),
+        );
+
+      return { sessions: closedSessions.length, families: closedFamilies.length };
+    });
+  }
+
+  /**
    * Efface ce qui est périmé : sessions, jetons de mémorisation et tentatives.
    *
    * Les tentatives ne sont gardées que `attemptRetention` : ce sont des

@@ -2,6 +2,7 @@ import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { ProblemException } from '../errors/problem.exception.js';
 import type { MailMessage, Mailer } from '../mail/mailer.js';
+import { verifyPassword } from '../security/passwords.js';
 import { hashSecret } from '../security/tokens.js';
 
 import { AttemptsService, type AttemptStore } from './attempts.service.js';
@@ -68,6 +69,10 @@ class MemoryAccounts implements ResetAccountStore {
 
     return Promise.resolve(this.rows.find((row) => row.email === email));
   }
+
+  findAccountById(id: string): Promise<AccountRecord | undefined> {
+    return Promise.resolve(this.rows.find((row) => row.id === id));
+  }
 }
 
 interface StoredReset {
@@ -83,6 +88,13 @@ class MemoryResets implements PasswordResetStore {
   readonly rows: StoredReset[] = [];
   /** Posée pour mesurer ce que fait le service quand l'index refuse. */
   failWith: Error | undefined;
+  /** Posée pour jouer la consommation perdue d'une soumission simultanée. */
+  consumeFails = false;
+  /** Ce que la transaction a reçu, dans l'ordre : c'est ce qu'elle a écrit. */
+  readonly applied: { accountId: string; passwordHash: string; emailFingerprint: string }[] = [];
+  /** Deux appareils connectés, et deux appareils mémorisés, avant la réinitialisation. */
+  sessions = 2;
+  families = 2;
   private next = 0;
 
   replaceLivePasswordReset(input: {
@@ -115,6 +127,78 @@ class MemoryResets implements PasswordResetStore {
     this.rows.push(created);
 
     return Promise.resolve({ id: created.id });
+  }
+
+  /** Pose un jeton tel quel, pour mesurer un état que le service ne crée pas. */
+  seed(input: {
+    token: string;
+    accountId?: string;
+    expiresAt?: Date;
+    usedAt?: Date;
+    revokedAt?: Date;
+  }): StoredReset {
+    this.next += 1;
+
+    const record: StoredReset = {
+      id: `reset-${String(this.next)}`,
+      accountId: input.accountId ?? ACCOUNT.id,
+      tokenHash: hashSecret(input.token),
+      expiresAt: input.expiresAt ?? new Date(Date.now() + HOUR_MS),
+      usedAt: input.usedAt ?? null,
+      revokedAt: input.revokedAt ?? null,
+    };
+
+    this.rows.push(record);
+
+    return record;
+  }
+
+  findPasswordResetByTokenHash(tokenHash: string): Promise<StoredReset | undefined> {
+    return Promise.resolve(this.rows.find((row) => row.tokenHash === tokenHash));
+  }
+
+  consumePasswordReset(id: string, at: Date): Promise<boolean> {
+    if (this.consumeFails) {
+      return Promise.resolve(false);
+    }
+
+    const row = this.rows.find(
+      (candidate) =>
+        candidate.id === id &&
+        candidate.usedAt === null &&
+        candidate.revokedAt === null &&
+        candidate.expiresAt >= at,
+    );
+
+    if (row === undefined) {
+      return Promise.resolve(false);
+    }
+
+    row.usedAt = at;
+
+    return Promise.resolve(true);
+  }
+
+  applyPasswordReset(input: {
+    accountId: string;
+    passwordHash: string;
+    emailFingerprint: string;
+  }): Promise<{ sessions: number; families: number }> {
+    this.applied.push(input);
+
+    const closed = { sessions: this.sessions, families: this.families };
+
+    this.sessions = 0;
+    this.families = 0;
+
+    // Les autres jetons du compte partent ; celui qui vient de servir reste.
+    for (const row of [...this.rows]) {
+      if (row.accountId === input.accountId && row.usedAt === null) {
+        this.rows.splice(this.rows.indexOf(row), 1);
+      }
+    }
+
+    return Promise.resolve(closed);
   }
 
   live(): StoredReset[] {
@@ -275,7 +359,7 @@ function first<Item>(items: readonly Item[], what: string): Item {
   return found;
 }
 
-describe('la demande de réinitialisation', () => {
+describe('la réinitialisation de mot de passe', () => {
   let accounts: MemoryAccounts;
   let resets: MemoryResets;
   let attempts: MemoryAttempts;
@@ -551,6 +635,195 @@ describe('la demande de réinitialisation', () => {
 
       expect(windows.some((span) => Math.abs(span - HOUR_MS) < 1_000)).toBe(true);
       expect(windows.some((span) => Math.abs(span - DAY_MS) < 1_000)).toBe(true);
+    });
+  });
+
+  describe('le nouveau mot de passe', () => {
+    const TOKEN = 'un-jeton-opaque-de-test';
+    const NEW_PASSWORD = 'un mot de passe tout neuf';
+
+    it('est écrit haché, et ferme toutes les sessions et mémorisations', async () => {
+      const record = resets.seed({ token: TOKEN });
+
+      await service.reset(TOKEN, NEW_PASSWORD, IP);
+
+      const applied = first(resets.applied, 'écriture');
+
+      expect(applied.accountId).toBe(ACCOUNT.id);
+      // Une vraie empreinte Argon2id du mot de passe choisi, pas le mot de passe.
+      expect(applied.passwordHash).not.toContain(NEW_PASSWORD);
+      await expect(verifyPassword(applied.passwordHash, NEW_PASSWORD)).resolves.toBe(true);
+      // Les deux appareils connectés et les deux appareils mémorisés sont partis.
+      expect(resets.sessions).toBe(0);
+      expect(resets.families).toBe(0);
+      expect(log.lines).toContainEqual({
+        object: { resetId: record.id, accountId: ACCOUNT.id, sessions: 2, families: 2 },
+        message: 'mot de passe réinitialisé',
+      });
+    });
+
+    it("n'ouvre aucune session : l'écran renvoie vers la connexion", async () => {
+      resets.seed({ token: TOKEN });
+
+      /*
+        Le service ne connaît ni `SessionService` ni les cookies, et c'est la
+        garantie : rien ici ne peut ouvrir une session, donc rien ne peut
+        contourner le second facteur d'un administrateur (ADR 0014).
+      */
+      await expect(service.reset(TOKEN, NEW_PASSWORD, IP)).resolves.toBeUndefined();
+    });
+
+    it('efface les échecs de connexion comptés sur son adresse', async () => {
+      resets.seed({ token: TOKEN });
+
+      await service.reset(TOKEN, NEW_PASSWORD, IP);
+
+      /*
+        L'empreinte de l'adresse du compte, et non celle de l'IP : sinon
+        quelqu'un qui s'est trompé cinq fois avant de réinitialiser resterait
+        bloqué avec son mot de passe tout neuf, et les compteurs par IP, eux,
+        n'ont pas à tomber (ADR 0014).
+      */
+      expect(first(resets.applied, 'écriture').emailFingerprint).toBe(fingerprintOf(KNOWN));
+      expect(first(resets.applied, 'écriture').emailFingerprint).not.toBe(fingerprintOf(IP));
+    });
+
+    it('consomme le jeton, qui ne sert donc pas deux fois', async () => {
+      resets.seed({ token: TOKEN });
+
+      await service.reset(TOKEN, NEW_PASSWORD, IP);
+
+      await expect(service.reset(TOKEN, NEW_PASSWORD, IP)).rejects.toThrow(/plus valable/);
+      expect(resets.applied).toHaveLength(1);
+    });
+
+    it('refuse du même refus un jeton inconnu, expiré, révoqué ou déjà utilisé', async () => {
+      resets.seed({ token: 'expire', expiresAt: new Date(Date.now() - 1_000) });
+      resets.seed({ token: 'revoque', revokedAt: new Date(), accountId: ACCOUNT.id });
+      resets.seed({ token: 'utilise', usedAt: new Date(), accountId: ACCOUNT.id });
+
+      for (const token of ['inconnu', 'expire', 'revoque', 'utilise']) {
+        const refusal = await service
+          .reset(token, NEW_PASSWORD, IP)
+          .catch((error: unknown) => error);
+
+        expect(refusal, token).toBeInstanceOf(ProblemException);
+        expect(refusal, token).toHaveProperty('status', 410);
+        expect(String(refusal), token).toContain(
+          "Ce lien n'est plus valable. Demandez une nouvelle réinitialisation.",
+        );
+      }
+
+      expect(resets.applied).toEqual([]);
+    });
+
+    it("n'écrit rien quand la consommation est perdue par une soumission simultanée", async () => {
+      /*
+        L'écriture conditionnelle est ce qui tranche entre deux soumissions du
+        même lien : la seconde ne modifie aucune ligne, et elle est refusée
+        avant d'avoir rien écrit.
+      */
+      resets.seed({ token: TOKEN });
+      resets.consumeFails = true;
+
+      await expect(service.reset(TOKEN, NEW_PASSWORD, IP)).rejects.toThrow(/plus valable/);
+      expect(resets.applied).toEqual([]);
+    });
+
+    it("n'attend pas la notification pour répondre", async () => {
+      /*
+        L'envoyeur ne se termine jamais : le mot de passe est pourtant déjà
+        changé, donc la réponse n'a aucune raison d'attendre un SMTP. Ce test ne
+        peut pas attendre le travail détaché, par construction : il reste en
+        cours pour toujours.
+      */
+      resets.seed({ token: TOKEN });
+      mailer.blocked = true;
+
+      await expect(service.reset(TOKEN, NEW_PASSWORD, IP)).resolves.toBeUndefined();
+      expect(resets.applied).toHaveLength(1);
+    });
+
+    it('prévient le titulaire, sans lien et sans rien décrire', async () => {
+      resets.seed({ token: TOKEN });
+
+      await service.reset(TOKEN, NEW_PASSWORD, IP);
+      await service.waitForDetachedWork();
+
+      const message = first(mailer.sent, 'notification envoyée');
+
+      expect(message.subject).toBe('Votre mot de passe Mijote a été changé');
+      expect(message.to).toBe(KNOWN);
+      // Aucun lien dans une notification : ce serait le support d'un hameçonnage.
+      expect(message.text).not.toMatch(/https?:\/\//);
+    });
+
+    it('ne défait rien quand la notification échoue', async () => {
+      resets.seed({ token: TOKEN });
+      mailer.failWith = new Error('SMTP injoignable');
+
+      await expect(service.reset(TOKEN, NEW_PASSWORD, IP)).resolves.toBeUndefined();
+      await service.waitForDetachedWork();
+
+      expect(resets.applied).toHaveLength(1);
+      expect(log.messages()).toContain('notification de changement de mot de passe impossible');
+    });
+
+    it('est limitée sous son propre motif', async () => {
+      // Cinq essais ratés par quart d'heure, le sujet comme l'IP étant l'IP.
+      for (let index = 0; index < 5; index += 1) {
+        attempts.seed({
+          outcome: 'failed',
+          purpose: 'reset',
+          emailFingerprint: fingerprintOf(IP),
+        });
+      }
+
+      resets.seed({ token: TOKEN });
+
+      await expect(service.reset(TOKEN, NEW_PASSWORD, IP)).rejects.toThrow(/Trop de tentatives/);
+      expect(resets.applied).toEqual([]);
+      // Et rien n'a été consommé : le jeton reste utilisable après le blocage.
+      expect(resets.live()).toHaveLength(1);
+    });
+
+    it('ne compte pas avec la connexion ni avec la demande', async () => {
+      for (let index = 0; index < 5; index += 1) {
+        attempts.seed({
+          outcome: 'failed',
+          purpose: 'password',
+          emailFingerprint: fingerprintOf(IP),
+        });
+        attempts.seed({
+          outcome: 'succeeded',
+          purpose: 'reset_request',
+          emailFingerprint: fingerprintOf(IP),
+        });
+      }
+
+      resets.seed({ token: TOKEN });
+
+      await expect(service.reset(TOKEN, NEW_PASSWORD, IP)).resolves.toBeUndefined();
+    });
+
+    it('compte un refus, pour que les essais ne soient pas sans borne', async () => {
+      await expect(service.reset('inconnu', NEW_PASSWORD, IP)).rejects.toThrow(/plus valable/);
+
+      expect(
+        attempts.rows.filter((row) => row.purpose === 'reset' && row.outcome === 'failed'),
+      ).toHaveLength(1);
+    });
+
+    it("ne journalise ni le jeton, ni le mot de passe, ni l'adresse", async () => {
+      resets.seed({ token: TOKEN });
+
+      await service.reset(TOKEN, NEW_PASSWORD, IP);
+      await service.waitForDetachedWork();
+
+      expect(log.dump()).not.toContain(TOKEN);
+      expect(log.dump()).not.toContain(NEW_PASSWORD);
+      expect(log.dump()).not.toContain(KNOWN);
+      expect(log.dump()).not.toContain(fingerprintOf(KNOWN));
     });
   });
 

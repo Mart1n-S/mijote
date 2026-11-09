@@ -1,4 +1,9 @@
-import { forgotPasswordSchema, type ForgotPasswordInput } from '@mijote/shared';
+import {
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  type ForgotPasswordInput,
+  type ResetPasswordInput,
+} from '@mijote/shared';
 import { Body, Controller, HttpCode, HttpStatus, Post, Req, Res } from '@nestjs/common';
 
 import { ZodValidationPipe } from '../errors/zod-validation.pipe.js';
@@ -44,5 +49,29 @@ export class PasswordResetController {
     response.setHeader('Cache-Control', 'no-store');
 
     await this.resets.request(body.email, readClientIp(request));
+  }
+
+  /**
+   * Réinitialise le mot de passe, par le jeton du lien.
+   *
+   * **204, et aucune session ouverte** : l'écran renvoie vers la connexion.
+   * C'est ce qui rend le contournement du second facteur impossible plutôt
+   * qu'improbable, là où ouvrir une session ici obligerait à rejouer tout
+   * l'embranchement de la connexion sur une route publique (ADR 0014).
+   *
+   * Le jeton arrive dans le **corps**, jamais dans l'URL : il vient du fragment
+   * du lien, que le navigateur n'envoie pas au serveur.
+   */
+  @Public()
+  @Post('reset')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async reset(
+    @Body(new ZodValidationPipe(resetPasswordSchema)) body: ResetPasswordInput,
+    @Req() request: unknown,
+    @Res({ passthrough: true }) response: CookieSink,
+  ): Promise<void> {
+    response.setHeader('Cache-Control', 'no-store');
+
+    await this.resets.reset(body.token, body.password, readClientIp(request));
   }
 }

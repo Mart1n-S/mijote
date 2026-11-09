@@ -65,14 +65,18 @@ export const CSRF_EXEMPT_ROUTES: readonly { method: string; path: string }[] = [
   { method: 'POST', path: '/invitations/preview' },
   { method: 'POST', path: '/invitations/accept' },
   /*
-    La demande de réinitialisation, pour la même raison : elle est appelée par
-    quelqu'un qui ne peut pas se connecter, donc sans session, donc sans secret
-    CSRF à renvoyer.
+    Les deux routes de la réinitialisation, pour la même raison : elles sont
+    appelées par quelqu'un qui ne peut pas se connecter, donc sans session, donc
+    sans secret CSRF à renvoyer.
 
-    Elle garde les deux autres barrières : elle fait partir un e-mail, et une
-    page d'un autre site n'a rien à faire là (ADR 0014).
+    Elles gardent les deux autres barrières : elles changent l'état d'un compte
+    et font partir des e-mails, et une page d'un autre site n'a rien à faire là.
+    Elles n'ouvrent en revanche aucune session, donc il n'y a pas de victime à
+    connecter à un compte qu'un autre contrôle, contrairement à l'acceptation
+    d'une invitation (ADR 0014).
   */
   { method: 'POST', path: '/auth/password/forgot' },
+  { method: 'POST', path: '/auth/password/reset' },
 ];
 
 const WRONG_MEDIA_TYPE = 'Le type de média doit être application/json.';

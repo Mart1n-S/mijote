@@ -9,6 +9,18 @@ sujets à couvrir. Ce fichier commence ici parce que la story #15 a pris une
 décision d'exploitation qui ne pouvait pas attendre, et qui n'a pas d'autre
 endroit où vivre.
 
+## HTTPS sur le réseau local
+
+À écrire avec l'issue #31, qui porte le critère : **Mijote doit être servie en
+HTTPS même sans exposition à Internet**, et ce document doit dire comment
+obtenir le certificat.
+
+La raison n'est pas le confort : les trois cookies de session portent
+l'attribut `Secure` (ADR 0010), qu'un navigateur ignore hors de `localhost`
+quand la connexion est en clair, et l'installation d'une PWA exige une origine
+sûre. En HTTP sur une adresse de réseau local, la session ne tiendrait pas et
+l'application ne s'installerait pas.
+
 ## Sauvegardes
 
 La base est sauvegardée **chaque jour**, et un test de restauration a lieu

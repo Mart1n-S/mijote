@@ -100,15 +100,17 @@ Une règle tient tout cela : **rien de ce qui sert à s'authentifier ne sort**, 
 
 **L'export ne demande pas de réauthentification**, et c'est un choix argumenté : la session peut déjà lire le profil complet à l'écran, donc l'export n'élargit pas ce qu'elle obtient. Ce qu'il faut protéger par un mot de passe, c'est l'écriture irréversible, pas la lecture de ce qui est déjà affiché. Le téléchargement passe par un appel du client HTTP et un objet blob, et non par un lien direct : un lien ferait afficher du JSON brut à la moindre erreur, là où le client rend les phrases françaises du projet.
 
-### La page de confidentialité, et ce qu'elle doit nommer
+### La page de confidentialité, courte, et sans mentions légales
 
 Une page `/confidentialite`, **publique**, liée depuis le pied de page : elle doit se lire avant de créer un compte, donc sans en avoir un. C'est le renvoi que l'ADR 0016 avait laissé.
 
-Elle dit : quelles données sont collectées, pourquoi, combien de temps, les deux droits et où les exercer, **le responsable du traitement et son contact**, et le **droit d'introduire une réclamation auprès de la CNIL**.
+Elle dit quatre choses, et s'arrête là : **quelles données** sont stockées, **pourquoi**, **combien de temps**, et **où se trouvent l'export et la suppression**. Les durées qu'elle annonce ne sont pas inventées ici : elles viennent des décisions déjà prises, invitations terminées trente jours (ADR 0013), tentatives un jour (ADR 0010), journaux applicatifs trente jours et journal d'audit un an (cahier des charges, section 8), et sauvegardes sept jours (plus bas).
 
-Les durées qu'elle annonce ne sont pas inventées ici : elles viennent des décisions déjà prises, invitations terminées trente jours (ADR 0013), tentatives un jour (ADR 0010), journaux applicatifs trente jours et journal d'audit un an (cahier des charges, section 8).
+**Pas de responsable du traitement, pas de mention de la CNIL, aucune mention légale.** Ce n'est pas un oubli, c'est le régime dans lequel Mijote tourne : elle est hébergée sur un réseau local, sans exposition à Internet, pour son auteur et éventuellement sa famille. Le RGPD écarte de son champ d'application le traitement effectué par une personne physique dans le cadre d'une activité strictement personnelle ou domestique (article 2, paragraphe 2, point c), et c'est exactement ce cadre. Désigner un responsable du traitement et afficher une voie de réclamation donnerait à croire le contraire, ce qui serait trompeur plutôt que protecteur.
 
-**Le contact du responsable du traitement est laissé en emplacement à compléter**, marqué comme tel dans la page, et c'est volontaire : inventer une adresse de contact dans une mention légale serait pire que de laisser le trou visible. Il doit être rempli avant d'inviter quelqu'un d'autre que Martin, ce qui est précisément la raison d'être de cette story.
+La page reste écrite malgré cela, et pour une raison simple : **dire ce qui est stocké est utile même en famille**. Quelqu'un qui déclare une allergie a le droit de savoir où elle va, combien de temps elle reste, et comment la retirer, sans qu'aucun texte l'y oblige.
+
+Tranché par Martin le 11 novembre 2026. **Quand y revenir** : le jour où l'application est exposée à Internet, ou le jour où son cercle d'utilisateurs dépasse la famille. L'un ou l'autre fait sortir du cadre domestique, et il faut alors un responsable du traitement nommé, son contact, la voie de réclamation auprès de la CNIL, et la relecture de cette page en entier.
 
 ### Les sauvegardes : sept jours, et ce qu'une restauration défait
 
@@ -145,4 +147,5 @@ La suppression de compte est l'une des « actions sensibles » du journal d'audi
 - **Quand une table de foyer sera ajoutée** (planning, courses, dépenses, placard) : elle entre dans la cascade si elle porte `household_id`, et dans l'export. La liste des tables du test de suppression est ce qui le rappellera, puisqu'il faudra l'allonger.
 - **Si la suppression différée devient souhaitable** : elle demandera un ordonnanceur ou une purge opportuniste, et c'est une décision à reprendre entièrement.
 - **Si l'export devient volumineux** (des années de planning et de tickets) : le rendre en une seule réponse JSON cessera d'être raisonnable, et il faudra l'engendrer en tâche de fond. Le format porte un numéro de version pour cela.
-- **Si l'application sort du homelab** : le responsable du traitement, les sous-traitants et les durées de conservation changent, et la page de confidentialité est à reprendre avec eux.
+- **Si l'application est exposée à Internet, ou ouverte au-delà de la famille** : le cadre domestique tombe, et la page de confidentialité doit alors nommer un responsable du traitement, son contact et la voie de réclamation auprès de la CNIL. C'est la seule partie de cette décision qui dépend d'un choix de déploiement, et non du code.
+- **Si l'application sort du homelab** : les sous-traitants et les durées de conservation changent, et la page est à reprendre avec eux.

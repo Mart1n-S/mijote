@@ -24,4 +24,6 @@ type(portée): description
 
 Un ADR numéroté sous `docs/adr/` pour une décision coûteuse à défaire, ou qui écarte une alternative qu'on ne veut pas voir reproposer : choix d'outil, de structure, de format, abandon d'une option. Un ADR accepté n'est jamais modifié : une décision qui change donne un nouvel ADR qui remplace l'ancien.
 
+**Cette règle court à partir de la fusion sur `main`.** Un ADR né dans la branche en cours se corrige jusque-là, autant de fois qu'il le faut : la décision est encore en train de se prendre, personne d'autre ne l'a lue, et une relecture qui trouve un trou dans son raisonnement doit pouvoir le combler à sa place. Ce qui est interdit, c'est de réécrire une décision que `main` porte déjà, donc sur laquelle d'autres se sont appuyés. Une fois la branche fusionnée, l'ADR est figé et seul un nouvel ADR le remplace.
+
 Un réglage qui se défait en une ligne n'a pas d'ADR : une règle de lint, une option d'outil, un seuil chiffré se documentent en commentaire dans leur fichier de configuration (ADR 0004).

@@ -247,15 +247,51 @@ describe.skipIf(!reachable)('la connexion, contre une vraie base', () => {
   });
 
   afterAll(async () => {
-    // Le foyer emporte en cascade son compte, ses sessions et ses jetons.
-    await database.delete(household).where(sql`${household.id} = ${householdId}`);
-
     const pepper = readPepper(process.env);
 
-    for (const email of [EMAIL, UNKNOWN_EMAIL, FLOODED_EMAIL]) {
-      await database
-        .delete(loginAttempt)
-        .where(sql`${loginAttempt.emailFingerprint} = ${fingerprint(pepper, email)}`);
+    /*
+      Les comptes du foyer sont relevés **avant** la cascade : au stade du code
+      et de la réauthentification, le sujet compté est l'identifiant du compte
+      et non une adresse (ADR 0012), donc leurs empreintes ne se retrouvent par
+      aucune autre voie.
+    */
+    const owned = await database
+      .select({ id: account.id })
+      .from(account)
+      .where(sql`${account.householdId} = ${householdId}`);
+
+    // Le foyer emporte en cascade ses comptes, leurs sessions et leurs jetons.
+    await database.delete(household).where(sql`${household.id} = ${householdId}`);
+
+    /*
+      Tout ce que ce fichier a pu compter : ses adresses, les identifiants de
+      ses comptes, ses IP, et la **boucle locale**.
+
+      La boucle locale est le cas qui manquait, et il n'est pas évident :
+      `postJson` n'envoie pas d'en-tête `X-Forwarded-For`, donc ces tentatives
+      sont comptées sur l'adresse de la socket, partagée par tous les fichiers.
+      Elles survivaient à chaque exécution, et vingt échecs de code dans le même
+      quart d'heure suffisent à faire répondre 429. Invisible en CI, qui lance la
+      suite une fois ; visible sur le poste, où relancer `pnpm test` quelques
+      fois de suite finissait par faire échouer ce fichier sans raison.
+    */
+    const counted = [
+      EMAIL,
+      UNKNOWN_EMAIL,
+      FLOODED_EMAIL,
+      ...owned.map((row) => row.id),
+      '203.0.113.7',
+      '203.0.113.90',
+      '::1',
+      '::ffff:127.0.0.1',
+      '127.0.0.1',
+    ];
+
+    for (const value of counted) {
+      const print = fingerprint(pepper, value);
+
+      await database.delete(loginAttempt).where(sql`${loginAttempt.emailFingerprint} = ${print}`);
+      await database.delete(loginAttempt).where(sql`${loginAttempt.ipFingerprint} = ${print}`);
     }
 
     await app.close();

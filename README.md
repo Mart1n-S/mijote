@@ -53,6 +53,17 @@ L'administrateur doit ensuite activer la double authentification sur
 aucune route d'administration ne répond avant. L'écran donne un QR code et la
 clé en texte, puis dix codes de secours affichés une seule fois.
 
+## Mot de passe oublié
+
+Le lien « Mot de passe oublié ? » de la page de connexion envoie un lien par
+e-mail, valable une heure et utilisable une fois. En développement, le message
+arrive dans Mailpit, sur `http://localhost:8025`.
+
+Réinitialiser son mot de passe ferme toutes les sessions du compte, sur tous
+les appareils, et ne désactive pas la double authentification : un
+administrateur devra toujours son code pour entrer en administration. Le détail
+des décisions est dans `docs/adr/0014-reinitialisation-du-mot-de-passe.md`.
+
 ## Commandes
 
 ```bash

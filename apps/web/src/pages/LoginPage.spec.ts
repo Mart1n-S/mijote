@@ -154,6 +154,19 @@ describe('LoginPage', () => {
     );
   });
 
+  it('mène au mot de passe oublié depuis la première étape', async () => {
+    const wrapper = await mountPage();
+
+    /*
+      Sans ce lien, la réinitialisation ne serait atteignable qu'en tapant son
+      adresse : c'est le seul chemin vers elle dans l'application.
+    */
+    const link = wrapper.find('a[href="/mot-de-passe-oublie"]');
+
+    expect(link.exists()).toBe(true);
+    expect(link.text()).toBe('Mot de passe oublié ?');
+  });
+
   it("n'appelle pas le serveur quand le formulaire est vide", async () => {
     stubResponse(accepted());
 

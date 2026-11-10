@@ -15,8 +15,14 @@ import { AuthRepository, type LoginOutcome, type LoginPurpose } from './auth.rep
   e-mail et une adresse IP sont des données personnelles (security.md).
 */
 
-/** Fenêtre glissante : les échecs plus anciens ne comptent plus. */
-const WINDOW_MS = 15 * 60 * 1000;
+/**
+ * Fenêtre glissante : les échecs plus anciens ne comptent plus.
+ *
+ * Exportée depuis la story #13 : la réinitialisation efface les échecs comptés
+ * sur l'adresse d'un compte, et n'a aucune raison d'effacer au-delà de ce qui
+ * bloque (ADR 0014).
+ */
+export const ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
 
 /*
   Cinq échecs par adresse, vingt par IP. L'écart est voulu : un foyer partage
@@ -37,6 +43,13 @@ export interface AttemptStore {
     ipFingerprint: string;
     since: Date;
     purpose: LoginPurpose;
+  }): Promise<{ byEmail: number; byIp: number }>;
+  countAttempts(input: {
+    emailFingerprint: string;
+    ipFingerprint: string;
+    since: Date;
+    purpose: LoginPurpose;
+    outcome: LoginOutcome;
   }): Promise<{ byEmail: number; byIp: number }>;
   recordAttempt(input: {
     emailFingerprint: string;
@@ -83,7 +96,7 @@ export class AttemptsService {
   }
 
   async isBlocked(keys: AttemptKeys, purpose: LoginPurpose = 'password'): Promise<boolean> {
-    const since = new Date(Date.now() - WINDOW_MS);
+    const since = new Date(Date.now() - ATTEMPT_WINDOW_MS);
     const failures = await this.store.countFailures({ ...keys, since, purpose });
 
     return failures.byEmail >= MAX_FAILURES_PER_EMAIL || failures.byIp >= MAX_FAILURES_PER_IP;
@@ -95,6 +108,30 @@ export class AttemptsService {
     purpose: LoginPurpose = 'password',
   ): Promise<void> {
     await this.store.recordAttempt({ ...keys, outcome, purpose });
+  }
+
+  /**
+   * Compte les tentatives d'une issue donnée, dans une fenêtre donnée.
+   *
+   * `isBlocked` ne sait compter que des échecs, sur quinze minutes, contre les
+   * plafonds de la connexion. La demande de réinitialisation a besoin d'autre
+   * chose : elle n'échoue jamais du point de vue du client, donc ce sont ses
+   * **demandes acceptées** qu'il faut compter, sur une heure et sur un jour,
+   * contre ses propres plafonds (ADR 0014).
+   *
+   * Les plafonds restent chez l'appelant : ils n'ont pas de valeur ici, où
+   * rien ne dit de quelle route il s'agit.
+   */
+  async countRecent(
+    keys: AttemptKeys,
+    input: { purpose: LoginPurpose; outcome: LoginOutcome; windowMs: number },
+  ): Promise<{ byEmail: number; byIp: number }> {
+    return this.store.countAttempts({
+      ...keys,
+      since: new Date(Date.now() - input.windowMs),
+      purpose: input.purpose,
+      outcome: input.outcome,
+    });
   }
 
   /**

@@ -23,6 +23,8 @@ const TWO_FACTOR_ROUTE = '**/api/auth/two-factor';
 const TWO_FACTOR_SETUP_ROUTE = '**/api/auth/two-factor/setup';
 const TWO_FACTOR_ACTIVATE_ROUTE = '**/api/auth/two-factor/activate';
 const TWO_FACTOR_UNLOCK_ROUTE = '**/api/auth/two-factor/unlock';
+const FORGOT_PASSWORD_ROUTE = '**/api/auth/password/forgot';
+const RESET_PASSWORD_ROUTE = '**/api/auth/password/reset';
 const INVITATION_PREVIEW_ROUTE = '**/api/invitations/preview';
 const INVITATION_ACCEPT_ROUTE = '**/api/invitations/accept';
 const INVITATION_REVOKE_ROUTE = '**/api/invitations/*/revoke';
@@ -95,6 +97,18 @@ const ANONYMOUS = problem(
   401,
   'Authentification requise',
   'Cette action demande une authentification.',
+);
+
+/*
+  Le refus unique d'un lien de réinitialisation, mot pour mot celui de l'API :
+  le même pour un lien inconnu, expiré, révoqué ou déjà utilisé.
+*/
+const UNUSABLE_LINK = problem(
+  410,
+  // « Erreur » et non un titre choisi : le filtre n'a pas d'entrée pour 410, il
+  // sert donc son titre de repli (problem-details.filter.ts).
+  'Erreur',
+  "Ce lien n'est plus valable. Demandez une nouvelle réinitialisation.",
 );
 
 /*
@@ -312,6 +326,57 @@ export async function stubAdminWithoutTwoFactor(page: Page): Promise<StubbedTwoF
       contentType: 'application/json',
       body: JSON.stringify({ codes: STUB_BACKUP_CODES }),
     });
+  });
+
+  return recorded;
+}
+
+/** Le jeton que les bouchons de réinitialisation acceptent. */
+export const STUB_RESET_TOKEN = 'un-jeton-de-reinitialisation-de-test';
+
+/** Ce que les bouchons du mot de passe oublié ont enregistré. */
+export interface StubbedPasswordReset {
+  /** Les corps des demandes et des réinitialisations, dans l'ordre. */
+  demands: unknown[];
+  resets: unknown[];
+}
+
+/**
+ * Fait répondre l'API comme pour un mot de passe oublié, sans session.
+ *
+ * La demande répond 202 quoi qu'il arrive, comme le vrai : c'est la même
+ * réponse pour une adresse connue et pour une inconnue. La réinitialisation
+ * n'accepte que `STUB_RESET_TOKEN`, et ne pose aucun cookie : elle n'ouvre
+ * aucune session (ADR 0014).
+ */
+export async function stubPasswordReset(page: Page): Promise<StubbedPasswordReset> {
+  const recorded: StubbedPasswordReset = { demands: [], resets: [] };
+
+  await respondJson(page, HEALTH_ROUTE, 200, JSON.stringify({ status: 'ok' }));
+  await respondProblem(page, SESSION_ROUTE, 401, ANONYMOUS);
+
+  await page.route(FORGOT_PASSWORD_ROUTE, async (route) => {
+    recorded.demands.push(route.request().postDataJSON());
+
+    await route.fulfill({ status: 202 });
+  });
+
+  await page.route(RESET_PASSWORD_ROUTE, async (route) => {
+    const body: unknown = route.request().postDataJSON();
+
+    recorded.resets.push(body);
+
+    const accepted =
+      typeof body === 'object' &&
+      body !== null &&
+      'token' in body &&
+      body['token'] === STUB_RESET_TOKEN;
+
+    await route.fulfill(
+      accepted
+        ? { status: 204 }
+        : { status: 410, contentType: PROBLEM_DETAILS_MEDIA_TYPE, body: UNUSABLE_LINK },
+    );
   });
 
   return recorded;

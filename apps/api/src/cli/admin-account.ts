@@ -6,6 +6,7 @@ import {
   emailIsTaken,
 } from '../accounts/account-creation.js';
 import type { Database } from '../db/client.js';
+import { readPostgresCode } from '../db/postgres-error.js';
 
 /*
   Ce que la commande de création d'administrateur fait vraiment, séparé de la
@@ -89,21 +90,6 @@ export function databaseFailure(error: unknown): Error {
   }
 
   return new Error(`l'écriture en base a échoué (code ${code}), voir les journaux de PostgreSQL`);
-}
-
-function readPostgresCode(error: unknown): string | undefined {
-  if (!(error instanceof Error)) {
-    return undefined;
-  }
-
-  // Sur une erreur de requête de Drizzle, le code vit sur la cause.
-  for (const candidate of [error, error.cause]) {
-    if (candidate instanceof Error && 'code' in candidate && typeof candidate.code === 'string') {
-      return candidate.code;
-    }
-  }
-
-  return undefined;
 }
 
 async function withSafeFailure<Result>(run: () => Promise<Result>): Promise<Result> {

@@ -35,8 +35,20 @@ export const loginOutcome = pgEnum('login_outcome', ['succeeded', 'failed', 'blo
  * `reauth` en particulier ne doit pas compter avec `password` : les deux ont la
  * même adresse IP, et un porteur de session volée pourrait sinon épuiser le
  * compteur de la connexion et verrouiller le vrai propriétaire dehors.
+ *
+ * `reset_request` et `reset` sont séparés pour la même raison : les deux routes
+ * de la réinitialisation partagent l'adresse IP, et compter ensemble laisserait
+ * quelqu'un épuiser le compteur des demandes pour empêcher les vraies
+ * réinitialisations d'aboutir (ADR 0014).
  */
-export const loginPurpose = pgEnum('login_purpose', ['password', 'code', 'reauth', 'invitation']);
+export const loginPurpose = pgEnum('login_purpose', [
+  'password',
+  'code',
+  'reauth',
+  'invitation',
+  'reset_request',
+  'reset',
+]);
 
 /** Un foyer. Un compte en fait partie, et tout ce qui est partagé lui appartient. */
 export const household = pgTable('household', {
@@ -316,5 +328,51 @@ export const invitation = pgTable(
     // Les deux comptages de la limitation d'envoi : par invitant, et par adresse.
     index('invitation_inviter_idx').on(table.invitedBy, table.createdAt),
     index('invitation_email_idx').on(table.email, table.createdAt),
+  ],
+);
+
+/**
+ * Un jeton de réinitialisation de mot de passe, valable une heure.
+ *
+ * Contrairement à `invitation`, cette table ne porte **aucune adresse e-mail** :
+ * le compte existe déjà, donc `account_id` suffit, et c'est lui qui dit à qui
+ * écrire. Elle ne contient donc aucune donnée personnelle, et sa purge se
+ * réduit à l'expiration (ADR 0014).
+ */
+export const passwordReset = pgTable(
+  'password_reset',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => account.id, { onDelete: 'cascade' }),
+    /*
+      Empreinte SHA-256 du jeton du lien, jamais le jeton : une fuite de cette
+      table ne donne aucun lien utilisable. L'empreinte suffit, le jeton étant
+      tiré au hasard sur 32 octets, donc sans dictionnaire à ralentir.
+    */
+    tokenHash: text('token_hash').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    /** Consommé : le mot de passe a changé. Le lien ne vaut plus rien. */
+    usedAt: timestamp('used_at', { withTimezone: true }),
+    /** Révoqué par une demande plus récente, ou par une réinitialisation. */
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('password_reset_token_hash_unique').on(table.tokenHash),
+    /*
+      Un seul jeton vivant par compte. Comme pour les invitations, le prédicat
+      ne regarde que les deux dates et non l'expiration, `now()` n'étant pas
+      immuable : c'est la demande qui révoque le vivant d'abord, dans la même
+      transaction. Deux demandes simultanées ne peuvent donc pas poser deux
+      jetons, la seconde insertion échouant en violation d'unicité (ADR 0014).
+    */
+    uniqueIndex('password_reset_account_live_unique')
+      .on(table.accountId)
+      .where(sql`${table.usedAt} is null and ${table.revokedAt} is null`),
+    // La purge par expiration, accrochée à une connexion réussie comme les
+    // autres (ADR 0010).
+    index('password_reset_expires_at_idx').on(table.expiresAt),
   ],
 );

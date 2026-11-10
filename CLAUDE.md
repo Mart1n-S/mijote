@@ -78,6 +78,8 @@ Avant de proposer un commit : `pnpm lint`, `pnpm typecheck` et `pnpm test` doive
 
 Pour toute tâche de plus de quelques lignes : présenter le plan et attendre ma validation avant d'écrire du code.
 
+**Ne recopie pas un texte long dans ta réponse.** Une description de PR, un ADR, un rapport : donne le chemin du fichier ou le lien de la PR, et résume en quelques lignes ce qui a changé depuis la version précédente. Je lis le texte à sa place ; ce que j'attends de la réponse, c'est de savoir ce qui a bougé et ce qui demande un arbitrage.
+
 ## Règles non négociables
 
 Le détail est dans `.claude/rules/` : `security.md` et `writing-style.md` sont chargées à chaque session, `typescript.md`, `api.md` et `vue-accessibility.md` seulement sur les fichiers qu'elles visent. D'où ce rappel en une ligne, qui reste valable partout.

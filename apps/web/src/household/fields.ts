@@ -2,7 +2,6 @@ import {
   ALLERGENS,
   DIETS,
   HOUSEHOLD_GOALS,
-  MAX_EXCLUDED_INGREDIENTS,
   VARIETY_BALANCES,
   type Allergen,
   type Diet,
@@ -70,7 +69,18 @@ function toOptions<Value extends string>(
 
 export const allergenOptions: ChoiceOption[] = toOptions(ALLERGENS, ALLERGEN_LABELS);
 export const dietOptions: ChoiceOption[] = toOptions(DIETS, DIET_LABELS);
-export const goalOptions: ChoiceOption[] = toOptions(HOUSEHOLD_GOALS, GOAL_LABELS);
+
+/*
+  L'objectif, et une façon de ne pas en avoir.
+
+  La valeur vide est ce que le brouillon traduit en `null`, donc en « pas
+  répondu » : sans elle, un objectif choisi une fois ne se reprenait plus, alors
+  que les trois autres champs facultatifs s'effacent en vidant leur champ.
+*/
+export const goalOptions: ChoiceOption[] = [
+  ...toOptions(HOUSEHOLD_GOALS, GOAL_LABELS),
+  { value: '', label: 'Sans préférence' },
+];
 export const varietyOptions: ChoiceOption[] = toOptions(VARIETY_BALANCES, VARIETY_LABELS);
 
 /*
@@ -82,11 +92,20 @@ export const varietyOptions: ChoiceOption[] = toOptions(VARIETY_BALANCES, VARIET
 */
 const CENTS_PER_EURO = 100;
 
+/*
+  Neuf chiffres au plus, pour que `Number` reste exact et que la conversion en
+  centimes ne quitte pas les entiers sûrs. Ce n'est pas la borne du budget :
+  celle-là vit dans le schéma partagé, et c'est elle qui donne son message. Un
+  gabarit plus étroit ici dirait « indiquez un nombre entier » à qui a saisi un
+  entier, ce qui est faux.
+*/
+const DIGITS = /^\d{1,9}$/;
+
 /** Les euros saisis, en centimes. Rien de lisible rend `undefined`. */
 export function eurosToCents(value: string): number | undefined {
   const trimmed = value.trim();
 
-  if (trimmed === '' || !/^\d{1,7}$/.test(trimmed)) {
+  if (trimmed === '' || !DIGITS.test(trimmed)) {
     return undefined;
   }
 
@@ -102,7 +121,7 @@ export function centsToEuros(value: number | null): string {
 export function toWholeNumber(value: string): number | undefined {
   const trimmed = value.trim();
 
-  return trimmed === '' || !/^\d{1,3}$/.test(trimmed) ? undefined : Number(trimmed);
+  return trimmed === '' || !DIGITS.test(trimmed) ? undefined : Number(trimmed);
 }
 
 /**
@@ -110,15 +129,17 @@ export function toWholeNumber(value: string): number | undefined {
  * virgules.
  *
  * Les entrées vides sont retirées ici comme elles le sont côté serveur : « a, ,
- * b » est une frappe, pas une erreur à signaler. La liste est tronquée à ce que
- * le schéma accepte, pour que le champ refuse avant le serveur.
+ * b » est une frappe, pas une erreur à signaler.
+ *
+ * La liste n'est **pas tronquée** : au-delà de vingt, le schéma partagé refuse
+ * et l'écran le dit. Tronquer faisait disparaître des entrées sans un mot, et
+ * rendait la borne du schéma inatteignable, donc son message jamais montré.
  */
 export function splitIngredients(value: string): string[] {
   return value
     .split(',')
     .map((part) => part.trim())
-    .filter((part) => part !== '')
-    .slice(0, MAX_EXCLUDED_INGREDIENTS);
+    .filter((part) => part !== '');
 }
 
 export function joinIngredients(values: string[]): string {

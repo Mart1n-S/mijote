@@ -169,8 +169,10 @@ describe('HouseholdProfilePage', () => {
 
     expect(legends).toContain('Régimes');
     expect(legends).toContain('Allergies et intolérances');
+    // 14 allergènes et 3 régimes en cases ; 5 objectifs (dont « sans
+    // préférence », qui reprend la réponse) et 3 équilibres en boutons radio.
     expect(wrapper.findAll('input[type="checkbox"]')).toHaveLength(17);
-    expect(wrapper.findAll('input[type="radio"]')).toHaveLength(7);
+    expect(wrapper.findAll('input[type="radio"]')).toHaveLength(8);
     // Et la case de l'allergène déclaré est cochée, elle seule.
     expect(checkedBoxes(wrapper)).toHaveLength(1);
   });

@@ -77,6 +77,16 @@ export type PatchResult =
 const WHOLE_NUMBER = 'Indiquez un nombre entier.';
 const UNKNOWN_CHOICE = 'Ce choix ne fait pas partie de la liste.';
 
+/**
+ * Le repli, quand un champ n'a pas sa phrase à lui.
+ *
+ * En français, et non le message de zod : sa locale française est posée par le
+ * pipe de l'API, jamais côté navigateur, donc un message brut s'afficherait en
+ * anglais. Inatteignable aujourd'hui, tous les champs qui peuvent échouer ayant
+ * leur phrase, mais c'est une trappe pour le prochain champ ajouté.
+ */
+const REFUSED = "Cette valeur n'est pas acceptée.";
+
 const INGREDIENT_LIMITS = `Vingt ingrédients au plus, de ${String(MAX_EXCLUDED_INGREDIENT_LENGTH)} caractères.`;
 
 export function toDraft(profile: HouseholdProfile): ProfileDraft {
@@ -257,7 +267,7 @@ function mapIssues(entries: readonly { field: string; message: string }[]): Draf
     const key = keyOf(entry.field);
 
     if (key !== undefined && errors[key] === undefined) {
-      errors[key] = FIELD_MESSAGES[key] ?? entry.message;
+      errors[key] = FIELD_MESSAGES[key] ?? REFUSED;
     }
   }
 

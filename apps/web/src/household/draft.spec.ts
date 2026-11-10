@@ -142,6 +142,42 @@ describe('le corps envoyé', () => {
     expect(built.ok && built.patch.excludedIngredients).toEqual(['coriandre', 'abats']);
   });
 
+  it('refuse une liste trop longue avec sa phrase', () => {
+    const many = Array.from({ length: 21 }, (_, index) => `x${String(index)}`).join(',');
+    const built = buildPatch(draftOf({ excludedIngredients: many }), FOOD_KEYS);
+
+    expect(built.ok).toBe(false);
+
+    if (!built.ok) {
+      expect(built.issues).toEqual([
+        { key: 'excludedIngredients', message: 'Vingt ingrédients au plus, de 40 caractères.' },
+      ]);
+    }
+  });
+
+  it('laisse les bornes parler pour un entier trop grand', () => {
+    /*
+      Mille personnes est un entier : lui répondre « indiquez un nombre
+      entier » serait faux. C'est la borne qui doit parler.
+    */
+    const built = buildPatch(draftOf({ peopleCount: '1000' }), HOUSEHOLD_KEYS);
+
+    expect(built.ok).toBe(true);
+
+    if (built.ok) {
+      expect(checkPatch(built.patch).peopleCount).toBe(
+        'Indiquez un nombre de personnes, de 1 à 35.',
+      );
+    }
+  });
+
+  it('reprend un objectif par « sans préférence »', () => {
+    // Sans cette option, un objectif choisi une fois ne se reprenait plus.
+    const built = buildPatch(draftOf({ goal: '' }), PLANNING_KEYS);
+
+    expect(built.ok && built.patch.goal).toBeNull();
+  });
+
   it("signale un champ illisible au lieu d'effacer la réponse", () => {
     /*
       Une faute de frappe dans un champ numérique ne doit pas valoir « efface
@@ -171,13 +207,18 @@ describe('les refus', () => {
   });
 
   it("remet un refus de l'API sous son champ", () => {
+    /*
+      Le message est le nôtre, en français, et non celui que l'API renvoie : sa
+      locale française est posée côté serveur, et un champ sans phrase dédiée
+      afficherait sinon de l'anglais côté navigateur.
+    */
     expect(
       fromProblem([
         { field: 'allergens.0', message: 'Option invalide' },
         { field: 'peopleCount', message: 'Trop grand' },
       ]),
     ).toEqual({
-      allergens: 'Option invalide',
+      allergens: "Cette valeur n'est pas acceptée.",
       peopleCount: 'Indiquez un nombre de personnes, de 1 à 35.',
     });
   });
@@ -201,9 +242,13 @@ describe('les conversions', () => {
     expect(centsToEuros(null)).toBe('');
   });
 
-  it("borne la liste d'ingrédients à ce que le schéma accepte", () => {
+  it("ne tronque pas la liste d'ingrédients", () => {
+    /*
+      Tronquer faisait disparaître des entrées sans un mot. Au-delà de vingt,
+      c'est le schéma partagé qui refuse, et l'écran le dit.
+    */
     const many = Array.from({ length: 25 }, (_, index) => `x${String(index)}`).join(',');
 
-    expect(splitIngredients(many)).toHaveLength(20);
+    expect(splitIngredients(many)).toHaveLength(25);
   });
 });

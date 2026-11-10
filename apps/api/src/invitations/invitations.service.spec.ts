@@ -122,6 +122,18 @@ class MemoryInvitations implements InvitationStore {
     return Promise.resolve(record);
   }
 
+  deleteByEmailWithin(_transaction: unknown, email: string): Promise<number> {
+    const before = this.rows.length;
+
+    for (const row of [...this.rows]) {
+      if (row.email === email) {
+        this.rows.splice(this.rows.indexOf(row), 1);
+      }
+    }
+
+    return Promise.resolve(before - this.rows.length);
+  }
+
   findUsedByEmail(email: string): Promise<InvitationRecord | undefined> {
     return Promise.resolve(
       [...this.rows].reverse().find((row) => row.email === email && row.usedAt !== null),
@@ -233,6 +245,17 @@ class MemoryAttempts implements AttemptStore {
     outcome: LoginOutcome;
     purpose: LoginPurpose;
   }[] = [];
+
+  /** La suppression des tentatives, mesurée là où une transaction existe. */
+  deleteAttemptsWithin(_transaction: unknown, subjectFingerprints: string[]): Promise<number> {
+    const before = this.rows.length;
+    const kept = this.rows.filter((row) => !subjectFingerprints.includes(row.emailFingerprint));
+
+    this.rows.length = 0;
+    this.rows.push(...kept);
+
+    return Promise.resolve(before - this.rows.length);
+  }
 
   countFailures(input: {
     emailFingerprint: string;

@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, count, eq, gte, isNull, lt, or, sql, type SQL } from 'drizzle-orm';
+import { and, count, eq, gte, inArray, isNull, lt, or, sql, type SQL } from 'drizzle-orm';
 
-import type { Database } from '../db/client.js';
+import type { Database, Transaction } from '../db/client.js';
 import { DATABASE } from '../db/database.module.js';
 import {
   account,
@@ -531,6 +531,26 @@ export class AuthRepository {
   /** Ouvre les droits d'administration de cette session. */
   async unlockSession(id: string, at: Date): Promise<void> {
     await this.database.update(session).set({ adminUnlockedAt: at }).where(eq(session.id, id));
+  }
+
+  /**
+   * Oublie les tentatives comptées sur ces empreintes de sujet.
+   *
+   * Appelée par la suppression d'un compte : ce sont des empreintes HMAC, donc
+   * des données personnelles pseudonymisées, le poivre qui les calcule étant à
+   * nous. Seule la colonne du sujet est visée, celle de l'IP n'étant pas
+   * propre à la personne qui part (ADR 0017).
+   */
+  async deleteAttemptsWithin(
+    transaction: Transaction,
+    subjectFingerprints: string[],
+  ): Promise<number> {
+    const deleted = await transaction
+      .delete(loginAttempt)
+      .where(inArray(loginAttempt.emailFingerprint, subjectFingerprints))
+      .returning({ id: loginAttempt.id });
+
+    return deleted.length;
   }
 
   /*

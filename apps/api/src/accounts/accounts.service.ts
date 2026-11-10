@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 
-import type { Database } from '../db/client.js';
+import type { Database, Transaction } from '../db/client.js';
 import { DATABASE } from '../db/database.module.js';
 import { account } from '../db/schema.js';
 
@@ -49,6 +49,24 @@ export class AccountsService {
       .limit(1);
 
     return row;
+  }
+
+  /**
+   * Compte les administrateurs, et les verrouille le temps de la transaction.
+   *
+   * `for update` n'est pas une précaution de style : sans lui, deux derniers
+   * administrateurs qui se suppriment en même temps verraient chacun deux
+   * comptes, et l'application se retrouverait sans administrateur. Le second
+   * attend ici, puis voit un seul compte et se fait refuser (ADR 0017).
+   */
+  async lockAdminsWithin(transaction: Transaction): Promise<number> {
+    const rows = await transaction
+      .select({ id: account.id })
+      .from(account)
+      .where(eq(account.role, 'admin'))
+      .for('update');
+
+    return rows.length;
   }
 
   async create(input: NewAccount): Promise<CreatedAccount> {

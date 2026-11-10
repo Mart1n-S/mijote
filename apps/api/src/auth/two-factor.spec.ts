@@ -196,6 +196,17 @@ class MemoryAttempts implements AttemptStore {
     purpose: LoginPurpose;
   }[] = [];
 
+  /** La suppression des tentatives, mesurée là où une transaction existe. */
+  deleteAttemptsWithin(_transaction: unknown, subjectFingerprints: string[]): Promise<number> {
+    const before = this.rows.length;
+    const kept = this.rows.filter((row) => !subjectFingerprints.includes(row.emailFingerprint));
+
+    this.rows.length = 0;
+    this.rows.push(...kept);
+
+    return Promise.resolve(before - this.rows.length);
+  }
+
   countFailures(input: {
     emailFingerprint: string;
     ipFingerprint: string;

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 
 import { AccountsModule } from '../accounts/accounts.module.js';
 import { AuthModule } from '../auth/auth.module.js';
+import { DatabaseModule } from '../db/database.module.js';
 import { HouseholdsModule } from '../households/households.module.js';
 import { InvitationsModule } from '../invitations/invitations.module.js';
 
@@ -17,7 +18,12 @@ import { PrivacyService } from './privacy.service.js';
  * `accounts/` aurait fermé la boucle (ADR 0017).
  */
 @Module({
-  imports: [AccountsModule, AuthModule, HouseholdsModule, InvitationsModule],
+  /*
+    DatabaseModule parce que ce module **ouvre la transaction** de la
+    suppression, sans avoir pour autant de requête à lui : chaque module y
+    apporte les siennes (ADR 0017).
+  */
+  imports: [AccountsModule, AuthModule, DatabaseModule, HouseholdsModule, InvitationsModule],
   controllers: [PrivacyController],
   providers: [PrivacyService],
 })

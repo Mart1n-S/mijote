@@ -1,8 +1,9 @@
-import { type AccountExport } from '@mijote/shared';
-import { Controller, Get, Req, Res } from '@nestjs/common';
+import { deleteAccountSchema, type AccountExport, type DeleteAccountInput } from '@mijote/shared';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, Res } from '@nestjs/common';
 
 import { type CookieSink } from '../auth/auth.controller.js';
-import { requireAuthenticated } from '../auth/request-context.js';
+import { readClientIp, requireAuthenticated } from '../auth/request-context.js';
+import { ZodValidationPipe } from '../errors/zod-validation.pipe.js';
 
 import { PrivacyService } from './privacy.service.js';
 
@@ -45,5 +46,32 @@ export class PrivacyController {
     );
 
     return this.privacy.export(requireAuthenticated(request));
+  }
+
+  /**
+   * Supprime le compte, son foyer et ses traces.
+   *
+   * Un `POST` et non un `DELETE` : la requête porte un corps, et un corps sur
+   * `DELETE`, bien que légal, est jeté par nombre de mandataires (ADR 0012).
+   *
+   * La réponse efface les trois cookies, comme la déconnexion : la session
+   * vient d'être supprimée côté serveur, et le navigateur n'a plus rien à
+   * garder.
+   */
+  @Post('delete')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async delete(
+    @Body(new ZodValidationPipe(deleteAccountSchema)) body: DeleteAccountInput,
+    @Req() request: unknown,
+    @Res({ passthrough: true }) response: CookieSink,
+  ): Promise<void> {
+    const deleted = await this.privacy.delete(
+      requireAuthenticated(request),
+      { password: body.password, code: body.code },
+      readClientIp(request),
+    );
+
+    response.setHeader('Cache-Control', 'no-store');
+    response.setHeader('Set-Cookie', deleted.cookies);
   }
 }

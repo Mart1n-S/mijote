@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, count, desc, eq, gte, isNotNull, isNull, lt, or } from 'drizzle-orm';
 
-import type { Database } from '../db/client.js';
+import type { Database, Transaction } from '../db/client.js';
 import { DATABASE } from '../db/database.module.js';
 import { invitation } from '../db/schema.js';
 
@@ -183,6 +183,22 @@ export class InvitationRepository {
       .where(and(eq(invitation.email, email), gte(invitation.createdAt, since)));
 
     return row?.received ?? 0;
+  }
+
+  /**
+   * Supprime les invitations **adressées** à cette adresse.
+   *
+   * Celles que ce compte a envoyées ne sont pas visées : elles portent
+   * l'adresse d'autres personnes, et leur `invited_by` passe à `null` par la
+   * clé étrangère (ADR 0017).
+   */
+  async deleteByEmailWithin(transaction: Transaction, email: string): Promise<number> {
+    const deleted = await transaction
+      .delete(invitation)
+      .where(eq(invitation.email, email))
+      .returning({ id: invitation.id });
+
+    return deleted.length;
   }
 
   /**

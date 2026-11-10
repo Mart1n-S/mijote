@@ -2,7 +2,7 @@ import type { Allergen, Diet, HouseholdGoal, VarietyBalance } from '@mijote/shar
 import { Inject, Injectable } from '@nestjs/common';
 import { eq, sql } from 'drizzle-orm';
 
-import type { Database } from '../db/client.js';
+import type { Database, Transaction } from '../db/client.js';
 import { DATABASE } from '../db/database.module.js';
 import { household } from '../db/schema.js';
 
@@ -87,6 +87,26 @@ export class HouseholdRepository {
       .limit(1);
 
     return row;
+  }
+
+  /**
+   * Supprime le foyer, et tout ce qui en dépend par la cascade.
+   *
+   * La cascade emporte le compte, et le compte emporte ses sessions, ses
+   * familles de mémorisation, ses attentes de connexion, son second facteur,
+   * ses codes de secours et ses jetons de réinitialisation. C'est la clé
+   * étrangère qui le garantit, pas une liste à tenir à jour ici (ADR 0017).
+   *
+   * La transaction vient de l'appelant : la suppression d'un compte est une
+   * seule transaction, à laquelle plusieurs modules apportent leurs requêtes.
+   */
+  async deleteWithin(transaction: Transaction, householdId: string): Promise<number> {
+    const deleted = await transaction
+      .delete(household)
+      .where(eq(household.id, householdId))
+      .returning({ id: household.id });
+
+    return deleted.length;
   }
 
   /**

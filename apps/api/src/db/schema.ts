@@ -1,3 +1,10 @@
+import {
+  ALLERGENS,
+  DEFAULT_VARIETY_BALANCE,
+  DIETS,
+  HOUSEHOLD_GOALS,
+  VARIETY_BALANCES,
+} from '@mijote/shared';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
@@ -50,10 +57,60 @@ export const loginPurpose = pgEnum('login_purpose', [
   'reset',
 ]);
 
-/** Un foyer. Un compte en fait partie, et tout ce qui est partagé lui appartient. */
+/*
+  Les quatre énumérations du profil du foyer, construites depuis les constantes
+  de `packages/shared`.
+
+  Depuis, et non recopiées : ce sont les mêmes listes fermées que le schéma zod
+  applique à l'entrée, et deux déclarations auraient fini par diverger. La base
+  refuse donc un code que zod aurait laissé passer, et l'inverse (ADR 0016).
+*/
+export const householdGoal = pgEnum('household_goal', HOUSEHOLD_GOALS);
+export const householdVariety = pgEnum('household_variety', VARIETY_BALANCES);
+export const householdAllergen = pgEnum('household_allergen', ALLERGENS);
+export const householdDiet = pgEnum('household_diet', DIETS);
+
+/**
+ * Un foyer, et son profil.
+ *
+ * Des colonnes, et non une table `household_profile` : c'est du un pour un, et
+ * une seconde table ajouterait une jointure, un chemin de création à tenir et
+ * une ligne qui peut manquer. Ce qui protège les champs de santé n'est pas leur
+ * table, c'est que les dépôts sélectionnent des colonnes nommées une par une
+ * (ADR 0016).
+ *
+ * Tout ce qui est nullable l'est parce que **toute étape du premier lancement
+ * peut être passée**, et parce que « pas répondu » ne vaut aucune valeur : un
+ * budget nul n'est pas l'absence de budget.
+ */
 export const household = pgTable('household', {
   id: uuid('id').primaryKey().defaultRandom(),
+  /** Nommé « Mon foyer » à la création, renommable au profil (ADR 0013). */
   name: text('name').notNull(),
+  peopleCount: smallint('people_count'),
+  goal: householdGoal('goal'),
+  /** En centimes, et la période est dans le nom : le budget est mensuel. */
+  monthlyBudgetCents: integer('monthly_budget_cents'),
+  maxMealMinutes: smallint('max_meal_minutes'),
+  /*
+    Jamais nul : c'est un poids qui a toujours une valeur, et son défaut est la
+    thèse du cahier des charges, « un objectif central du planning, pas un
+    bonus ».
+  */
+  varietyBalance: householdVariety('variety_balance').notNull().default(DEFAULT_VARIETY_BALANCE),
+  /*
+    Les trois tableaux ont un défaut vide plutôt que nul : « aucun allergène
+    déclaré » et « la question n'a pas été posée » conduisent au même planning,
+    et deux représentations du même état se paieraient en conditions partout.
+
+    Ce sont des données de santé : rien autour d'elles n'est stocké, ni gravité,
+    ni date, ni commentaire, et elles n'entrent dans aucun journal (ADR 0016).
+  */
+  allergens: householdAllergen('allergens').array().notNull().default([]),
+  diets: householdDiet('diets').array().notNull().default([]),
+  excludedIngredients: text('excluded_ingredients').array().notNull().default([]),
+  /** Posée quand le parcours de premier lancement est terminé, ou abandonné. */
+  onboardingDoneAt: timestamp('onboarding_done_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

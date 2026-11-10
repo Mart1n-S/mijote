@@ -50,6 +50,13 @@
       "when": 1794222260249,
       "tag": "0006_reinitialisation_de_mot_de_passe",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794326733236,
+      "tag": "0007_profil_du_foyer",
+      "breakpoints": true
     }
   ]
 }

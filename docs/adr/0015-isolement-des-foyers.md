@@ -56,6 +56,7 @@ Aucune route d'administration ne lit un foyer dans le lot 1. Les invitations ne 
 - Les trois routes du profil exigent une session, le rôle ordinaire suffit, et **elles n'ajoutent rien à `CSRF_EXEMPT_ROUTES`** : une session existe, donc elle porte un secret CSRF. C'est la première story du lot dans ce cas, et un test l'énonce.
 - `GET /household/profile` et `PATCH /household/profile` répondent `Cache-Control: no-store` : leur charge porte des données de santé (ADR 0016).
 - La garde de navigation du front appelle `GET /household/onboarding`, qui ne rend qu'un booléen, et **jamais le profil complet** : l'état du premier lancement est ce qu'elle doit savoir, et le profil porte autre chose (ADR 0016).
+- **La réponse de session porte encore `account.householdId`**, posé par la story #10, et aucun code du front ne le lit : la forme des routes retenue ici le rend inutile au navigateur. Il n'est pas retiré dans cette story, cela touchant les schémas d'authentification et six fichiers de test, et il ne nuit pas, un identifiant de foyer n'étant ni un secret ni une donnée personnelle. La première story qui touchera `sessionAccountSchema` est l'endroit pour l'enlever.
 - Un module qui aura besoin d'une donnée de foyer passera par le service du module foyer, et non par sa table (`api.md`). C'est la raison pour laquelle l'état du premier lancement n'est pas ajouté à la réponse de session : le module d'authentification n'a pas à lire `household`.
 
 ## Quand revoir cette décision

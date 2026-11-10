@@ -61,12 +61,14 @@ C'est la seule liste qui soit à la fois fermée, stable, publique et légalemen
 - **Les journaux ne portent que `householdId`.** Ni les valeurs, ni **la liste des champs modifiés** : « ce foyer a changé ses allergènes » est déjà une information de santé. Un test relit les lignes écrites et refuse d'y trouver un code, un ingrédient ou le nom du foyer.
 - **La réponse d'erreur ne renvoie aucune valeur soumise.** C'est déjà la propriété du pipe de validation, qui ne rend que le nom du champ et le message de zod ; un test la fige sur un code d'allergène invalide, parce que c'est précisément là qu'un message « valeur reçue : … » apparaîtrait un jour.
 - **`Cache-Control: no-store`** sur les deux routes qui portent le profil.
-- **Une phrase à l'écran, portée par la `legend` du groupe** : à quoi servent ces réponses (filtrer les recettes proposées), qu'elles sont facultatives, et que rien ne sort de l'application. Pas de page de politique de confidentialité dans cette story, il n'en existe aucune : l'export et la suppression des données ont leur issue, **#15**, qui est l'endroit du texte complet.
+- **Une phrase à l'écran, portée par la `legend` du groupe** : à quoi servent ces réponses (filtrer les recettes proposées), qu'elles sont facultatives, et que rien ne sort de l'application. Cette dernière affirmation est vraie aujourd'hui, aucun connecteur sortant n'existant dans ce lot, et elle devient **une contrainte pour le lot 2** : si un filtre par allergène partait un jour dans une requête vers un site tiers, la phrase deviendrait fausse, et c'est elle qu'il faudrait changer avant le code. À relire quand la correspondance avec le vocabulaire de HelloFresh s'écrira. Pas de page de politique de confidentialité dans cette story, il n'en existe aucune : l'export et la suppression des données ont leur issue, **#15**, qui est l'endroit du texte complet.
 - **La garde de navigation ne charge jamais le profil.** Elle a besoin de savoir si le premier lancement est fait, et c'est tout : `GET /household/onboarding` ne rend qu'un booléen. Sans cette route, chaque démarrage de l'application aurait transporté des données de santé pour décider d'une redirection.
 
 ### Le PATCH est partiel, et l'absence n'est pas le vide
 
 `PATCH /household/profile` accepte n'importe quel sous-ensemble des champs. **Un champ absent ne change rien. Un tableau vide efface.** Les deux cas sont testés sur les trois tableaux, allergènes, régimes et ingrédients exclus, en mémoire et contre une vraie base.
+
+**La réponse, elle, porte le profil entier**, y compris les champs de santé que l'étape n'a pas envoyés. C'est ainsi que l'écran apprend la forme stockée (une liste normalisée et dédoublonnée, par exemple) et l'état du parcours, et les deux écrans ont de toute façon chargé le profil au montage. Le sens serveur vers client n'est donc pas minimisé de la même façon que l'autre, et c'est assumé : un 204 obligerait l'écran à deviner ce que le serveur a retenu.
 
 Écarté : **un `PUT` qui remplace le profil entier.** Il obligerait chaque écran à renvoyer ce qu'il n'affiche pas, donc l'écran du premier lancement qui demande le budget devrait renvoyer les allergènes, qu'il n'a pas chargés. Deux issues, toutes deux mauvaises : les effacer sans le vouloir, ou les charger pour les reposer, c'est-à-dire faire voyager des données de santé pour rien. Le partiel est ce qui permet à chaque étape de n'envoyer que ses propres champs.
 
@@ -103,9 +105,11 @@ Un seul écran veut dire **un seul passage axe-core** pour le parcours, et un se
 | Champ | Composant de D2 |
 | --- | --- |
 | Nom du foyer, ingrédients exclus | `BaseField` |
-| Personnes, budget, temps par repas | `BaseField`, `type="number"` |
+| Personnes, budget, temps par repas | `BaseField`, texte avec `inputmode="numeric"` |
 | Objectif, équilibre | `BaseRadioGroup` |
 | Allergènes, régimes | `BaseFieldset` et `BaseCheckbox` |
+
+**Du texte avec un clavier numérique, et non `type="number"`**, et la raison est mesurée : Vue applique d'office la conversion numérique à la valeur d'un champ de ce type, donc le modèle de `BaseField`, qui est une chaîne, recevait un nombre et la première lecture de texte échouait. `inputmode` donne le clavier sur mobile sans ce piège, et les bornes sont dites par l'aide puis appliquées par le schéma partagé. Le type `number` reste offert par `BaseField` et démontré sur la page du design system : c'est cette note, reprise dans `docs/design-system.md`, qui fait foi.
 
 La sélection multiple d'une liste déroulante est une limite connue et assumée du design system. La réponse n'est pas de l'écrire : c'est un groupe de cases dans un `fieldset`, soit du HTML natif, ce que la rule d'accessibilité demande en premier. L'aide et l'erreur d'un groupe sont reliées au groupe par `useFieldAria`, pas répétées sur chaque option.
 

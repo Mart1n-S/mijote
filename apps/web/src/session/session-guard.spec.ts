@@ -4,7 +4,7 @@ import { createMemoryHistory, createRouter, type Router } from 'vue-router';
 
 import { createRoutes } from '../routes';
 
-import { resetOnboardingForTests } from '../household/onboarding';
+import { forgetOnboarding } from '../household/onboarding';
 
 import { installSessionGuard, safeNextPath } from './session-guard';
 import { resetSessionForTests } from './session';
@@ -87,7 +87,7 @@ function createGuardedRouter(): Router {
 
 beforeEach(() => {
   resetSessionForTests();
-  resetOnboardingForTests();
+  forgetOnboarding();
 });
 
 afterEach(() => {

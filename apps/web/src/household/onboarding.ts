@@ -67,8 +67,17 @@ export function markOnboardingDone(): void {
   loaded = true;
 }
 
-/** Remet l'état à zéro. Réservé aux tests, qui partagent ce module. */
-export function resetOnboardingForTests(): void {
+/**
+ * Oublie l'état, pour que la prochaine session le redemande.
+ *
+ * Appelée quand la session change de compte, et c'est nécessaire : la
+ * déconnexion ne recharge pas la page, donc sans cet oubli la garde décidait
+ * pour le compte suivant avec le booléen du foyer précédent. Le second compte
+ * n'était jamais conduit au parcours, ou y était conduit à tort et sa date de
+ * fin était réécrite. Aucune donnée de foyer ne traversait pour autant, le
+ * serveur refiltrant à chaque requête (ADR 0015).
+ */
+export function forgetOnboarding(): void {
   done.value = true;
   pending = undefined;
   loaded = false;

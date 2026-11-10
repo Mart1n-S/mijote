@@ -5,7 +5,7 @@ import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryHistory, createRouter, type Router } from 'vue-router';
 
-import { needsOnboarding, resetOnboardingForTests } from '../household/onboarding';
+import { needsOnboarding, forgetOnboarding } from '../household/onboarding';
 import { createRoutes } from '../routes';
 import { resetSessionForTests } from '../session/session';
 
@@ -123,7 +123,7 @@ function fieldNamed(wrapper: VueWrapper, name: string) {
 
 beforeEach(() => {
   resetSessionForTests();
-  resetOnboardingForTests();
+  forgetOnboarding();
 });
 
 afterEach(() => {

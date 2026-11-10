@@ -3,6 +3,8 @@
 // la déconnexion ont donc besoin d'un document.
 
 import { PROBLEM_DETAILS_MEDIA_TYPE } from '@mijote/shared';
+
+import { ensureOnboardingLoaded, forgetOnboarding, needsOnboarding } from '../household/onboarding';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -72,6 +74,7 @@ function unauthorized(): Response {
 
 beforeEach(() => {
   resetSessionForTests();
+  forgetOnboarding();
 });
 
 afterEach(() => {
@@ -236,6 +239,38 @@ describe('logOut', () => {
       expect.objectContaining({ method: 'POST' }),
     );
     expect(isAuthenticated.value).toBe(false);
+  });
+
+  it("oublie l'état du premier lancement, pour que le compte suivant le redemande", async () => {
+    /*
+      La déconnexion ne recharge pas la page : sans cet oubli, la garde décidait
+      pour le compte suivant avec le booléen du foyer du précédent, et ne
+      conduisait jamais au parcours celui qui ne l'avait pas fait (ADR 0015).
+    */
+    respondWith([
+      sessionResponse(),
+      new Response(JSON.stringify({ done: true }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+      new Response(null, { status: 204 }),
+      new Response(JSON.stringify({ done: false }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    ]);
+
+    await logIn({ email: ACCOUNT.email, password: 'un mot de passe assez long', remember: false });
+    await ensureOnboardingLoaded();
+
+    expect(needsOnboarding.value).toBe(false);
+
+    await logOut();
+    await ensureOnboardingLoaded();
+
+    // L'état est redemandé au serveur, et c'est celui du nouveau foyer.
+    expect(needsOnboarding.value).toBe(true);
+    expect(vi.mocked(fetch).mock.lastCall?.[0]).toBe('/api/household/onboarding');
   });
 
   it("oublie le compte même si l'appel échoue", async () => {

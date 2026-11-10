@@ -58,8 +58,16 @@ const INVALID_CODE = 'Code incorrect ou expiré.';
 const MALFORMED_BACKUP_CODE =
   'Un code de secours commence par son numéro, par exemple 3-ABCD-EFGH-JKLM.';
 
-/** Redemandé pour activer ou désactiver le second facteur. */
+/** Redemandé pour activer ou désactiver le second facteur, ou se supprimer. */
 const WRONG_PASSWORD = 'Mot de passe incorrect.';
+
+/**
+ * Le code manque, alors que le compte en a un.
+ *
+ * Distinct du code refusé : celui-ci ne dit pas qu'un code est faux, il dit
+ * qu'il en faut un. Ce n'est pas un oracle, c'est son propre compte.
+ */
+const CODE_REQUIRED = 'Indiquez le code de votre application de double authentification.';
 
 const TOO_MANY_PASSWORDS = 'Trop de mots de passe incorrects. Réessayez dans quelques minutes.';
 
@@ -233,6 +241,45 @@ export class AuthService {
       twoFactor: { active: true, adminUnlocked: true },
       cookies,
     };
+  }
+
+  /**
+   * Redemande le mot de passe du compte connecté, pour une action sensible.
+   *
+   * Enveloppe ce que l'activation et la désactivation du second facteur font
+   * déjà, limitation comprise, et c'est tout l'intérêt : la suppression d'un
+   * compte n'a pas à réécrire ce chemin, ni son compteur sous le motif
+   * `reauth` (ADR 0012, ADR 0017).
+   */
+  async requirePassword(
+    authenticated: Authenticated,
+    password: string,
+    clientIp: string,
+  ): Promise<void> {
+    await this.confirmPassword(authenticated.account, password, clientIp);
+  }
+
+  /**
+   * Exige le code du second facteur, quand il est actif, et rien sinon.
+   *
+   * C'est l'appelant qui décide qu'une action le mérite ; ici on ne décide que
+   * de ce qui est vérifiable. Un compte sans second facteur n'a pas de code à
+   * donner, et lui en demander un serait une impasse.
+   */
+  async requireSecondFactor(
+    authenticated: Authenticated,
+    code: string | undefined,
+    clientIp: string,
+  ): Promise<void> {
+    if (!(await this.twoFactor.isActive(authenticated.account.id))) {
+      return;
+    }
+
+    if (code === undefined) {
+      throw new ProblemException(HttpStatus.UNAUTHORIZED, CODE_REQUIRED);
+    }
+
+    await this.checkCode(authenticated.account.id, code, clientIp);
   }
 
   /**

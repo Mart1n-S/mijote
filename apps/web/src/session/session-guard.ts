@@ -1,5 +1,7 @@
 import type { RouteLocationNormalized, RouteLocationRaw, Router } from 'vue-router';
 
+import { ensureOnboardingLoaded, needsOnboarding } from '../household/onboarding';
+
 import {
   currentAccount,
   ensureSessionLoaded,
@@ -20,6 +22,9 @@ import {
 /** Nom de la route de connexion, et nom du paramètre de retour. */
 export const LOGIN_ROUTE = 'login';
 export const NEXT_QUERY = 'suivant';
+
+/** Le parcours de premier lancement, proposé tant qu'il reste à faire. */
+export const ONBOARDING_ROUTE = 'onboarding';
 
 /** Les trois routes où la garde conduit un administrateur mal équipé. */
 export const ADMIN_ROUTE = 'admin';
@@ -72,8 +77,33 @@ export function installSessionGuard(router: Router): void {
       return { name: LOGIN_ROUTE, query: { [NEXT_QUERY]: to.fullPath } };
     }
 
+    /*
+      L'état du premier lancement, et non le profil : la garde a besoin d'un
+      booléen, et le profil porte des données de santé qui n'ont pas à voyager
+      pour décider d'une redirection (ADR 0015). L'appel ne part qu'une fois.
+    */
+    await ensureOnboardingLoaded();
+
+    if (needsOnboarding.value && !isRescue(to)) {
+      return { name: ONBOARDING_ROUTE };
+    }
+
     return to.meta.admin === true ? adminDestination(to) : true;
   });
+}
+
+/**
+ * Les pages où le premier lancement ne doit pas s'interposer.
+ *
+ * Le parcours lui-même, pour ne pas s'y renvoyer en boucle, et les deux écrans
+ * de secours d'un administrateur : un second facteur à activer ou une session à
+ * déverrouiller se règlent avant tout le reste, sinon un administrateur mal
+ * équipé se retrouverait coincé entre deux redirections.
+ */
+function isRescue(to: RouteLocationNormalized): boolean {
+  return (
+    to.name === ONBOARDING_ROUTE || to.name === TWO_FACTOR_ROUTE || to.name === ADMIN_UNLOCK_ROUTE
+  );
 }
 
 /**

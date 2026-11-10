@@ -9,6 +9,7 @@ import InvitationPage from './pages/InvitationPage.vue';
 import InvitationsPage from './pages/InvitationsPage.vue';
 import LoginPage from './pages/LoginPage.vue';
 import NotFoundPage from './pages/NotFoundPage.vue';
+import OnboardingPage from './pages/OnboardingPage.vue';
 import ResetPasswordPage from './pages/ResetPasswordPage.vue';
 import TwoFactorPage from './pages/TwoFactorPage.vue';
 
@@ -60,6 +61,18 @@ export function createRoutes(withDesignSystem: boolean): RouteRecordRaw[] {
       meta: { title: 'Accueil', navLabel: 'Accueil' },
     },
   ];
+
+  /*
+    Le premier lancement : le même profil, une étape à la fois. Hors
+    navigation, on y est conduit par la garde tant qu'il reste à faire, et on
+    n'y revient pas une fois terminé (ADR 0016).
+  */
+  routes.push({
+    path: '/premier-lancement',
+    name: 'onboarding',
+    component: OnboardingPage,
+    meta: { title: 'Bienvenue' },
+  });
 
   /*
     Le profil du foyer : la première page qui porte des données de foyer, et la

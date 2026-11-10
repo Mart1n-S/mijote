@@ -82,7 +82,7 @@ export const MAX_PEOPLE = 35;
  */
 export const PEOPLE_ESTIMATED_ABOVE = 6;
 
-const MAX_HOUSEHOLD_NAME_LENGTH = 60;
+export const MAX_HOUSEHOLD_NAME_LENGTH = 60;
 
 /** Un euro au moins, dix mille au plus : des centimes, et un entier. */
 export const MIN_MONTHLY_BUDGET_CENTS = 100;

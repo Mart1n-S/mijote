@@ -16,6 +16,7 @@ describe('createRoutes', () => {
     // verrait ici.
     expect(createRoutes(false).map((route) => route.name)).toEqual([
       'home',
+      'household-profile',
       'login',
       'forgot-password',
       'reset-password',

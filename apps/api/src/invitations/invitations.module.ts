@@ -13,5 +13,11 @@ import { InvitationsService } from './invitations.service.js';
   imports: [DatabaseModule, MailModule, AccountsModule, AuthModule],
   controllers: [InvitationsController],
   providers: [InvitationRepository, InvitationsService],
+  /*
+    Exporté depuis la story #15 : l'export d'un compte emporte l'invitation qui
+    l'a créé, et le module des droits RGPD la demande à ce service plutôt qu'à
+    la table (`api.md`, ADR 0017).
+  */
+  exports: [InvitationsService],
 })
 export class InvitationsModule {}

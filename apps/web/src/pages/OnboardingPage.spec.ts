@@ -161,6 +161,23 @@ describe('OnboardingPage', () => {
     expect(wrapper.find('h2').text()).toBe('Ce que vous ne mangez pas');
   });
 
+  it('amène le focus dans l étape qui arrive', async () => {
+    /*
+      Sans cela, le focus resterait sur le bouton cliqué, qui est sous les
+      nouveaux champs : au clavier il faudrait remonter pour les trouver.
+    */
+    stubResponses([profileResponse()]);
+
+    const wrapper = await mountPage();
+
+    await click(wrapper, 'Passer cette étape');
+
+    const focused = document.activeElement;
+
+    expect(focused?.tagName).toBe('INPUT');
+    expect(wrapper.findAll('input').some((input) => input.element === focused)).toBe(true);
+  });
+
   it('passe une étape sans rien envoyer', async () => {
     stubResponses([profileResponse()]);
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, ref, useTemplateRef } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { ApiError } from '../api/client';
@@ -71,6 +71,23 @@ const SAVE_FAILURE = "Cette étape n'a pas pu être enregistrée. Réessayez dan
 
 const current = computed(() => STEPS[step.value] ?? STEPS[0]);
 const isLast = computed(() => step.value === STEPS.length - 1);
+
+/** Le bloc de l'étape, pour y amener le focus quand elle arrive. */
+const stepBlock = useTemplateRef<HTMLElement>('stepBlock');
+
+/**
+ * Avance d'une étape, et le focus suit.
+ *
+ * Sans cela, le focus resterait sur le bouton cliqué, qui est **sous** les
+ * nouveaux champs : au clavier il faudrait revenir en arrière pour les
+ * trouver. C'est le même traitement que la seconde étape de la connexion.
+ */
+async function goToNextStep(): Promise<void> {
+  step.value += 1;
+
+  await nextTick();
+  stepBlock.value?.querySelector('input')?.focus();
+}
 
 function messageOf(error: unknown, fallback: string): string {
   return error instanceof ApiError ? error.userMessage : fallback;
@@ -160,7 +177,7 @@ async function submit(): Promise<void> {
     return;
   }
 
-  step.value += 1;
+  await goToNextStep();
 }
 
 /** Passe l'étape sans rien écrire, et termine si c'était la dernière. */
@@ -174,7 +191,7 @@ async function skip(): Promise<void> {
     return;
   }
 
-  step.value += 1;
+  await goToNextStep();
 }
 
 /** Abandonne le parcours : la date est posée, et il ne reviendra pas. */
@@ -210,9 +227,11 @@ async function finishLater(): Promise<void> {
       <h2>{{ current.title }}</h2>
       <p class="onboarding__hint">{{ current.hint }}</p>
 
-      <HouseholdIdentityFields v-if="step === 0" v-model="draft" :errors="errors" />
-      <HouseholdFoodFields v-else-if="step === 1" v-model="draft" :errors="errors" />
-      <HouseholdPlanningFields v-else v-model="draft" :errors="errors" />
+      <div ref="stepBlock">
+        <HouseholdIdentityFields v-if="step === 0" v-model="draft" :errors="errors" />
+        <HouseholdFoodFields v-else-if="step === 1" v-model="draft" :errors="errors" />
+        <HouseholdPlanningFields v-else v-model="draft" :errors="errors" />
+      </div>
 
       <div class="onboarding__actions">
         <BaseButton type="submit" :loading="saving" loading-label="enregistrement en cours">

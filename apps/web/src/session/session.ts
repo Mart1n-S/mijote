@@ -8,6 +8,7 @@ import {
 import { computed, type ComputedRef, ref } from 'vue';
 
 import { ApiError, apiRequest } from '../api/client';
+import { forgetOnboarding } from '../household/onboarding';
 
 /*
   Qui est connecté, pour toute l'application.
@@ -69,6 +70,12 @@ function forget(): void {
   account.value = undefined;
   twoFactorActive.value = false;
   adminUnlocked.value = false;
+  /*
+    L'état du premier lancement part avec le compte : il appartient à un foyer,
+    et la déconnexion ne recharge pas la page. Sans cela, la garde décidait pour
+    le compte suivant avec la valeur du précédent (ADR 0015).
+  */
+  forgetOnboarding();
 }
 
 async function load(): Promise<void> {

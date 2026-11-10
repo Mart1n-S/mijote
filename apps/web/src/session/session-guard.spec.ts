@@ -4,6 +4,8 @@ import { createMemoryHistory, createRouter, type Router } from 'vue-router';
 
 import { createRoutes } from '../routes';
 
+import { forgetOnboarding } from '../household/onboarding';
+
 import { installSessionGuard, safeNextPath } from './session-guard';
 import { resetSessionForTests } from './session';
 
@@ -20,52 +22,58 @@ const ACCOUNT = {
   role: 'user',
 };
 
-/** Le compte et son second facteur, tels que GET /auth/session les dirait. */
-function respondWith(session: { role: string; active: boolean; adminUnlocked: boolean }): void {
+function json(body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  });
+}
+
+/*
+  La garde interroge deux routes : qui est connecté, et si le premier lancement
+  reste à faire. Les bouchons répondent donc par chemin, et le second ne rend
+  **qu'un booléen**, comme la vraie route (ADR 0015).
+*/
+function stubByPath(session: Response, onboardingDone = true): void {
   vi.stubGlobal(
     'fetch',
-    vi.fn(() =>
+    vi.fn((path: string) =>
       Promise.resolve(
-        new Response(
-          JSON.stringify({
-            account: { ...ACCOUNT, role: session.role },
-            twoFactor: { active: session.active, adminUnlocked: session.adminUnlocked },
-          }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        ),
+        path === '/api/household/onboarding' ? json({ done: onboardingDone }) : session.clone(),
       ),
     ),
   );
 }
 
-function respondAs(connected: boolean): void {
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(() =>
-      Promise.resolve(
-        connected
-          ? new Response(
-              JSON.stringify({
-                account: ACCOUNT,
-                twoFactor: { active: false, adminUnlocked: false },
-              }),
-              {
-                status: 200,
-                headers: { 'content-type': 'application/json' },
-              },
-            )
-          : new Response(
-              JSON.stringify({
-                type: 'about:blank',
-                title: 'Authentification requise',
-                status: 401,
-                detail: 'Cette action demande une authentification.',
-                requestId: '00000000-0000-4000-8000-000000000000',
-              }),
-              { status: 401, headers: { 'content-type': PROBLEM_DETAILS_MEDIA_TYPE } },
-            ),
-      ),
-    ),
+/** Le compte et son second facteur, tels que GET /auth/session les dirait. */
+function respondWith(
+  session: { role: string; active: boolean; adminUnlocked: boolean },
+  onboardingDone = true,
+): void {
+  stubByPath(
+    json({
+      account: { ...ACCOUNT, role: session.role },
+      twoFactor: { active: session.active, adminUnlocked: session.adminUnlocked },
+    }),
+    onboardingDone,
+  );
+}
+
+function respondAs(connected: boolean, onboardingDone = true): void {
+  stubByPath(
+    connected
+      ? json({ account: ACCOUNT, twoFactor: { active: false, adminUnlocked: false } })
+      : new Response(
+          JSON.stringify({
+            type: 'about:blank',
+            title: 'Authentification requise',
+            status: 401,
+            detail: 'Cette action demande une authentification.',
+            requestId: '00000000-0000-4000-8000-000000000000',
+          }),
+          { status: 401, headers: { 'content-type': PROBLEM_DETAILS_MEDIA_TYPE } },
+        ),
+    onboardingDone,
   );
 }
 
@@ -79,6 +87,7 @@ function createGuardedRouter(): Router {
 
 beforeEach(() => {
   resetSessionForTests();
+  forgetOnboarding();
 });
 
 afterEach(() => {
@@ -200,7 +209,63 @@ describe('la garde de session', () => {
     await router.push('/');
     await router.push('/connexion');
 
-    expect(fetch).toHaveBeenCalledTimes(1);
+    /*
+      Deux appels, et deux seulement : qui est connecté, et si le premier
+      lancement reste à faire. Ni l'un ni l'autre ne repart à la navigation
+      suivante, et aucun des deux ne charge le profil.
+    */
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(fetch).mock.calls.map((call) => call[0])).toEqual([
+      '/api/auth/session',
+      '/api/household/onboarding',
+    ]);
+  });
+});
+
+describe('la garde du premier lancement', () => {
+  it('conduit au parcours tant qu il reste à faire', async () => {
+    respondAs(true, false);
+
+    const router = createGuardedRouter();
+
+    await router.push('/');
+
+    expect(router.currentRoute.value.name).toBe('onboarding');
+  });
+
+  it('laisse le parcours lui-même, sans boucler', async () => {
+    respondAs(true, false);
+
+    const router = createGuardedRouter();
+
+    await router.push('/premier-lancement');
+
+    expect(router.currentRoute.value.name).toBe('onboarding');
+  });
+
+  it('ne conduit plus au parcours une fois terminé', async () => {
+    respondAs(true, true);
+
+    const router = createGuardedRouter();
+
+    await router.push('/profil');
+
+    expect(router.currentRoute.value.name).toBe('household-profile');
+  });
+
+  it("laisse un administrateur régler son second facteur d'abord", async () => {
+    /*
+      Sans cette exception, un administrateur sans second facteur se
+      retrouverait entre deux redirections : l'une vers le parcours, l'autre
+      vers l'activation.
+    */
+    respondWith({ role: 'admin', active: false, adminUnlocked: false }, false);
+
+    const router = createGuardedRouter();
+
+    await router.push('/securite/double-authentification');
+
+    expect(router.currentRoute.value.name).toBe('two-factor');
   });
 });
 

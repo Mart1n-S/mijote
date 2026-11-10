@@ -160,7 +160,14 @@ export const excludedIngredientsSchema = z
   .max(MAX_EXCLUDED_INGREDIENTS)
   .transform((values) =>
     unique(values.map((value) => value.trim().toLowerCase()).filter((value) => value !== '')),
-  );
+  )
+  /*
+    La longueur est revérifiée **après** la normalisation, et pas seulement
+    avant : la minuscule de certains caractères tient sur deux unités (le I
+    turc, par exemple), donc une entrée de quarante caractères pouvait en
+    donner quatre-vingts. La colonne, elle, n'a pas de borne.
+  */
+  .pipe(z.array(z.string().max(MAX_EXCLUDED_INGREDIENT_LENGTH)));
 
 /** Les allergènes déclarés, dédoublonnés. Un tableau vide est une réponse. */
 export const allergensSchema = z

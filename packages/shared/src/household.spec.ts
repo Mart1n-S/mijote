@@ -104,6 +104,18 @@ describe('les ingrédients exclus', () => {
     ]);
   });
 
+  it('borne la longueur après la normalisation, et pas seulement avant', () => {
+    /*
+      La minuscule du I turc tient sur deux unités : une entrée de quarante
+      caractères en donnait quatre-vingts, et la colonne n'a pas de borne.
+    */
+    const turkish = 'İ'.repeat(40);
+
+    expect(turkish).toHaveLength(40);
+    expect(turkish.toLowerCase().length).toBeGreaterThan(40);
+    expect(excludedIngredientsSchema.safeParse([turkish]).success).toBe(false);
+  });
+
   it('borne la liste et chaque entrée', () => {
     const tooMany = Array.from({ length: MAX_EXCLUDED_INGREDIENTS + 1 }, (_, index) =>
       String(index),

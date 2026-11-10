@@ -1,8 +1,12 @@
 import {
+  ALLERGENS,
   CSRF_COOKIE,
   CSRF_HEADER,
+  DIETS,
+  HOUSEHOLD_GOALS,
   householdProfileSchema,
   problemDetailsSchema,
+  VARIETY_BALANCES,
 } from '@mijote/shared';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
@@ -344,6 +348,37 @@ describe.skipIf(!reachable)('le profil du foyer, contre une vraie base', () => {
         .where(eq(household.id, other.householdId));
 
       expect(again?.doneAt?.getTime()).toBe(row?.doneAt?.getTime());
+    });
+  });
+
+  describe('les listes fermées, en base', () => {
+    it('portent exactement les codes de packages/shared', async () => {
+      /*
+        Les énumérations Drizzle sont construites depuis les constantes
+        partagées, donc le schéma et zod ne peuvent pas diverger. La migration,
+        elle, est une copie figée de ces listes : un code ajouté sans migration
+        passerait zod et tomberait en base, en erreur inattendue.
+
+        Ce test déplace cet échec de la production vers ici.
+      */
+      for (const [name, codes] of [
+        ['household_allergen', ALLERGENS],
+        ['household_diet', DIETS],
+        ['household_goal', HOUSEHOLD_GOALS],
+        ['household_variety', VARIETY_BALANCES],
+      ] as const) {
+        const rows = await database.execute(
+          sql`select enumlabel from pg_enum
+              join pg_type on pg_type.oid = pg_enum.enumtypid
+              where pg_type.typname = ${name}
+              order by pg_enum.enumsortorder`,
+        );
+
+        expect(
+          rows.rows.map((row) => row['enumlabel']),
+          name,
+        ).toEqual([...codes]);
+      }
     });
   });
 

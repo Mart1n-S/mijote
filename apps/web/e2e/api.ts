@@ -150,13 +150,18 @@ async function respondProblem(
  * d'erreurs de mandataire qui cachent les vraies.
  */
 async function stubBaseline(page: Page, onboardingDone = true): Promise<void> {
-  await respondJson(page, HEALTH_ROUTE, 200, JSON.stringify({ status: 'ok' }));
+  await stubHealthProbe(page);
   await respondJson(
     page,
     HOUSEHOLD_ONBOARDING_ROUTE,
     200,
     JSON.stringify({ done: onboardingDone }),
   );
+}
+
+/** La seule sonde, pour les bouchons qui posent leur propre état de foyer. */
+async function stubHealthProbe(page: Page): Promise<void> {
+  await respondJson(page, HEALTH_ROUTE, 200, JSON.stringify({ status: 'ok' }));
 }
 
 /**
@@ -384,7 +389,12 @@ export async function stubHousehold(page: Page, onboardingDone = true): Promise<
   const recorded: StubbedHousehold = { patches: [] };
   let profile = { ...STUB_PROFILE, onboardingDone };
 
-  await stubBaseline(page, onboardingDone);
+  /*
+    La sonde seule : l'état du premier lancement est posé juste en dessous, par
+    une route qui suit les modifications. Passer par le socle en
+    enregistrerait un second, statique, que Playwright n'emploierait jamais.
+  */
+  await stubHealthProbe(page);
   await respondJson(
     page,
     SESSION_ROUTE,

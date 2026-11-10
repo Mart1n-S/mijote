@@ -23,6 +23,8 @@ const TWO_FACTOR_ROUTE = '**/api/auth/two-factor';
 const TWO_FACTOR_SETUP_ROUTE = '**/api/auth/two-factor/setup';
 const TWO_FACTOR_ACTIVATE_ROUTE = '**/api/auth/two-factor/activate';
 const TWO_FACTOR_UNLOCK_ROUTE = '**/api/auth/two-factor/unlock';
+const HOUSEHOLD_PROFILE_ROUTE = '**/api/household/profile';
+const HOUSEHOLD_ONBOARDING_ROUTE = '**/api/household/onboarding';
 const FORGOT_PASSWORD_ROUTE = '**/api/auth/password/forgot';
 const RESET_PASSWORD_ROUTE = '**/api/auth/password/reset';
 const INVITATION_PREVIEW_ROUTE = '**/api/invitations/preview';
@@ -139,11 +141,30 @@ async function respondProblem(
 }
 
 /**
+ * Ce que toute page interroge, quelle que soit la story : la sonde de santé, et
+ * l'état du premier lancement que la garde de navigation lit à chaque
+ * navigation connectée (ADR 0015).
+ *
+ * Sans le second, chaque test d'un écran connecté laisserait partir une requête
+ * vers l'API absente : l'application s'en remet, mais la sortie se remplit
+ * d'erreurs de mandataire qui cachent les vraies.
+ */
+async function stubBaseline(page: Page, onboardingDone = true): Promise<void> {
+  await respondJson(page, HEALTH_ROUTE, 200, JSON.stringify({ status: 'ok' }));
+  await respondJson(
+    page,
+    HOUSEHOLD_ONBOARDING_ROUTE,
+    200,
+    JSON.stringify({ done: onboardingDone }),
+  );
+}
+
+/**
  * Fait répondre l'API comme pour une session ouverte : le bandeau de service
  * reste muet, et la garde de navigation laisse passer.
  */
 export async function stubHealthyApi(page: Page): Promise<void> {
-  await respondJson(page, HEALTH_ROUTE, 200, JSON.stringify({ status: 'ok' }));
+  await stubBaseline(page);
   await respondJson(
     page,
     SESSION_ROUTE,
@@ -155,6 +176,7 @@ export async function stubHealthyApi(page: Page): Promise<void> {
 /** Fait échouer l'API comme une API arrêtée le ferait, au format RFC 9457. */
 export async function stubUnavailableApi(page: Page): Promise<void> {
   await respondProblem(page, HEALTH_ROUTE, 503, UNAVAILABLE);
+  await respondProblem(page, HOUSEHOLD_ONBOARDING_ROUTE, 503, UNAVAILABLE);
   /*
     La session échoue aussi : sans réponse du serveur, l'application ne peut pas
     affirmer qu'une session existe, donc elle reste anonyme et montre la page de
@@ -181,7 +203,7 @@ export interface StubbedAuth {
 export async function stubAnonymousApi(page: Page): Promise<StubbedAuth> {
   const recorded: StubbedAuth = { logins: [], logouts: [] };
 
-  await respondJson(page, HEALTH_ROUTE, 200, JSON.stringify({ status: 'ok' }));
+  await stubBaseline(page);
   await respondProblem(page, SESSION_ROUTE, 401, ANONYMOUS);
 
   await page.route(LOGIN_ROUTE, async (route) => {
@@ -251,7 +273,7 @@ export interface StubbedTwoFactor {
 export async function stubTwoFactorLogin(page: Page): Promise<StubbedTwoFactor> {
   const recorded: StubbedTwoFactor = { codes: [], setups: [], activations: [] };
 
-  await respondJson(page, HEALTH_ROUTE, 200, JSON.stringify({ status: 'ok' }));
+  await stubBaseline(page);
   await respondProblem(page, SESSION_ROUTE, 401, ANONYMOUS);
 
   await page.route(LOGIN_ROUTE, async (route) => {
@@ -297,7 +319,7 @@ export async function stubTwoFactorLogin(page: Page): Promise<StubbedTwoFactor> 
 export async function stubAdminWithoutTwoFactor(page: Page): Promise<StubbedTwoFactor> {
   const recorded: StubbedTwoFactor = { codes: [], setups: [], activations: [] };
 
-  await respondJson(page, HEALTH_ROUTE, 200, JSON.stringify({ status: 'ok' }));
+  await stubBaseline(page);
   await respondJson(
     page,
     SESSION_ROUTE,
@@ -331,6 +353,77 @@ export async function stubAdminWithoutTwoFactor(page: Page): Promise<StubbedTwoF
   return recorded;
 }
 
+/** Le profil du foyer, tel que l'API le rendrait. */
+export const STUB_PROFILE = {
+  name: 'Chez moi',
+  peopleCount: 4,
+  goal: 'balance',
+  monthlyBudgetCents: 18_000,
+  maxMealMinutes: 30,
+  varietyBalance: 'reuse',
+  allergens: ['milk'],
+  diets: [],
+  excludedIngredients: ['coriandre'],
+  onboardingDone: true,
+};
+
+/** Ce que les bouchons du foyer ont enregistré. */
+export interface StubbedHousehold {
+  /** Les corps des modifications, dans l'ordre. */
+  patches: unknown[];
+}
+
+/**
+ * Fait répondre l'API comme pour un foyer déjà renseigné.
+ *
+ * Deux routes séparées, comme le vrai : l'état du premier lancement ne rend
+ * qu'un booléen, et le profil n'est servi qu'aux écrans qui l'affichent
+ * (ADR 0015).
+ */
+export async function stubHousehold(page: Page, onboardingDone = true): Promise<StubbedHousehold> {
+  const recorded: StubbedHousehold = { patches: [] };
+  let profile = { ...STUB_PROFILE, onboardingDone };
+
+  await stubBaseline(page, onboardingDone);
+  await respondJson(
+    page,
+    SESSION_ROUTE,
+    200,
+    JSON.stringify({ account: STUB_ACCOUNT, twoFactor: { active: false, adminUnlocked: false } }),
+  );
+
+  await page.route(HOUSEHOLD_ONBOARDING_ROUTE, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ done: profile.onboardingDone }),
+    });
+  });
+
+  await page.route(HOUSEHOLD_PROFILE_ROUTE, async (route) => {
+    if (route.request().method() === 'PATCH') {
+      const body: unknown = route.request().postDataJSON();
+
+      recorded.patches.push(body);
+
+      /*
+        Le serveur rend le profil à jour : le bouchon le garde ici, comme la
+        base le garderait, pour que l'écran montre ce qui vient d'être écrit.
+      */
+      profile = { ...profile, ...(typeof body === 'object' && body !== null ? body : {}) };
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: { 'cache-control': 'no-store' },
+      body: JSON.stringify(profile),
+    });
+  });
+
+  return recorded;
+}
+
 /** Le jeton que les bouchons de réinitialisation acceptent. */
 export const STUB_RESET_TOKEN = 'un-jeton-de-reinitialisation-de-test';
 
@@ -352,7 +445,7 @@ export interface StubbedPasswordReset {
 export async function stubPasswordReset(page: Page): Promise<StubbedPasswordReset> {
   const recorded: StubbedPasswordReset = { demands: [], resets: [] };
 
-  await respondJson(page, HEALTH_ROUTE, 200, JSON.stringify({ status: 'ok' }));
+  await stubBaseline(page);
   await respondProblem(page, SESSION_ROUTE, 401, ANONYMOUS);
 
   await page.route(FORGOT_PASSWORD_ROUTE, async (route) => {
@@ -415,7 +508,7 @@ export interface StubbedInvitations {
 export async function stubPendingInvitation(page: Page): Promise<StubbedInvitations> {
   const recorded: StubbedInvitations = { previews: [], accepts: [], creations: [], revoked: [] };
 
-  await respondJson(page, HEALTH_ROUTE, 200, JSON.stringify({ status: 'ok' }));
+  await stubBaseline(page);
   await respondProblem(page, SESSION_ROUTE, 401, ANONYMOUS);
 
   await page.route(INVITATION_PREVIEW_ROUTE, async (route) => {
@@ -460,7 +553,7 @@ export async function stubUnlockedAdmin(page: Page): Promise<StubbedInvitations>
   */
   let invitations: unknown[] = [STUB_INVITATION];
 
-  await respondJson(page, HEALTH_ROUTE, 200, JSON.stringify({ status: 'ok' }));
+  await stubBaseline(page);
   await respondJson(
     page,
     SESSION_ROUTE,
@@ -513,7 +606,7 @@ export async function stubLockedAdmin(page: Page): Promise<{ codes: unknown[] }>
   const recorded: { codes: unknown[] } = { codes: [] };
   let unlocked = false;
 
-  await respondJson(page, HEALTH_ROUTE, 200, JSON.stringify({ status: 'ok' }));
+  await stubBaseline(page);
 
   await page.route(SESSION_ROUTE, async (route) => {
     await route.fulfill({

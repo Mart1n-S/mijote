@@ -122,6 +122,12 @@ class MemoryInvitations implements InvitationStore {
     return Promise.resolve(record);
   }
 
+  findUsedByEmail(email: string): Promise<InvitationRecord | undefined> {
+    return Promise.resolve(
+      [...this.rows].reverse().find((row) => row.email === email && row.usedAt !== null),
+    );
+  }
+
   findByTokenHash(tokenHash: string): Promise<InvitationRecord | undefined> {
     return Promise.resolve(this.rows.find((row) => row.tokenHash === tokenHash));
   }

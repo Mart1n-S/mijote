@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, count, desc, eq, gte, isNull, lt, or } from 'drizzle-orm';
+import { and, count, desc, eq, gte, isNotNull, isNull, lt, or } from 'drizzle-orm';
 
 import type { Database } from '../db/client.js';
 import { DATABASE } from '../db/database.module.js';
@@ -94,6 +94,23 @@ export class InvitationRepository {
       .select(COLUMNS)
       .from(invitation)
       .where(eq(invitation.tokenHash, tokenHash))
+      .limit(1);
+
+    return row;
+  }
+
+  /**
+   * L'invitation consommée de cette adresse, la plus récente.
+   *
+   * Lue par l'export : c'est celle qui a créé le compte, et elle appartient à la
+   * personne qui part. Son jeton et son invitant ne sortent pas (ADR 0017).
+   */
+  async findUsedByEmail(email: string): Promise<InvitationRecord | undefined> {
+    const [row] = await this.database
+      .select(COLUMNS)
+      .from(invitation)
+      .where(and(eq(invitation.email, email), isNotNull(invitation.usedAt)))
+      .orderBy(desc(invitation.usedAt))
       .limit(1);
 
     return row;

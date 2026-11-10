@@ -14,7 +14,12 @@ import type {
   SessionRecord,
   TwoFactorRecord,
 } from './auth.repository.js';
-import { type AccountStore, type AuthenticatedResponse, AuthService } from './auth.service.js';
+import {
+  type AccountStore,
+  type AuthenticatedResponse,
+  AuthService,
+  type SecurityStore,
+} from './auth.service.js';
 import { PendingLoginService, type PendingLoginStore } from './pending-login.service.js';
 import { RememberService, type RememberStore } from './remember.service.js';
 import { SessionService, type SessionStore } from './session.service.js';
@@ -371,6 +376,25 @@ let sessions: MemorySessions;
 let families: MemoryFamilies;
 let attempts: MemoryAttempts;
 let log: RecordingLog;
+/**
+ * Ce que l'export lirait des appareils : rien, ces tests ne l'exercent pas.
+ *
+ * Il vit dans privacy.service.spec.ts et dans le test d'intégration.
+ */
+class NoDevices implements SecurityStore {
+  listSessionsOf(): Promise<{ createdAt: Date; lastSeenAt: Date; expiresAt: Date }[]> {
+    return Promise.resolve([]);
+  }
+
+  listRememberedOf(): Promise<{ createdAt: Date; expiresAt: Date }[]> {
+    return Promise.resolve([]);
+  }
+
+  listBackupCodesOf(): Promise<{ position: number; usedAt: Date | null }[]> {
+    return Promise.resolve([]);
+  }
+}
+
 let service: AuthService;
 
 beforeAll(async () => {
@@ -394,6 +418,7 @@ beforeEach(() => {
     new AttemptsService(attempts),
     new PendingLoginService(new MemoryPendingLogins()),
     new TwoFactorService(new NoTwoFactor(), log),
+    new NoDevices(),
     log,
   );
 });

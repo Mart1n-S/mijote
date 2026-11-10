@@ -1,7 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { eq } from 'drizzle-orm';
 
 import type { Database } from '../db/client.js';
 import { DATABASE } from '../db/database.module.js';
+import { account } from '../db/schema.js';
 
 import {
   type CreatedAccount,
@@ -24,6 +26,29 @@ export class AccountsService {
 
   async isEmailTaken(email: string): Promise<boolean> {
     return emailIsTaken(this.database, email);
+  }
+
+  /**
+   * Ce que l'export emporte du compte : son identité, jamais son empreinte.
+   *
+   * La requête vit ici parce que la table est la sienne : le module des droits
+   * RGPD n'a aucune requête à lui (`api.md`, ADR 0017).
+   */
+  async detailsOf(
+    accountId: string,
+  ): Promise<{ id: string; email: string; role: 'user' | 'admin'; createdAt: Date } | undefined> {
+    const [row] = await this.database
+      .select({
+        id: account.id,
+        email: account.email,
+        role: account.role,
+        createdAt: account.createdAt,
+      })
+      .from(account)
+      .where(eq(account.id, accountId))
+      .limit(1);
+
+    return row;
   }
 
   async create(input: NewAccount): Promise<CreatedAccount> {

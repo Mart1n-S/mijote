@@ -21,6 +21,7 @@ const OTHER = '22222222-2222-4222-8222-222222222222';
 function emptyProfile(name: string): HouseholdProfileRecord {
   return {
     name,
+    createdAt: new Date('2026-11-01T10:00:00.000Z'),
     peopleCount: null,
     goal: null,
     monthlyBudgetCents: null,

@@ -125,6 +125,19 @@ export class HouseholdsService {
     return toProfile(await this.require(householdId));
   }
 
+  /**
+   * Ce que l'export emporte du foyer : sa date, et tout son profil.
+   *
+   * Par le service et non par la table : un module n'accède pas aux tables d'un
+   * autre (`api.md`), et c'est ce qui permet au module des droits RGPD de
+   * n'avoir aucune requête à lui.
+   */
+  async exportable(householdId: string): Promise<{ createdAt: string; profile: HouseholdProfile }> {
+    const record = await this.require(householdId);
+
+    return { createdAt: record.createdAt.toISOString(), profile: toProfile(record) };
+  }
+
   /** L'état du premier lancement, pour la garde de navigation. */
   async onboarding(householdId: string): Promise<HouseholdOnboarding> {
     const found = await this.households.findOnboardingDoneAt(householdId);

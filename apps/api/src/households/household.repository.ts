@@ -19,6 +19,8 @@ import { household } from '../db/schema.js';
 /** Le profil, tel que le service le lit. */
 export interface HouseholdProfileRecord {
   name: string;
+  /** Depuis quand ce foyer existe. Lue par l'export (ADR 0017). */
+  createdAt: Date;
   peopleCount: number | null;
   goal: HouseholdGoal | null;
   monthlyBudgetCents: number | null;
@@ -36,12 +38,15 @@ export interface HouseholdProfileRecord {
  * Toutes les clés sont facultatives, et c'est le sujet : un champ absent ne
  * change rien, là où un champ à `null` efface une réponse (ADR 0016).
  */
-export type HouseholdProfileChanges = Partial<Omit<HouseholdProfileRecord, 'name'>> & {
+export type HouseholdProfileChanges = Partial<
+  Omit<HouseholdProfileRecord, 'name' | 'createdAt'>
+> & {
   name?: string;
 };
 
 const COLUMNS = {
   name: household.name,
+  createdAt: household.createdAt,
   peopleCount: household.peopleCount,
   goal: household.goal,
   monthlyBudgetCents: household.monthlyBudgetCents,

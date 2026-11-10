@@ -533,6 +533,45 @@ export class AuthRepository {
     await this.database.update(session).set({ adminUnlockedAt: at }).where(eq(session.id, id));
   }
 
+  /*
+    Ce que l'export lit, et rien de plus.
+
+    Des dates, jamais une empreinte : ce que la personne peut vouloir savoir est
+    « depuis quand et jusqu'à quand », pas de quoi rejouer une session
+    (ADR 0017).
+  */
+
+  async listSessionsOf(
+    accountId: string,
+  ): Promise<{ createdAt: Date; lastSeenAt: Date; expiresAt: Date }[]> {
+    return this.database
+      .select({
+        createdAt: session.createdAt,
+        lastSeenAt: session.lastSeenAt,
+        expiresAt: session.expiresAt,
+      })
+      .from(session)
+      .where(eq(session.accountId, accountId))
+      .orderBy(session.createdAt);
+  }
+
+  async listRememberedOf(accountId: string): Promise<{ createdAt: Date; expiresAt: Date }[]> {
+    return this.database
+      .select({ createdAt: rememberToken.createdAt, expiresAt: rememberToken.expiresAt })
+      .from(rememberToken)
+      .where(eq(rememberToken.accountId, accountId))
+      .orderBy(rememberToken.createdAt);
+  }
+
+  /** Les codes de secours par leur numéro, et la date de leur usage. */
+  async listBackupCodesOf(accountId: string): Promise<{ position: number; usedAt: Date | null }[]> {
+    return this.database
+      .select({ position: twoFactorBackupCode.position, usedAt: twoFactorBackupCode.usedAt })
+      .from(twoFactorBackupCode)
+      .where(eq(twoFactorBackupCode.accountId, accountId))
+      .orderBy(twoFactorBackupCode.position);
+  }
+
   // La réinitialisation d'un mot de passe oublié (ADR 0014).
 
   /**

@@ -103,6 +103,7 @@ export function readTtlHours(env: NodeJS.ProcessEnv): number {
 
 /** Ce que les invitations lisent et écrivent des invitations, et rien de plus. */
 export interface InvitationStore {
+  findUsedByEmail(email: string): Promise<InvitationRecord | undefined>;
   replaceLive(input: {
     email: string;
     role: 'user' | 'admin';
@@ -190,6 +191,28 @@ export class InvitationsService {
     await this.purge();
 
     return this.toView(record, now);
+  }
+
+  /**
+   * L'invitation qui a créé le compte de cette adresse, pour l'export.
+   *
+   * Trois champs seulement : ni le jeton, qui est un authentifiant, ni qui a
+   * invité, qui est l'identifiant de quelqu'un d'autre (ADR 0017).
+   */
+  async exportableFor(
+    email: string,
+  ): Promise<{ createdAt: string; usedAt: string | null; role: 'user' | 'admin' } | null> {
+    const record = await this.invitations.findUsedByEmail(email);
+
+    if (record === undefined) {
+      return null;
+    }
+
+    return {
+      createdAt: record.createdAt.toISOString(),
+      usedAt: record.usedAt?.toISOString() ?? null,
+      role: record.role,
+    };
   }
 
   async list(): Promise<Invitation[]> {

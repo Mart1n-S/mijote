@@ -64,8 +64,10 @@ export function createRoutes(withDesignSystem: boolean): RouteRecordRaw[] {
 
   /*
     Le premier lancement : le même profil, une étape à la fois. Hors
-    navigation, on y est conduit par la garde tant qu'il reste à faire, et on
-    n'y revient pas une fois terminé (ADR 0016).
+    navigation : la garde y conduit tant qu'il reste à faire, et cesse de le
+    faire une fois terminé. L'adresse reste atteignable à la main, et le
+    parcours se rejoue alors sans conséquence : la date de fin, elle, ne
+    s'écrit qu'une fois (ADR 0016).
   */
   routes.push({
     path: '/premier-lancement',

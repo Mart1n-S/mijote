@@ -1,6 +1,6 @@
 import type { Allergen, Diet, HouseholdGoal, VarietyBalance } from '@mijote/shared';
 import { Inject, Injectable } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 import type { Database } from '../db/client.js';
 import { DATABASE } from '../db/database.module.js';
@@ -98,7 +98,20 @@ export class HouseholdRepository {
 
     const updated = await this.database
       .update(household)
-      .set(changes)
+      .set({
+        ...changes,
+        /*
+          La date du premier lancement ne s'écrit qu'une fois : `coalesce` garde
+          celle qui est déjà là. Sans cela, chaque corps portant
+          `onboardingDone: true` la réécrivait, et la colonne cessait de dire
+          **quand** le parcours a été terminé.
+        */
+        ...(changes.onboardingDoneAt === undefined
+          ? {}
+          : {
+              onboardingDoneAt: sql`coalesce(${household.onboardingDoneAt}, ${changes.onboardingDoneAt})`,
+            }),
+      })
       .where(eq(household.id, householdId))
       .returning({ id: household.id });
 

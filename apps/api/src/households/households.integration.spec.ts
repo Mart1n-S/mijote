@@ -331,6 +331,19 @@ describe.skipIf(!reachable)('le profil du foyer, contre une vraie base', () => {
         .where(eq(household.id, other.householdId));
 
       expect(row?.doneAt).toBeInstanceOf(Date);
+
+      /*
+        Et elle ne se réécrit pas : la colonne dit **quand** le parcours a été
+        terminé, et une seconde modification ne doit pas la déplacer.
+      */
+      await patchProfile(other, { onboardingDone: true, peopleCount: 2 });
+
+      const [again] = await database
+        .select({ doneAt: household.onboardingDoneAt })
+        .from(household)
+        .where(eq(household.id, other.householdId));
+
+      expect(again?.doneAt?.getTime()).toBe(row?.doneAt?.getTime());
     });
   });
 

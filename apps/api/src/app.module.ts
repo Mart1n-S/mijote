@@ -7,6 +7,7 @@ import { DatabaseModule } from './db/database.module.js';
 import { InvitationsModule } from './invitations/invitations.module.js';
 import { ProblemDetailsFilter } from './errors/problem-details.filter.js';
 import { HealthModule } from './health/health.module.js';
+import { HouseholdsModule } from './households/households.module.js';
 import { buildLoggerParams } from './logging/logger-options.js';
 import { MailModule } from './mail/mail.module.js';
 
@@ -27,6 +28,7 @@ import { MailModule } from './mail/mail.module.js';
     AuthModule,
     MailModule,
     InvitationsModule,
+    HouseholdsModule,
     HealthModule,
   ],
   providers: [

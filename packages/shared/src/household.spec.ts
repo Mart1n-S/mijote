@@ -7,6 +7,7 @@ import {
   excludedIngredientsSchema,
   householdNameSchema,
   MAX_EXCLUDED_INGREDIENTS,
+  maxMealMinutesSchema,
   MAX_PEOPLE,
   monthlyBudgetCentsSchema,
   peopleCountSchema,
@@ -49,6 +50,14 @@ describe('les bornes du foyer', () => {
     expect(monthlyBudgetCentsSchema.safeParse(18_050.5).success).toBe(false);
     expect(monthlyBudgetCentsSchema.safeParse(0).success).toBe(false);
     expect(monthlyBudgetCentsSchema.safeParse(1_000_001).success).toBe(false);
+  });
+
+  it('accepte une durée de 5 à 180 minutes par repas', () => {
+    expect(maxMealMinutesSchema.safeParse(5).success).toBe(true);
+    expect(maxMealMinutesSchema.safeParse(180).success).toBe(true);
+    expect(maxMealMinutesSchema.safeParse(4).success).toBe(false);
+    expect(maxMealMinutesSchema.safeParse(181).success).toBe(false);
+    expect(maxMealMinutesSchema.safeParse(30.5).success).toBe(false);
   });
 
   it('refuse un nom de foyer vide ou trop long', () => {

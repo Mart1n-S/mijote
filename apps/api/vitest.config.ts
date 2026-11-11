@@ -33,13 +33,17 @@ export default defineConfig({
 
       Mesure du 11 novembre 2026, sur 62 fichiers : à six workers et cinq
       secondes, deux tests tombaient par dépassement sans rien de cassé ; à
-      quatre workers la suite passait mais montait de 63 a 90 secondes. Monter
+      quatre workers la suite passait mais montait de 63 à 90 secondes. Monter
       le délai garde les six workers et la durée, et ne cache rien : un test
       vraiment bloqué dépasse quinze secondes comme il dépassait cinq.
 
-      Le délai des crochets reste par defaut : les crochets de ces fichiers
-      tiennent, une fois leurs hachages inutiles retirés.
+      Le délai des crochets monte pour la même raison, et il lui faut plus : un
+      crochet d'intégration monte l'application NestJS entière, puis crée ses
+      comptes, soit deux à trois secondes de démarrage et une poignée de
+      hachages. Quatre fichiers font cela en parallèle, et trois d'entre eux
+      dépassaient les dix secondes par défaut.
     */
     testTimeout: 15_000,
+    hookTimeout: 30_000,
   },
 });

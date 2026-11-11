@@ -59,12 +59,32 @@ test.describe('mes données', () => {
     const trigger = page.getByRole('button', { name: 'Supprimer mon compte' });
 
     await trigger.click();
+
+    // Rempli avant d'annuler : c'est ce qui donne du sens à la réouverture, en
+    // bas de ce test.
+    const dialog = page.getByRole('dialog');
+
+    await dialog.getByRole('checkbox').check();
+    await dialog.getByLabel('Votre mot de passe').fill(STUB_PASSWORD);
+
     await page.getByRole('button', { name: 'Annuler' }).click();
 
     await expect(page.getByRole('dialog')).toHaveCount(0);
     // Le focus revient sur le bouton qui a ouvert : un retour qui ne se voit
     // pas à la relecture, et que jsdom ne sait pas montrer.
     await expect(trigger).toBeFocused();
+
+    /*
+      Et la réouverture repart d'un dialogue vide. La case est la friction
+      voulue par l'ADR 0017 : restée cochée, elle ne frictionne plus rien. C'est
+      ici que ça se mesure, jsdom ne démontant pas le contenu du dialogue.
+    */
+    await trigger.click();
+
+    const reopened = page.getByRole('dialog');
+
+    await expect(reopened.getByRole('checkbox')).not.toBeChecked();
+    await expect(reopened.getByLabel('Votre mot de passe')).toHaveValue('');
   });
 
   test('ferme la suppression au seul administrateur', async ({ page }) => {
@@ -88,7 +108,13 @@ test.describe('mes données', () => {
 
     await dialog.getByRole('checkbox').check();
     await dialog.getByLabel('Votre mot de passe').fill(STUB_PASSWORD);
-    await dialog.getByRole('button', { name: 'Supprimer définitivement' }).click();
+    /*
+      Entrée dans le champ, et non un clic : le bouton d'envoi est hors du
+      formulaire, rattaché par son attribut `form`, et c'est ce qui le fait
+      entrer dans la soumission implicite. Un remaniement du dialogue qui
+      perdrait ce rattachement casserait la touche Entrée sans bruit.
+    */
+    await dialog.getByLabel('Votre mot de passe').press('Enter');
 
     // La confirmation est partie au serveur, case comprise : c'est lui qui
     // l'exige (ADR 0017).

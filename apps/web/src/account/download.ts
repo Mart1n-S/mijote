@@ -8,10 +8,12 @@
 /**
  * Propose le fichier au téléchargement, sous ce nom.
  *
- * L'URL de l'objet est révoquée aussitôt : elle garde le blob en mémoire tant
- * qu'elle existe, et ce blob porte des données de santé. Le clic est déjà parti
- * quand la révocation arrive, le navigateur ayant retenu la ressource le temps
- * du téléchargement.
+ * L'URL de l'objet est révoquée, parce qu'elle garde le blob en mémoire tant
+ * qu'elle existe et que ce blob porte des données de santé. Mais elle est
+ * révoquée **dans une tâche suivante**, et non juste après le clic : sur
+ * WebKit, une révocation dans la même tâche annule le téléchargement, et la PWA
+ * est faite pour être installée sur un téléphone. Seul Chromium est mesuré
+ * (playwright.config.ts), donc le motif prudent est le bon ici.
  */
 export function saveFile(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
@@ -26,5 +28,7 @@ export function saveFile(blob: Blob, filename: string): void {
   */
   link.click();
 
-  URL.revokeObjectURL(url);
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+  }, 0);
 }

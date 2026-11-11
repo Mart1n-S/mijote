@@ -39,8 +39,12 @@ import { resolveTrustProxy } from '../security/trust-proxy.js';
 
   C'est le seul fichier qui peut répondre à la question qui compte : **après une
   suppression, reste-t-il quelque chose ?** Il interroge chaque table une par
-  une, et c'est aussi lui qui mesure le refus du dernier administrateur sous
-  deux requêtes simultanées, que seul un vrai verrou peut trancher (ADR 0017).
+  une.
+
+  Ce qu'il **ne** mesure pas : le refus du dernier administrateur, qui est une
+  propriété globale à une base que les fichiers parallèles partagent. Il est
+  mesuré dans privacy.service.spec.ts, et le test « supprime un administrateur
+  quand il en reste un autre » dit pourquoi en détail.
 
   Hors CI, il se saute quand PostgreSQL n'est pas joignable. **En CI, il ne se
   saute jamais.**
@@ -60,8 +64,10 @@ const ADMIN_EMAIL = `admin-${randomUUID()}@exemple.test`;
 const SECOND_ADMIN_EMAIL = `admin2-${randomUUID()}@exemple.test`;
 /** Un compte ordinaire, pour l'export et les refus de confirmation. */
 const PLAIN_EMAIL = `simple-${randomUUID()}@exemple.test`;
+/** Quelqu'un que l'administrateur a invité : son adresse ne doit pas sortir. */
+const SENT_EMAIL = `destinataire-${randomUUID()}@exemple.test`;
 
-const EMAILS = [FULL_EMAIL, GUEST_EMAIL, ADMIN_EMAIL, SECOND_ADMIN_EMAIL, PLAIN_EMAIL];
+const EMAILS = [FULL_EMAIL, GUEST_EMAIL, ADMIN_EMAIL, SECOND_ADMIN_EMAIL, PLAIN_EMAIL, SENT_EMAIL];
 
 const IPS = {
   full: '203.0.113.60',
@@ -262,12 +268,10 @@ async function deleteAccount(tenant: Tenant, body: unknown): Promise<Response> {
 async function remainingFor(tenant: Tenant): Promise<Record<string, number>> {
   const pepper = readPepper(process.env);
   const counts: Record<string, number> = {};
-  const byHousehold = [['household', household.id, tenant.householdId]] as const;
 
-  for (const [name, column, value] of byHousehold) {
-    counts[name] = (await database.select().from(household).where(eq(column, value))).length;
-  }
-
+  counts['household'] = (
+    await database.select().from(household).where(eq(household.id, tenant.householdId))
+  ).length;
   counts['account'] = (
     await database.select().from(account).where(eq(account.id, tenant.accountId))
   ).length;
@@ -415,6 +419,36 @@ describe.skipIf(!reachable)("l'export et la suppression, contre une vraie base",
       }
     });
 
+    it("décrit le second facteur, et ne livre pas l'adresse d'un tiers", async () => {
+      /*
+        Deux garanties que le texte brut du test précédent ne peut pas donner :
+        le contenu du bloc du second facteur, qu'une inversion de mappage
+        casserait sans bruit, et l'absence de l'adresse de quelqu'un d'autre.
+
+        L'invitation est posée ici et non dans le crochet : c'est ce test qui en
+        a besoin, et le crochet en paie déjà assez.
+      */
+      await database.insert(invitation).values({
+        email: SENT_EMAIL,
+        tokenHash: hashSecret(`envoyee-par-admin-${randomUUID()}`),
+        invitedBy: admin.accountId,
+        expiresAt: new Date(Date.now() + 60_000),
+      });
+
+      const response = await exportOf(admin);
+      const exported = accountExportSchema.parse(await response.json());
+
+      expect(exported.twoFactor.active).toBe(true);
+      expect(exported.twoFactor.activatedAt).not.toBeNull();
+      // Un seul code de secours est créé pour cet administrateur.
+      expect(exported.twoFactor.backupCodeCount).toBe(1);
+      expect(exported.twoFactor.usedBackupCodes).toEqual([]);
+
+      // L'invitation qu'il a envoyée n'est pas la sienne : elle porte l'adresse
+      // de quelqu'un qui n'a rien demandé (ADR 0017).
+      expect(JSON.stringify(exported)).not.toContain(SENT_EMAIL);
+    });
+
     it('ne rend rien sans session', async () => {
       const response = await fetch(`${baseUrl}/account/export`, { headers: { origin: baseUrl } });
 
@@ -429,6 +463,9 @@ describe.skipIf(!reachable)("l'export et la suppression, contre une vraie base",
       });
 
       expect(accountDeletionStateSchema.parse(await state.json())).toEqual({ blocked: false });
+      // Un état propre à un compte : aucune copie en cache, comme les deux
+      // autres routes du module.
+      expect(state.headers.get('cache-control')).toBe('no-store');
 
       const anonymous = await fetch(`${baseUrl}/account/deletion`, {
         headers: { origin: baseUrl },
@@ -580,7 +617,9 @@ describe.skipIf(!reachable)("l'export et la suppression, contre une vraie base",
       expect(guest?.invitedBy).toBeNull();
     });
 
-    it('ferme la session du navigateur qui vient de supprimer', async () => {
+    it('ferme la session du navigateur qui vient de supprimer, juste avant', async () => {
+      // La suite du test précédent, et il n'y a pas de suppression à refaire :
+      // c'est la session de `full`, supprimée là, qu'on interroge ici.
       const response = await fetch(`${baseUrl}/auth/session`, {
         headers: { origin: baseUrl, cookie: full.cookie },
       });

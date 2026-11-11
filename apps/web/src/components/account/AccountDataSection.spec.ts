@@ -83,13 +83,22 @@ let calls: { path: string; init: RequestInit | undefined }[];
  * dépendrait casserait au premier déplacement de l'appel. Chaque chemin a donc
  * sa réponse, et `calls` garde ce qui est parti.
  */
-function stubApi(responses: { deletion?: Response; export?: Response; delete?: Response }): void {
+function stubApi(responses: {
+  session?: Response;
+  deletion?: Response;
+  export?: Response;
+  delete?: Response;
+}): void {
   calls = [];
 
   vi.stubGlobal(
     'fetch',
     vi.fn((path: string, init?: RequestInit) => {
       calls.push({ path, init });
+
+      if (path.endsWith('/auth/session') && responses.session !== undefined) {
+        return Promise.resolve(responses.session);
+      }
 
       if (path.endsWith('/account/deletion')) {
         return Promise.resolve(responses.deletion ?? deletionState(false));
@@ -313,23 +322,7 @@ describe('la suppression', () => {
   });
 
   it('exige et envoie le code quand le second facteur est actif', async () => {
-    stubApi({});
-    vi.stubGlobal(
-      'fetch',
-      vi.fn((path: string, init?: RequestInit) => {
-        calls.push({ path, init });
-
-        if (path.endsWith('/auth/session')) {
-          return Promise.resolve(sessionResponse(true));
-        }
-
-        if (path.endsWith('/account/deletion')) {
-          return Promise.resolve(deletionState(false));
-        }
-
-        return Promise.resolve(new Response(null, { status: 204 }));
-      }),
-    );
+    stubApi({ session: sessionResponse(true) });
 
     await ensureSessionLoaded();
 
@@ -356,6 +349,35 @@ describe('la suppression', () => {
     });
   });
 
+  it('redemande la confirmation après une fermeture', async () => {
+    stubApi({});
+
+    const wrapper = await mountSection();
+
+    await openDialog(wrapper);
+    checkConfirmation();
+    fillLabelled('Votre mot de passe', 'un mot de passe assez long');
+
+    buttonLabelled('Annuler').click();
+    await wrapper.vm.$nextTick();
+    await openDialog(wrapper);
+    await submitDialog(wrapper);
+
+    /*
+      La case est la friction voulue par l'ADR 0017 : restée cochée au second
+      passage, elle ne frictionne plus rien. Et le mot de passe n'a pas à vivre
+      dans la page après la fermeture.
+
+      C'est le **modèle** qui est mesuré ici, par le refus qu'il provoque, et
+      non la case à l'écran : en jsdom, Reka UI ne démonte pas le contenu du
+      dialogue, faute d'animation de sortie, et la propriété `checked` du
+      contrôle reste alors celle qu'un clic y a posée. L'état visible après
+      réouverture est mesuré dans un vrai navigateur, par e2e/privacy.spec.ts.
+    */
+    expect(document.body.textContent).toContain('Cochez la case');
+    expect(calls.map((call) => call.path)).not.toContain('/api/account/delete');
+  });
+
   it('garde le dialogue ouvert et montre le refus du serveur', async () => {
     stubApi({ delete: refusal(409, LAST_ADMIN_REFUSAL) });
 
@@ -375,7 +397,7 @@ describe('la suppression', () => {
   });
 
   it("oublie tout l'état local, puis renvoie à la connexion avec un message", async () => {
-    stubApi({});
+    stubApi({ session: sessionResponse(false) });
 
     /*
       Le compte connecté et un premier lancement déjà fait : c'est l'état que la
@@ -385,6 +407,10 @@ describe('la suppression', () => {
     */
     await ensureSessionLoaded();
     markOnboardingDone();
+
+    // Le compte est bien chargé avant la suppression : sans cette assertion,
+    // celle d'après passerait même si rien n'était oublié.
+    expect(isAuthenticated.value).toBe(true);
 
     const wrapper = await mountSection();
 

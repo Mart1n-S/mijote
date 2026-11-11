@@ -56,9 +56,6 @@ describe('createRoutes', () => {
       c'est la garde qui le fait respecter. Une page ouverte par mégarde se
       verrait ici.
 
-      Les trois autres ne peuvent pas être autrement. L'invitation est là où le
-      compte se crée, donc il n'y a par définition pas encore de session, et son
-      pouvoir vient du jeton du lien (ADR 0013). Les deux pages du mot de passe
       Les autres ne peuvent pas être autrement. L'invitation est là où le compte
       se crée, donc il n'y a par définition pas encore de session, et son
       pouvoir vient du jeton du lien (ADR 0013). Les deux pages du mot de passe

@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { count, eq } from 'drizzle-orm';
 
 import type { Database, Transaction } from '../db/client.js';
 import { DATABASE } from '../db/database.module.js';
@@ -59,12 +59,14 @@ export class AccountsService {
    * La décision, elle, se prend derrière le verrou (ADR 0017).
    */
   async countAdmins(): Promise<number> {
-    const rows = await this.database
-      .select({ id: account.id })
+    // `count` et non la longueur des lignes : il n'y a rien à rapporter, et
+    // seul le nombre est demandé.
+    const [row] = await this.database
+      .select({ total: count() })
       .from(account)
       .where(eq(account.role, 'admin'));
 
-    return rows.length;
+    return row?.total ?? 0;
   }
 
   /**

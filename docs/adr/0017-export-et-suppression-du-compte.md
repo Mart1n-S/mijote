@@ -45,7 +45,9 @@ Un refus en 409 : « Vous êtes le seul administrateur. Invitez un compte avec l
 
 Le message nomme **le chemin qui existe**, et c'est tout l'intérêt de l'avoir écrit ici : aucun écran ne permet de changer le rôle d'un compte existant avant l'issue #48. Le seul moyen, dans le lot 1, est d'envoyer une invitation en choisissant le rôle administrateur (ADR 0013), ce que l'écran d'administration des invitations sait faire. Un message qui dirait « nommez un autre administrateur » enverrait chercher un écran qui n'existe pas.
 
-**Le compte est verrouillé dans la transaction** : `select id from account where role = 'admin' for update`. Sans ce verrou, deux derniers administrateurs qui se suppriment en même temps verraient chacun deux comptes, et l'application se retrouverait sans administrateur. C'est le même réflexe que les écritures conditionnelles des ADR 0012 à 0014, et un test lance les deux requêtes ensemble.
+**Le compte est verrouillé dans la transaction** : `select id from account where role = 'admin' for update`. Sans ce verrou, deux derniers administrateurs qui se suppriment en même temps verraient chacun deux comptes, et l'application se retrouverait sans administrateur. C'est le même réflexe que les écritures conditionnelles des ADR 0012 à 0014.
+
+Ce verrou est **pris mais pas sérialisé par un test**, et il faut le dire : « il ne reste qu'un administrateur » est une propriété globale à la base, et la base de test est partagée par les fichiers qui tournent en parallèle, chacun y créant ses propres administrateurs. Le refus se mesure donc sur un magasin en mémoire (`privacy.service.spec.ts`), qui vérifie que le verrou est pris avant toute suppression et que lever annule la transaction. Deux suppressions réellement concurrentes demanderaient une base dédiée à ce seul fichier, ce que le projet n'a pas.
 
 L'écran n'attend pas le refus pour le dire : le bouton est **désactivé** pour le seul administrateur, avec la même phrase à côté. Ce n'est pas ce qui protège quoi que ce soit, le serveur refusant de son côté, et le test le mesure là.
 
@@ -57,7 +59,15 @@ L'écran n'attend pas le refus pour le dire : le bouton est **désactivé** pour
 
 Le type de la transaction est exporté par `db/client.ts`, à côté de `Database` : c'est une vue de ce que le client offre, pas un besoin propre à un module.
 
-**Un module à part, `privacy/`**, porte les deux routes. Les mettre dans `accounts/` créerait un cycle, le module des invitations dépendant déjà de lui. Rien ne dépend de `privacy/`, qui dépend de tout le reste : c'est la forme qui va avec « ce module connaît toutes les données personnelles ».
+**Un module à part, `privacy/`**, porte les trois routes. Les mettre dans `accounts/` créerait un cycle, le module des invitations dépendant déjà de lui. Rien ne dépend de `privacy/`, qui dépend de tout le reste : c'est la forme qui va avec « ce module connaît toutes les données personnelles ».
+
+### Une troisième route, qui ne rend qu'un booléen
+
+`GET /account/deletion` répond `{ blocked: boolean }`, et c'est ce qui permet à l'écran de désactiver son bouton pour le seul administrateur plutôt que de laisser remplir un dialogue pour se faire refuser au bout.
+
+C'est la forme de `GET /household/onboarding` (ADR 0015) : une route à part qui ne rend que ce qu'un écran a besoin de savoir, plutôt qu'un objet plus gros dont il n'utiliserait qu'un champ. Elle ne révèle rien de plus que le refus lui-même : un compte ordinaire reçoit toujours `false`, sans que la base soit interrogée, donc elle ne dit pas combien d'administrateurs existent.
+
+**La phrase du refus vit dans `packages/shared`.** L'écran doit donner exactement celle que le serveur rendrait, et deux copies finiraient par ne plus dire la même chose. C'est aussi pourquoi l'écran demande cet état **pour tout le monde** et non seulement pour un administrateur : la règle appartient au serveur, et l'écran la lui demande au lieu de la recopier.
 
 ### Ce qui est supprimé, et ce qui reste
 
@@ -75,7 +85,7 @@ Un test contre une vraie base interroge **chaque table** après la suppression e
 
 ### La réponse efface les cookies, et le front oublie tout
 
-La réponse de suppression porte les trois cookies expirés, exactement comme la déconnexion : la session vient d'être supprimée côté serveur, et le navigateur n'a aucune raison de garder un jeton qui ne désigne plus rien.
+La réponse de suppression porte les quatre cookies expirés, exactement comme la déconnexion : la session, la mémorisation, l'attente de code et le jeton CSRF lisible : la session vient d'être supprimée côté serveur, et le navigateur n'a aucune raison de garder un jeton qui ne désigne plus rien.
 
 **Et le front remet à zéro tout son état avant de rediriger vers la connexion**, avec un message qui dit que le compte est supprimé. Tout, c'est-à-dire la session **et l'état du premier lancement** : ce second point est le défaut que la story #14 a connu et corrigé, et il se reproduirait à l'identique ici. La suppression ne recharge pas la page, donc un état de module qui survivrait ferait décider la garde, pour le compte suivant connecté dans le même onglet, avec la valeur du foyer qui vient d'être détruit. Un test le mesure : suppression, puis connexion d'un autre compte dans le même onglet.
 
@@ -104,7 +114,9 @@ Une règle tient tout cela : **rien de ce qui sert à s'authentifier ne sort**, 
 
 Une page `/confidentialite`, **publique**, liée depuis le pied de page : elle doit se lire avant de créer un compte, donc sans en avoir un. C'est le renvoi que l'ADR 0016 avait laissé.
 
-Elle dit quatre choses, et s'arrête là : **quelles données** sont stockées, **pourquoi**, **combien de temps**, et **où se trouvent l'export et la suppression**. Les durées qu'elle annonce ne sont pas inventées ici : elles viennent des décisions déjà prises, invitations terminées trente jours (ADR 0013), tentatives un jour (ADR 0010), journaux applicatifs trente jours et journal d'audit un an (cahier des charges, section 8), et sauvegardes sept jours (plus bas).
+Elle dit quatre choses, et s'arrête là : **quelles données** sont stockées, **pourquoi**, **combien de temps**, et **où se trouvent l'export et la suppression**. Les durées qu'elle annonce ne sont pas inventées ici : elles viennent des décisions déjà prises, invitations terminées trente jours (ADR 0013), tentatives un jour (ADR 0010), journaux applicatifs trente jours (cahier des charges, section 8), et sauvegardes sept jours (plus bas).
+
+Elle ne parle **pas** du journal d'audit conservé un an, et c'est délibéré : ce journal n'existe pas encore, l'administration des comptes étant au lot 6. La ligne « compte supprimé » est écrite aujourd'hui par le journal applicatif, donc par celui dont la page annonce trente jours. L'annoncer à un an promettrait une conservation que le code ne tient pas. La rétention des journaux applicatifs devient un critère de l'issue #31, comme la rotation des sauvegardes.
 
 **Pas de responsable du traitement, pas de mention de la CNIL, aucune mention légale.** Ce n'est pas un oubli, c'est le régime dans lequel Mijote tourne : elle est hébergée sur un réseau local, sans exposition à Internet, pour son auteur et éventuellement sa famille. Le RGPD écarte de son champ d'application le traitement effectué par une personne physique dans le cadre d'une activité strictement personnelle ou domestique (article 2, paragraphe 2, point c), et c'est exactement ce cadre. Désigner un responsable du traitement et afficher une voie de réclamation donnerait à croire le contraire, ce qui serait trompeur plutôt que protecteur.
 
@@ -129,12 +141,12 @@ Il faut dire la conséquence que personne n'aime écrire : **une restauration fa
 
 Rien du contenu exporté, aucune adresse, aucun code d'allergène, aucun nom de foyer. Un test relit les lignes écrites et refuse d'y trouver l'un ou l'autre.
 
-La suppression de compte est l'une des « actions sensibles » du journal d'audit du cahier des charges, conservé un an : la ligne qui dit qu'un compte a été supprimé survit donc au compte, et c'est voulu. Elle ne porte qu'un identifiant qui ne désigne plus rien, ce qui est exactement ce qu'une trace doit être après un effacement.
+La suppression de compte est l'une des « actions sensibles » du cahier des charges, que son journal d'audit conservera un an. **Ce journal n'existe pas encore** : ces quatre lignes sont écrites par le journal applicatif, conservé trente jours, et la ligne de suppression y survit donc au compte pendant ce temps. Elle ne porte qu'un identifiant qui ne désigne plus rien, ce qui est exactement ce qu'une trace doit être après un effacement. Quand le journal d'audit arrivera, avec l'administration des comptes, ces lignes devront y passer.
 
 ## Conséquences
 
-- Un module de plus, `privacy/`, avec deux routes sous `/account`. Il dépend des modules des comptes, des foyers, des invitations et de l'authentification ; rien ne dépend de lui.
-- `AuthService` gagne deux méthodes publiques, qui enveloppent la réauthentification et la vérification de code déjà écrites et testées : rien n'est dupliqué, et la limitation reste à un seul endroit.
+- Un module de plus, `privacy/`, avec trois routes sous `/account`, qui répondent toutes `Cache-Control: no-store`. Il dépend des modules des comptes, des foyers, des invitations et de l'authentification ; rien ne dépend de lui.
+- `AuthService` gagne trois méthodes publiques (`requirePassword`, `requireSecondFactor`, `exportSecurity`), dont deux enveloppent la réauthentification et la vérification de code déjà écrites et testées : rien n'est dupliqué, et la limitation reste à un seul endroit.
 - `db/client.ts` exporte le type d'une transaction, pour qu'elle traverse les frontières de modules sans que chacun redéclare le sien.
 - Deux écrans touchés et un nouveau : le profil gagne une section « Mes données », et `/confidentialite` arrive. Deux passages axe-core, dont un avec le dialogue ouvert.
 - Les routes du compte répondent `Cache-Control: no-store` : l'une porte l'export, l'autre un mot de passe.
@@ -145,6 +157,7 @@ La suppression de compte est l'une des « actions sensibles » du journal d'audi
 
 - **Quand l'administration gérera les comptes** (#48) : changer le rôle d'un compte existant deviendra possible, et le message du dernier administrateur devra nommer ce chemin plutôt que l'invitation.
 - **Quand une table de foyer sera ajoutée** (planning, courses, dépenses, placard) : elle entre dans la cascade si elle porte `household_id`, et dans l'export. La liste des tables du test de suppression est ce qui le rappellera, puisqu'il faudra l'allonger.
+- **Si plusieurs comptes partagent un foyer** : cette suppression ne tient plus. Elle efface la ligne `household` et laisse la cascade emporter le compte, ce qui est exact tant que chaque création de compte crée son foyer (ADR 0013, ADR 0015 : le partage est écarté et demande un nouvel ADR). Le jour où il arrive, il faudra supprimer le compte et ne supprimer le foyer que s'il devient vide, sans quoi partir effacerait les données des autres membres.
 - **Si la suppression différée devient souhaitable** : elle demandera un ordonnanceur ou une purge opportuniste, et c'est une décision à reprendre entièrement.
 - **Si l'export devient volumineux** (des années de planning et de tickets) : le rendre en une seule réponse JSON cessera d'être raisonnable, et il faudra l'engendrer en tâche de fond. Le format porte un numéro de version pour cela.
 - **Si l'application est exposée à Internet, ou ouverte au-delà de la famille** : le cadre domestique tombe, et la page de confidentialité doit alors nommer un responsable du traitement, son contact et la voie de réclamation auprès de la CNIL. C'est la seule partie de cette décision qui dépend d'un choix de déploiement, et non du code.

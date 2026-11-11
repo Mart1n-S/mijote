@@ -14,9 +14,15 @@
   quand y revenir.
 
   Les durées annoncées ne sont pas inventées ici : invitations terminées trente
-  jours (ADR 0013), tentatives un jour (ADR 0010), journaux trente jours et
-  journal d'audit un an (cahier des charges, section 8), sauvegardes sept jours
-  (ADR 0017).
+  jours (ADR 0013), tentatives un jour (ADR 0010), journaux applicatifs trente
+  jours (cahier des charges, section 8, et critère de l'issue #31), sauvegardes
+  sept jours (ADR 0017).
+
+  La page ne parle **pas** du journal d'audit conservé un an, et c'est voulu :
+  ce journal n'existe pas encore, l'administration des comptes étant au lot 6.
+  La ligne « compte supprimé » est écrite aujourd'hui par le journal applicatif,
+  donc celui dont cette page annonce trente jours. Annoncer un an serait
+  promettre une conservation que le code ne tient pas.
 */
 </script>
 
@@ -42,8 +48,9 @@
       </li>
       <li>
         <strong>Votre sécurité</strong> : l'état de la double authentification et la date de son
-        activation, les codes de secours sous forme d'empreintes, et les dates des sessions
-        ouvertes.
+        activation, le secret de votre application d'authentification, chiffré, les codes de secours
+        sous forme d'empreintes, et les jetons de vos sessions ouvertes, de la mémorisation de cet
+        appareil et d'une réinitialisation en cours, eux aussi sous forme d'empreintes.
       </li>
       <li>
         <strong>Vos connexions</strong> : les tentatives récentes, sous forme d'empreintes, et des
@@ -81,7 +88,10 @@
       <li>Le compte et le foyer : tant que le compte existe.</li>
       <li>Les invitations terminées : trente jours.</li>
       <li>Les tentatives de connexion : un jour.</li>
-      <li>Les journaux techniques : trente jours. Le journal des actions sensibles : un an.</li>
+      <li>
+        Les journaux techniques : trente jours. Ils ne portent que des identifiants, jamais une
+        adresse, un nom de foyer ni une allergie.
+      </li>
       <li>
         Les sauvegardes : sept jours au plus. Une suppression ne réécrit pas les sauvegardes déjà
         prises, donc une copie de vos données peut subsister jusqu'à sept jours.
@@ -93,8 +103,9 @@
     <p>
       Les deux se font depuis la page <strong>Profil du foyer</strong>, section
       <strong>Mes données</strong>. Le téléchargement rend un fichier qui contient tout ce qui est
-      conservé sur vous, sauf ce qui sert à s'authentifier. La suppression est immédiate et sans
-      retour : le compte, le foyer et son profil sont effacés.
+      conservé sur vous, sauf deux choses : ce qui sert à s'authentifier, mots de passe, secrets et
+      jetons, et les traces techniques de vos connexions, qui sont des empreintes illisibles. La
+      suppression est immédiate et sans retour : le compte, le foyer et son profil sont effacés.
     </p>
   </div>
 </template>

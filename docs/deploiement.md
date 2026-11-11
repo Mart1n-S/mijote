@@ -43,11 +43,17 @@ ce qu'un effacement doit être.
 
 **La consigne est donc d'exploitation** : après chaque restauration, les
 suppressions de comptes survenues entre la date de la sauvegarde et l'incident
-doivent être refaites à la main, sur la base restaurée. Le journal d'audit, qui
-conserve un an les actions sensibles dont « suppression de compte » (cahier des
-charges, section 8), est l'endroit où retrouver quels comptes étaient
-concernés : ses lignes ne portent qu'un identifiant, ce qui suffit à supprimer
-la bonne ligne et à rien d'autre.
+doivent être refaites à la main, sur la base restaurée. Les lignes
+« compte supprimé » du journal applicatif sont l'endroit où retrouver quels
+comptes étaient concernés : elles ne portent qu'un identifiant, ce qui suffit à
+supprimer la bonne ligne et à rien d'autre.
+
+**Attention à la durée** : ce journal est conservé trente jours (cahier des
+charges, section 8), là où le journal d'audit du cahier, conservé un an,
+n'existe pas encore et arrivera avec l'administration des comptes. Une
+restauration d'une sauvegarde de moins de sept jours reste donc couverte, ce
+qui est le cas qui se présente, mais une suppression plus ancienne que trente
+jours ne se retrouve plus.
 
 Cette consigne vaut aussi pour le test de restauration mensuel, s'il se fait sur
 une copie de la base de production.

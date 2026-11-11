@@ -206,6 +206,13 @@ export class PrivacyService {
         simultanées ne peuvent pas laisser l'application sans administrateur.
       */
       if (account.role === 'admin' && (await this.accounts.lockAdminsWithin(transaction)) <= 1) {
+        /*
+          Le refus est journalisé, et pas seulement rendu : c'est une action
+          sensible refusée, donc une trace qui a de la valeur (cahier des
+          charges, section 8). Un identifiant, et rien d'autre.
+        */
+        this.logger.info({ accountId: account.id }, 'suppression refusée');
+
         throw new ProblemException(HttpStatus.CONFLICT, LAST_ADMIN_REFUSAL);
       }
 

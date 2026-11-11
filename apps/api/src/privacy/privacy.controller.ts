@@ -13,7 +13,7 @@ import { ZodValidationPipe } from '../errors/zod-validation.pipe.js';
 import { PrivacyService } from './privacy.service.js';
 
 /*
-  Les deux droits du RGPD, sous `/account`.
+  Les deux droits du RGPD, sous `/account`, et l'état que leur écran demande.
 
   Aucune route ne nomme un compte : c'est celui de la session, comme le foyer
   (ADR 0015). L'export demande une session et rien de plus, et c'est argumenté :
@@ -60,7 +60,14 @@ export class PrivacyController {
    * booléen, pour que l'écran n'ait pas à deviner (ADR 0015).
    */
   @Get('deletion')
-  async deletionState(@Req() request: unknown): Promise<AccountDeletionState> {
+  async deletionState(
+    @Req() request: unknown,
+    @Res({ passthrough: true }) response: CookieSink,
+  ): Promise<AccountDeletionState> {
+    // Un état propre à un compte : ni le disque du poste ni un intermédiaire
+    // n'ont à en garder une copie, comme pour l'état du premier lancement.
+    response.setHeader('Cache-Control', 'no-store');
+
     return this.privacy.deletionState(requireAuthenticated(request));
   }
 

@@ -346,7 +346,12 @@ describe('la suppression', () => {
       simultanées de laisser l'application sans administrateur (ADR 0017).
     */
     expect(calls).toEqual(['mot de passe', 'code', 'verrou']);
-    expect(log.lines).toEqual([]);
+
+    // Le refus laisse une trace, et rien qu'un identifiant : une action
+    // sensible refusée vaut d'être tracée.
+    expect(log.lines).toEqual([
+      { object: { accountId: ACCOUNT_ID }, message: 'suppression refusée' },
+    ]);
   });
 
   it('laisse partir un administrateur quand il en reste un autre', async () => {

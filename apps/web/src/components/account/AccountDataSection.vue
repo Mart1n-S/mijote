@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { LAST_ADMIN_REFUSAL } from '@mijote/shared';
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 
 import { saveFile } from '../../account/download';
@@ -46,6 +46,25 @@ const confirmedError = ref('');
 const deleteError = ref('');
 const deleting = ref(false);
 
+/*
+  Le dialogue se vide à la fermeture : le mot de passe et le code n'ont pas à
+  vivre dans la page une fois le dialogue parti, et la case à cocher est la
+  friction voulue (ADR 0017), donc elle doit redemander à chaque ouverture.
+*/
+watch(dialogOpen, (open) => {
+  if (open) {
+    return;
+  }
+
+  password.value = '';
+  code.value = '';
+  confirmed.value = false;
+  passwordError.value = '';
+  codeError.value = '';
+  confirmedError.value = '';
+  deleteError.value = '';
+});
+
 const EXPORTED = 'Fichier téléchargé.';
 const EXPORT_FAILURE = "L'export n'a pas pu être téléchargé. Réessayez dans un instant.";
 const DELETE_FAILURE = "La suppression n'a pas pu aboutir. Réessayez dans un instant.";
@@ -57,6 +76,14 @@ function messageOf(error: unknown, fallback: string): string {
   return error instanceof ApiError ? error.userMessage : fallback;
 }
 
+/*
+  L'état est demandé pour tout le monde, et non seulement pour un
+  administrateur : c'est le serveur qui sait qui peut être le dernier
+  administrateur, et l'écran le lui demande plutôt que de recopier sa règle. Le
+  jour où elle change, par exemple avec plusieurs comptes par foyer, l'écran
+  suit sans être retouché. Le serveur court-circuite déjà pour un compte
+  ordinaire, sans interroger la base.
+*/
 onMounted(async () => {
   try {
     blocked.value = await fetchDeletionBlocked();

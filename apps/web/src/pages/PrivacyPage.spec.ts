@@ -31,7 +31,13 @@ describe('PrivacyPage', () => {
 
     expect(text).toContain('sept jours');
     expect(text).toContain('trente jours');
-    expect(text).toContain('un an');
+    /*
+      Et **pas** « un an » : le journal d'audit du cahier des charges n'existe
+      pas encore, la ligne de suppression étant écrite par le journal applicatif
+      annoncé à trente jours. Annoncer un an promettrait ce que le code ne tient
+      pas.
+    */
+    expect(text).not.toContain('un an');
     // La conséquence qu'on n'aime pas écrire : une sauvegarde déjà prise n'est
     // pas réécrite par une suppression.
     expect(text).toContain('peut subsister');

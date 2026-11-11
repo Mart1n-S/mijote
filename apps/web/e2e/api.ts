@@ -38,6 +38,14 @@ const INVITATION_REVOKE_ROUTE = '**/api/invitations/*/revoke';
 */
 const INVITATIONS_ROUTE = '**/api/invitations';
 
+// Les deux droits du RGPD. Trois chemins distincts et non un motif commun :
+// le chemin de la suppression ne recouvre pas celui de son état, les motifs de
+// Playwright portant sur l'URL entière.
+
+const ACCOUNT_EXPORT_ROUTE = '**/api/account/export';
+const ACCOUNT_DELETION_ROUTE = '**/api/account/deletion';
+const ACCOUNT_DELETE_ROUTE = '**/api/account/delete';
+
 /** Le compte que les bouchons annoncent comme connecté. */
 export const STUB_ACCOUNT = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -658,6 +666,140 @@ export async function stubLockedAdmin(page: Page): Promise<{ codes: unknown[] }>
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({ invitations: [STUB_INVITATION] }),
+    });
+  });
+
+  return recorded;
+}
+
+/** Le nom que le serveur propose pour le fichier d'export. */
+export const STUB_EXPORT_FILENAME = 'mijote-mes-donnees-2026-11-11.json';
+
+/** Le compte qui se connecte après une suppression, dans le même onglet. */
+export const STUB_NEXT_ACCOUNT = {
+  id: '33333333-3333-4333-8333-333333333333',
+  email: 'suivant@exemple.test',
+  householdId: '44444444-4444-4444-8444-444444444444',
+  role: 'user',
+};
+
+/** Ce que les bouchons des deux droits ont enregistré. */
+export interface StubbedPrivacy {
+  /** Les corps des suppressions demandées, dans l'ordre. */
+  deletions: unknown[];
+}
+
+/**
+ * Fait répondre l'API comme pour un compte qui exerce ses deux droits.
+ *
+ * Le foyer est posé ici aussi : la section « Mes données » vit sous le profil
+ * du foyer (ADR 0017), donc l'écran charge les deux.
+ *
+ * Après une suppression réussie, ce faux serveur se comporte comme le vrai : la
+ * session est refusée, et l'état du premier lancement devient celui du foyer
+ * **suivant**, qui n'a pas fait le parcours. C'est ce qui rend visible, dans un
+ * vrai navigateur, l'oubli de l'état local après une suppression.
+ */
+export async function stubPrivacy(
+  page: Page,
+  options: { blocked?: boolean } = {},
+): Promise<StubbedPrivacy> {
+  const recorded: StubbedPrivacy = { deletions: [] };
+  let deleted = false;
+
+  await stubHealthProbe(page);
+
+  await page.route(HOUSEHOLD_ONBOARDING_ROUTE, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ done: !deleted }),
+    });
+  });
+
+  await page.route(SESSION_ROUTE, async (route) => {
+    if (deleted) {
+      await route.fulfill({
+        status: 401,
+        contentType: PROBLEM_DETAILS_MEDIA_TYPE,
+        body: ANONYMOUS,
+      });
+
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        account: STUB_ACCOUNT,
+        twoFactor: { active: false, adminUnlocked: false },
+      }),
+    });
+  });
+
+  await respondJson(page, HOUSEHOLD_PROFILE_ROUTE, 200, JSON.stringify(STUB_PROFILE));
+  await respondJson(
+    page,
+    ACCOUNT_DELETION_ROUTE,
+    200,
+    JSON.stringify({ blocked: options.blocked ?? false }),
+  );
+
+  await page.route(ACCOUNT_EXPORT_ROUTE, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: {
+        'cache-control': 'no-store',
+        'content-disposition': `attachment; filename="${STUB_EXPORT_FILENAME}"`,
+      },
+      body: JSON.stringify({ format: 1, account: { email: STUB_ACCOUNT.email } }),
+    });
+  });
+
+  await page.route(ACCOUNT_DELETE_ROUTE, async (route) => {
+    const body: unknown = route.request().postDataJSON();
+
+    recorded.deletions.push(body);
+
+    const accepted =
+      typeof body === 'object' &&
+      body !== null &&
+      'password' in body &&
+      'confirmed' in body &&
+      body['password'] === STUB_PASSWORD &&
+      body['confirmed'] === true;
+
+    if (!accepted) {
+      await route.fulfill({
+        status: 401,
+        contentType: PROBLEM_DETAILS_MEDIA_TYPE,
+        body: INVALID_CREDENTIALS,
+      });
+
+      return;
+    }
+
+    deleted = true;
+
+    await route.fulfill({
+      status: 204,
+      headers: { 'set-cookie': `${CSRF_COOKIE}=; Path=/; Max-Age=0` },
+    });
+  });
+
+  // La connexion du compte suivant, dans le même onglet : c'est elle qui montre
+  // ce qu'il reste de l'état du compte supprimé.
+  await page.route(LOGIN_ROUTE, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: { 'set-cookie': `${CSRF_COOKIE}=${STUB_CSRF_TOKEN}; Path=/; SameSite=Lax` },
+      body: JSON.stringify({
+        account: STUB_NEXT_ACCOUNT,
+        twoFactor: { active: false, adminUnlocked: false },
+      }),
     });
   });
 

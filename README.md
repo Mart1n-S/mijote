@@ -64,6 +64,25 @@ les appareils, et ne désactive pas la double authentification : un
 administrateur devra toujours son code pour entrer en administration. Le détail
 des décisions est dans `docs/adr/0014-reinitialisation-du-mot-de-passe.md`.
 
+## Mes données, et la suppression du compte
+
+La page `/profil` porte une section « Mes données ». Le téléchargement rend un
+fichier JSON avec tout ce qui est conservé sur le compte et son foyer, sauf ce
+qui sert à s'authentifier : ni empreinte de mot de passe, ni secret, ni jeton.
+Il n'est jamais envoyé par e-mail.
+
+La suppression est immédiate et sans retour. Elle demande le mot de passe, le
+code du second facteur quand il est actif, et une case à cocher que le serveur
+exige. Le dernier administrateur ne peut pas partir : il faut d'abord inviter un
+compte avec le rôle administrateur.
+
+Une restauration de sauvegarde fait réapparaître les comptes supprimés depuis la
+sauvegarde : il faut alors les supprimer à nouveau, voir `docs/deploiement.md`.
+
+La page publique `/confidentialite`, liée depuis le pied de page, dit quelles
+données sont conservées et combien de temps. Le détail des décisions est dans
+`docs/adr/0017-export-et-suppression-du-compte.md`.
+
 ## Commandes
 
 ```bash

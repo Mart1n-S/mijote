@@ -21,6 +21,7 @@ const OTHER = '22222222-2222-4222-8222-222222222222';
 function emptyProfile(name: string): HouseholdProfileRecord {
   return {
     name,
+    createdAt: new Date('2026-11-01T10:00:00.000Z'),
     peopleCount: null,
     goal: null,
     monthlyBudgetCents: null,
@@ -41,6 +42,15 @@ class MemoryHouseholds implements HouseholdStore {
 
   /** Les identifiants écrits, dans l'ordre : c'est ce qui dit qui a bougé. */
   readonly written: string[] = [];
+
+  /*
+    La transaction n'est pas jouée ici : ce que la cascade emporte se mesure
+    contre une vraie base, dans privacy.integration.spec.ts. Ce faux ne retient
+    que le foyer visé.
+  */
+  deleteWithin(_transaction: unknown, householdId: string): Promise<number> {
+    return Promise.resolve(this.rows.delete(householdId) ? 1 : 0);
+  }
 
   findProfile(householdId: string): Promise<HouseholdProfileRecord | undefined> {
     const row = this.rows.get(householdId);

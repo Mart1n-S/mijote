@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, count, eq, gte, isNull, lt, or, sql, type SQL } from 'drizzle-orm';
+import { and, count, eq, gte, inArray, isNull, lt, or, sql, type SQL } from 'drizzle-orm';
 
-import type { Database } from '../db/client.js';
+import type { Database, Transaction } from '../db/client.js';
 import { DATABASE } from '../db/database.module.js';
 import {
   account,
@@ -531,6 +531,65 @@ export class AuthRepository {
   /** Ouvre les droits d'administration de cette session. */
   async unlockSession(id: string, at: Date): Promise<void> {
     await this.database.update(session).set({ adminUnlockedAt: at }).where(eq(session.id, id));
+  }
+
+  /**
+   * Oublie les tentatives comptées sur ces empreintes de sujet.
+   *
+   * Appelée par la suppression d'un compte : ce sont des empreintes HMAC, donc
+   * des données personnelles pseudonymisées, le poivre qui les calcule étant à
+   * nous. Seule la colonne du sujet est visée, celle de l'IP n'étant pas
+   * propre à la personne qui part (ADR 0017).
+   */
+  async deleteAttemptsWithin(
+    transaction: Transaction,
+    subjectFingerprints: string[],
+  ): Promise<number> {
+    const deleted = await transaction
+      .delete(loginAttempt)
+      .where(inArray(loginAttempt.emailFingerprint, subjectFingerprints))
+      .returning({ id: loginAttempt.id });
+
+    return deleted.length;
+  }
+
+  /*
+    Ce que l'export lit, et rien de plus.
+
+    Des dates, jamais une empreinte : ce que la personne peut vouloir savoir est
+    « depuis quand et jusqu'à quand », pas de quoi rejouer une session
+    (ADR 0017).
+  */
+
+  async listSessionsOf(
+    accountId: string,
+  ): Promise<{ createdAt: Date; lastSeenAt: Date; expiresAt: Date }[]> {
+    return this.database
+      .select({
+        createdAt: session.createdAt,
+        lastSeenAt: session.lastSeenAt,
+        expiresAt: session.expiresAt,
+      })
+      .from(session)
+      .where(eq(session.accountId, accountId))
+      .orderBy(session.createdAt);
+  }
+
+  async listRememberedOf(accountId: string): Promise<{ createdAt: Date; expiresAt: Date }[]> {
+    return this.database
+      .select({ createdAt: rememberToken.createdAt, expiresAt: rememberToken.expiresAt })
+      .from(rememberToken)
+      .where(eq(rememberToken.accountId, accountId))
+      .orderBy(rememberToken.createdAt);
+  }
+
+  /** Les codes de secours par leur numéro, et la date de leur usage. */
+  async listBackupCodesOf(accountId: string): Promise<{ position: number; usedAt: Date | null }[]> {
+    return this.database
+      .select({ position: twoFactorBackupCode.position, usedAt: twoFactorBackupCode.usedAt })
+      .from(twoFactorBackupCode)
+      .where(eq(twoFactorBackupCode.accountId, accountId))
+      .orderBy(twoFactorBackupCode.position);
   }
 
   // La réinitialisation d'un mot de passe oublié (ADR 0014).

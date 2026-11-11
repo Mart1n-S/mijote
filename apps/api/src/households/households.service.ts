@@ -6,6 +6,8 @@ import type {
 import { Inject, Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 
+import type { Transaction } from '../db/client.js';
+
 import {
   type HouseholdProfileChanges,
   type HouseholdProfileRecord,
@@ -34,6 +36,7 @@ export interface ProfileLog {
 
 /** Ce que le profil lit et écrit, et rien de plus. */
 export interface HouseholdStore {
+  deleteWithin(transaction: Transaction, householdId: string): Promise<number>;
   findProfile(householdId: string): Promise<HouseholdProfileRecord | undefined>;
   findOnboardingDoneAt(householdId: string): Promise<{ doneAt: Date | null } | undefined>;
   updateProfile(householdId: string, changes: HouseholdProfileChanges): Promise<boolean>;
@@ -123,6 +126,29 @@ export class HouseholdsService {
 
   async profile(householdId: string): Promise<HouseholdProfile> {
     return toProfile(await this.require(householdId));
+  }
+
+  /**
+   * Supprime le foyer de ce compte, dans la transaction donnée.
+   *
+   * Le profil et ses données de santé partent avec lui, puisque ce sont ses
+   * colonnes (ADR 0016).
+   */
+  async deleteWithin(transaction: Transaction, householdId: string): Promise<number> {
+    return this.households.deleteWithin(transaction, householdId);
+  }
+
+  /**
+   * Ce que l'export emporte du foyer : sa date, et tout son profil.
+   *
+   * Par le service et non par la table : un module n'accède pas aux tables d'un
+   * autre (`api.md`), et c'est ce qui permet au module des droits RGPD de
+   * n'avoir aucune requête à lui.
+   */
+  async exportable(householdId: string): Promise<{ createdAt: string; profile: HouseholdProfile }> {
+    const record = await this.require(householdId);
+
+    return { createdAt: record.createdAt.toISOString(), profile: toProfile(record) };
   }
 
   /** L'état du premier lancement, pour la garde de navigation. */

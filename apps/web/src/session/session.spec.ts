@@ -13,6 +13,7 @@ import {
   isAuthenticated,
   isTwoFactorActive,
   logIn,
+  forgetDeletedAccount,
   logOut,
   mustActivateTwoFactor,
   resetSessionForTests,
@@ -271,6 +272,43 @@ describe('logOut', () => {
     // L'état est redemandé au serveur, et c'est celui du nouveau foyer.
     expect(needsOnboarding.value).toBe(true);
     expect(vi.mocked(fetch).mock.lastCall?.[0]).toBe('/api/household/onboarding');
+  });
+
+  it('oublie tout après une suppression de compte, premier lancement compris', async () => {
+    /*
+      Le défaut que la story #14 a connu, et qui se reproduirait ici : la
+      suppression ne recharge pas la page, donc un état qui survivrait ferait
+      décider la garde, pour le compte suivant connecté dans le même onglet,
+      avec la valeur du foyer qui vient d'être détruit (ADR 0017).
+
+      Il n'y a pas d'appel au serveur ici : la session a été supprimée avec le
+      compte, et il n'y a plus rien à fermer.
+    */
+    respondWith([
+      sessionResponse(),
+      new Response(JSON.stringify({ done: true }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+      new Response(JSON.stringify({ done: false }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    ]);
+
+    await logIn({ email: ACCOUNT.email, password: 'un mot de passe assez long', remember: false });
+    await ensureOnboardingLoaded();
+
+    expect(needsOnboarding.value).toBe(false);
+
+    forgetDeletedAccount();
+
+    expect(isAuthenticated.value).toBe(false);
+
+    await ensureOnboardingLoaded();
+
+    // L'état est redemandé au serveur, et c'est celui du foyer suivant.
+    expect(needsOnboarding.value).toBe(true);
   });
 
   it("oublie le compte même si l'appel échoue", async () => {

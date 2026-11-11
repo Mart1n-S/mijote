@@ -90,6 +90,16 @@ export class TwoFactorService {
   }
 
   /**
+   * Depuis quand le second facteur est actif, ou `null` s'il ne l'est pas.
+   *
+   * Une ligne absente et une ligne inactive donnent le même `null` : du point
+   * de vue de l'appelant, les deux veulent dire « pas de second facteur ».
+   */
+  async activatedAt(accountId: string): Promise<Date | null> {
+    return (await this.store.findTwoFactor(accountId))?.activatedAt ?? null;
+  }
+
+  /**
    * Engendre un secret et rend de quoi l'inscrire.
    *
    * L'appelant a déjà vérifié le mot de passe : sans cela, une session volée

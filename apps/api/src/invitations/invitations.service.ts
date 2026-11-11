@@ -11,6 +11,7 @@ import { AccountsService } from '../accounts/accounts.service.js';
 import { type AttemptKeys, AttemptsService } from '../auth/attempts.service.js';
 import type { AuthLog } from '../auth/auth.log.js';
 import type { AccountRecord } from '../auth/auth.repository.js';
+import type { Transaction } from '../db/client.js';
 import { readAppBaseUrl } from '../env.js';
 import { ProblemException } from '../errors/problem.exception.js';
 import { invitationEmail } from '../mail/templates/invitation.js';
@@ -103,6 +104,8 @@ export function readTtlHours(env: NodeJS.ProcessEnv): number {
 
 /** Ce que les invitations lisent et écrivent des invitations, et rien de plus. */
 export interface InvitationStore {
+  deleteByEmailWithin(transaction: Transaction, email: string): Promise<number>;
+  findUsedByEmail(email: string): Promise<InvitationRecord | undefined>;
   replaceLive(input: {
     email: string;
     role: 'user' | 'admin';
@@ -190,6 +193,40 @@ export class InvitationsService {
     await this.purge();
 
     return this.toView(record, now);
+  }
+
+  /**
+   * Supprime les invitations adressées à cette adresse, dans la transaction.
+   *
+   * Une ligne d'invitation porte l'adresse en clair : c'est une donnée
+   * personnelle de la personne qui part, et elle n'a pas à survivre. Celles
+   * qu'elle a envoyées restent, orphelines : elles portent l'adresse de
+   * quelqu'un d'autre (ADR 0017).
+   */
+  async deleteForEmailWithin(transaction: Transaction, email: string): Promise<number> {
+    return this.invitations.deleteByEmailWithin(transaction, email);
+  }
+
+  /**
+   * L'invitation qui a créé le compte de cette adresse, pour l'export.
+   *
+   * Trois champs seulement : ni le jeton, qui est un authentifiant, ni qui a
+   * invité, qui est l'identifiant de quelqu'un d'autre (ADR 0017).
+   */
+  async exportableFor(
+    email: string,
+  ): Promise<{ createdAt: string; usedAt: string | null; role: 'user' | 'admin' } | null> {
+    const record = await this.invitations.findUsedByEmail(email);
+
+    if (record === undefined) {
+      return null;
+    }
+
+    return {
+      createdAt: record.createdAt.toISOString(),
+      usedAt: record.usedAt?.toISOString() ?? null,
+      role: record.role,
+    };
   }
 
   async list(): Promise<Invitation[]> {

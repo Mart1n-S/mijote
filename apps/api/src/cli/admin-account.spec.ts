@@ -22,6 +22,18 @@ const DATABASE_URL = process.env['DATABASE_URL'];
 const PASSWORD = 'un mot de passe assez long';
 const EMAIL = `admin-${randomUUID()}@exemple.test`;
 
+/**
+ * Le foyer que la seconde création ne doit pas laisser derrière elle.
+ *
+ * Un nom fixe, et non un nom par exécution : c'est ce nom que le test cherche
+ * en base pour affirmer qu'aucun foyer orphelin n'est resté. Il est donc
+ * supprimé au démarrage, sans quoi une exécution interrompue avant son
+ * nettoyage ferait échouer toutes les suivantes. Mesuré : une suite tuée par un
+ * dépassement de délai pendant que ce fichier tournait a laissé exactement
+ * cela.
+ */
+const ORPHAN_HOUSEHOLD = 'Autre foyer';
+
 async function probeDatabase(url: string): Promise<boolean> {
   const probe = createDatabase(url);
 
@@ -88,8 +100,12 @@ describe.skipIf(!reachable)('createAdminAccount', () => {
   let database: Database;
   const created: string[] = [];
 
-  beforeAll(() => {
+  beforeAll(async () => {
     database = createDatabase(DATABASE_URL ?? '');
+
+    // La trace d'une exécution interrompue, s'il en reste une. Le foyer emporte
+    // son compte en cascade.
+    await database.delete(household).where(eq(household.name, ORPHAN_HOUSEHOLD));
   });
 
   afterAll(async () => {
@@ -129,7 +145,7 @@ describe.skipIf(!reachable)('createAdminAccount', () => {
   it('refuse une seconde fois la même adresse', async () => {
     await expect(
       createAdminAccount(database, {
-        householdName: 'Autre foyer',
+        householdName: ORPHAN_HOUSEHOLD,
         email: EMAIL,
         password: PASSWORD,
       }),
@@ -139,7 +155,7 @@ describe.skipIf(!reachable)('createAdminAccount', () => {
     const foyers = await database
       .select({ id: household.id })
       .from(household)
-      .where(eq(household.name, 'Autre foyer'));
+      .where(eq(household.name, ORPHAN_HOUSEHOLD));
 
     expect(foyers).toEqual([]);
   });

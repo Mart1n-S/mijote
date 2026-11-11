@@ -121,6 +121,16 @@ async function mountPage(next = '/'): Promise<VueWrapper> {
   return mount(LoginPage, { attachTo: document.body, global: { plugins: [router] } });
 }
 
+/** Monte la page telle que la suppression d'un compte y renvoie. */
+async function mountAfterDeletion(): Promise<VueWrapper> {
+  router = createRouter({ history: createMemoryHistory(), routes: createRoutes(false) });
+
+  await router.push('/connexion?compte=supprime');
+  await router.isReady();
+
+  return mount(LoginPage, { attachTo: document.body, global: { plugins: [router] } });
+}
+
 /** Remplit les deux champs, comme une personne le ferait. */
 async function fill(wrapper: VueWrapper, email: string, password: string): Promise<void> {
   await wrapper.find('input[type="email"]').setValue(email);
@@ -137,6 +147,18 @@ afterEach(() => {
 });
 
 describe('LoginPage', () => {
+  it("dit que le compte a été supprimé quand l'adresse le porte", async () => {
+    const wrapper = await mountAfterDeletion();
+
+    expect(wrapper.text()).toContain('Votre compte a été supprimé');
+  });
+
+  it('ne dit rien de tel autrement', async () => {
+    const wrapper = await mountPage();
+
+    expect(wrapper.text()).not.toContain('supprimé');
+  });
+
   it('emploie les champs du design system, avec leurs libellés', async () => {
     const wrapper = await mountPage();
 

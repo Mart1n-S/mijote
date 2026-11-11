@@ -66,6 +66,8 @@ pnpm admin:create     # crée le premier administrateur, dans un terminal
 
 Avant de proposer un commit : `pnpm lint`, `pnpm typecheck` et `pnpm test` doivent passer.
 
+**Un résultat de tests se lit sur la ligne `Errors` autant que sur la ligne `Tests`.** Un fichier qui disparaît du décompte (« 54 passed (60) ») est un **échec**, pas un test sauté. Mesuré : quand NestJS ne peut pas construire son graphe de modules, il appelle `process.abort()`, ce qui tue le worker Vitest sans message lisible ; les fichiers d'intégration, qui montent l'application entière, meurent alors tous ensemble et le total descend sans qu'aucun `FAIL` n'apparaisse. La cause est presque toujours un module qui injecte le service d'un autre sans que celui-ci l'exporte.
+
 **Jamais de tuyau sur une vérification.** `pnpm lint | tail` ou `pnpm test | grep` rendent le code de sortie de `tail` ou de `grep`, pas celui de `pnpm` : une vérification en échec passe alors pour un succès. Lancer la commande nue, ou poser `set -o pipefail` avant le tuyau. Cela vaut pour tout ce qui décide d'un commit ou d'un push.
 
 ## Façon de travailler

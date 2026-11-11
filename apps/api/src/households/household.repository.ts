@@ -2,7 +2,7 @@ import type { Allergen, Diet, HouseholdGoal, VarietyBalance } from '@mijote/shar
 import { Inject, Injectable } from '@nestjs/common';
 import { eq, sql } from 'drizzle-orm';
 
-import type { Database } from '../db/client.js';
+import type { Database, Transaction } from '../db/client.js';
 import { DATABASE } from '../db/database.module.js';
 import { household } from '../db/schema.js';
 
@@ -19,6 +19,8 @@ import { household } from '../db/schema.js';
 /** Le profil, tel que le service le lit. */
 export interface HouseholdProfileRecord {
   name: string;
+  /** Depuis quand ce foyer existe. Lue par l'export (ADR 0017). */
+  createdAt: Date;
   peopleCount: number | null;
   goal: HouseholdGoal | null;
   monthlyBudgetCents: number | null;
@@ -36,12 +38,15 @@ export interface HouseholdProfileRecord {
  * Toutes les clés sont facultatives, et c'est le sujet : un champ absent ne
  * change rien, là où un champ à `null` efface une réponse (ADR 0016).
  */
-export type HouseholdProfileChanges = Partial<Omit<HouseholdProfileRecord, 'name'>> & {
+export type HouseholdProfileChanges = Partial<
+  Omit<HouseholdProfileRecord, 'name' | 'createdAt'>
+> & {
   name?: string;
 };
 
 const COLUMNS = {
   name: household.name,
+  createdAt: household.createdAt,
   peopleCount: household.peopleCount,
   goal: household.goal,
   monthlyBudgetCents: household.monthlyBudgetCents,
@@ -82,6 +87,26 @@ export class HouseholdRepository {
       .limit(1);
 
     return row;
+  }
+
+  /**
+   * Supprime le foyer, et tout ce qui en dépend par la cascade.
+   *
+   * La cascade emporte le compte, et le compte emporte ses sessions, ses
+   * familles de mémorisation, ses attentes de connexion, son second facteur,
+   * ses codes de secours et ses jetons de réinitialisation. C'est la clé
+   * étrangère qui le garantit, pas une liste à tenir à jour ici (ADR 0017).
+   *
+   * La transaction vient de l'appelant : la suppression d'un compte est une
+   * seule transaction, à laquelle plusieurs modules apportent leurs requêtes.
+   */
+  async deleteWithin(transaction: Transaction, householdId: string): Promise<number> {
+    const deleted = await transaction
+      .delete(household)
+      .where(eq(household.id, householdId))
+      .returning({ id: household.id });
+
+    return deleted.length;
   }
 
   /**

@@ -30,6 +30,9 @@ export default defineConfig({
 
       C'est un plafond, pas un plancher : en CI, où le runner a deux cœurs,
       Vitest en lançait déjà moins que six et la borne ne change rien.
+
+      Elle ne suffit plus seule depuis que la suite compte 62 fichiers : le
+      délai par test de `apps/api` l'accompagne, et dit sa propre mesure.
     */
     maxWorkers: 6,
   },

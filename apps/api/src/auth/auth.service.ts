@@ -1,4 +1,4 @@
-import type { LoginInput, SessionAccount, TwoFactorState } from '@mijote/shared';
+import type { AccountExport, LoginInput, SessionAccount, TwoFactorState } from '@mijote/shared';
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 
@@ -58,8 +58,16 @@ const INVALID_CODE = 'Code incorrect ou expiré.';
 const MALFORMED_BACKUP_CODE =
   'Un code de secours commence par son numéro, par exemple 3-ABCD-EFGH-JKLM.';
 
-/** Redemandé pour activer ou désactiver le second facteur. */
+/** Redemandé pour activer ou désactiver le second facteur, ou se supprimer. */
 const WRONG_PASSWORD = 'Mot de passe incorrect.';
+
+/**
+ * Le code manque, alors que le compte en a un.
+ *
+ * Distinct du code refusé : celui-ci ne dit pas qu'un code est faux, il dit
+ * qu'il en faut un. Ce n'est pas un oracle, c'est son propre compte.
+ */
+const CODE_REQUIRED = 'Indiquez le code de votre application de double authentification.';
 
 const TOO_MANY_PASSWORDS = 'Trop de mots de passe incorrects. Réessayez dans quelques minutes.';
 
@@ -71,6 +79,26 @@ const TOO_MANY_PASSWORDS = 'Trop de mots de passe incorrects. Réessayez dans qu
  * écran ne le proposant (ADR 0012).
  */
 const ADMIN_ONLY = "La double authentification ne concerne que les comptes d'administration.";
+
+/** Ce que l'export lit des tables de la connexion, et rien de plus. */
+export interface SecurityStore {
+  listSessionsOf(
+    accountId: string,
+  ): Promise<{ createdAt: Date; lastSeenAt: Date; expiresAt: Date }[]>;
+  listRememberedOf(accountId: string): Promise<{ createdAt: Date; expiresAt: Date }[]>;
+  listBackupCodesOf(accountId: string): Promise<{ position: number; usedAt: Date | null }[]>;
+}
+
+/**
+ * Ce que l'export emporte de la sécurité d'un compte.
+ *
+ * La forme vient du schéma partagé : ces deux morceaux y sont déclarés, et le
+ * fichier rendu doit s'y conformer (ADR 0017).
+ */
+export interface SecurityExport {
+  twoFactor: AccountExport['twoFactor'];
+  devices: AccountExport['devices'];
+}
 
 /** Ce que la connexion lit des comptes, et rien de plus. */
 export interface AccountStore {
@@ -117,6 +145,7 @@ export class AuthService {
     private readonly attempts: AttemptsService,
     private readonly pending: PendingLoginService,
     private readonly twoFactor: TwoFactorService,
+    @Inject(AuthRepository) private readonly security: SecurityStore,
     @Inject(PinoLogger) private readonly logger: AuthLog,
   ) {
     this.logger.setContext(AuthService.name);
@@ -233,6 +262,82 @@ export class AuthService {
       twoFactor: { active: true, adminUnlocked: true },
       cookies,
     };
+  }
+
+  /**
+   * Ce que l'export sait de la sécurité d'un compte.
+   *
+   * Des états et des dates : le second facteur et son activation, les codes de
+   * secours par leur numéro, les sessions et les mémorisations par leurs dates.
+   * **Aucun secret et aucune empreinte** ne sort d'ici, pas même le secret TOTP
+   * chiffré (ADR 0017).
+   */
+  async exportSecurity(accountId: string): Promise<SecurityExport> {
+    const [activatedAt, codes, sessions, remembered] = await Promise.all([
+      this.twoFactor.activatedAt(accountId),
+      this.security.listBackupCodesOf(accountId),
+      this.security.listSessionsOf(accountId),
+      this.security.listRememberedOf(accountId),
+    ]);
+
+    return {
+      twoFactor: {
+        active: activatedAt !== null,
+        activatedAt: activatedAt?.toISOString() ?? null,
+        backupCodeCount: codes.length,
+        usedBackupCodes: codes.filter((code) => code.usedAt !== null).map((code) => code.position),
+      },
+      devices: {
+        sessions: sessions.map((row) => ({
+          createdAt: row.createdAt.toISOString(),
+          lastSeenAt: row.lastSeenAt.toISOString(),
+          expiresAt: row.expiresAt.toISOString(),
+        })),
+        remembered: remembered.map((row) => ({
+          createdAt: row.createdAt.toISOString(),
+          expiresAt: row.expiresAt.toISOString(),
+        })),
+      },
+    };
+  }
+
+  /**
+   * Redemande le mot de passe du compte connecté, pour une action sensible.
+   *
+   * Enveloppe ce que l'activation et la désactivation du second facteur font
+   * déjà, limitation comprise, et c'est tout l'intérêt : la suppression d'un
+   * compte n'a pas à réécrire ce chemin, ni son compteur sous le motif
+   * `reauth` (ADR 0012, ADR 0017).
+   */
+  async requirePassword(
+    authenticated: Authenticated,
+    password: string,
+    clientIp: string,
+  ): Promise<void> {
+    await this.confirmPassword(authenticated.account, password, clientIp);
+  }
+
+  /**
+   * Exige le code du second facteur, quand il est actif, et rien sinon.
+   *
+   * C'est l'appelant qui décide qu'une action le mérite ; ici on ne décide que
+   * de ce qui est vérifiable. Un compte sans second facteur n'a pas de code à
+   * donner, et lui en demander un serait une impasse.
+   */
+  async requireSecondFactor(
+    authenticated: Authenticated,
+    code: string | undefined,
+    clientIp: string,
+  ): Promise<void> {
+    if (!(await this.twoFactor.isActive(authenticated.account.id))) {
+      return;
+    }
+
+    if (code === undefined) {
+      throw new ProblemException(HttpStatus.UNAUTHORIZED, CODE_REQUIRED);
+    }
+
+    await this.checkCode(authenticated.account.id, code, clientIp);
   }
 
   /**

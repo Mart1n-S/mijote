@@ -10,6 +10,7 @@ import InvitationsPage from './pages/InvitationsPage.vue';
 import LoginPage from './pages/LoginPage.vue';
 import NotFoundPage from './pages/NotFoundPage.vue';
 import OnboardingPage from './pages/OnboardingPage.vue';
+import PrivacyPage from './pages/PrivacyPage.vue';
 import ResetPasswordPage from './pages/ResetPasswordPage.vue';
 import TwoFactorPage from './pages/TwoFactorPage.vue';
 
@@ -89,7 +90,21 @@ export function createRoutes(withDesignSystem: boolean): RouteRecordRaw[] {
   });
 
   /*
-    La connexion est la seule page ouverte, et elle ne figure pas dans la
+    La page de confidentialité : publique, et liée depuis le pied de page.
+
+    Publique parce qu'elle doit se lire avant de creer un compte, donc sans en
+    avoir un (ADR 0017). Pas de libelle de navigation : elle se lit une fois, et
+    sa place est le pied de page, pas la barre de navigation.
+  */
+  routes.push({
+    path: '/confidentialite',
+    name: 'privacy',
+    component: PrivacyPage,
+    meta: { title: 'Confidentialité', public: true },
+  });
+
+  /*
+    La connexion est l'autre page ouverte, et elle ne figure pas dans la
     navigation : on y arrive par la garde, ou parce qu'on n'est pas connecté.
     Import statique, c'est le premier écran d'une visite sans session.
   */

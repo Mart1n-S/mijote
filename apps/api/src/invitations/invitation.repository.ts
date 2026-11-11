@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, count, desc, eq, gte, isNull, lt, or } from 'drizzle-orm';
+import { and, count, desc, eq, gte, isNotNull, isNull, lt, or } from 'drizzle-orm';
 
-import type { Database } from '../db/client.js';
+import type { Database, Transaction } from '../db/client.js';
 import { DATABASE } from '../db/database.module.js';
 import { invitation } from '../db/schema.js';
 
@@ -99,6 +99,23 @@ export class InvitationRepository {
     return row;
   }
 
+  /**
+   * L'invitation consommée de cette adresse, la plus récente.
+   *
+   * Lue par l'export : c'est celle qui a créé le compte, et elle appartient à la
+   * personne qui part. Son jeton et son invitant ne sortent pas (ADR 0017).
+   */
+  async findUsedByEmail(email: string): Promise<InvitationRecord | undefined> {
+    const [row] = await this.database
+      .select(COLUMNS)
+      .from(invitation)
+      .where(and(eq(invitation.email, email), isNotNull(invitation.usedAt)))
+      .orderBy(desc(invitation.usedAt))
+      .limit(1);
+
+    return row;
+  }
+
   /** Les invitations, la plus récente d'abord. */
   async list(limit: number): Promise<InvitationRecord[]> {
     return this.database
@@ -166,6 +183,22 @@ export class InvitationRepository {
       .where(and(eq(invitation.email, email), gte(invitation.createdAt, since)));
 
     return row?.received ?? 0;
+  }
+
+  /**
+   * Supprime les invitations **adressées** à cette adresse.
+   *
+   * Celles que ce compte a envoyées ne sont pas visées : elles portent
+   * l'adresse d'autres personnes, et leur `invited_by` passe à `null` par la
+   * clé étrangère (ADR 0017).
+   */
+  async deleteByEmailWithin(transaction: Transaction, email: string): Promise<number> {
+    const deleted = await transaction
+      .delete(invitation)
+      .where(eq(invitation.email, email))
+      .returning({ id: invitation.id });
+
+    return deleted.length;
   }
 
   /**

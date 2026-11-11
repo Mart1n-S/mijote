@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 
+import type { Transaction } from '../db/client.js';
 import { fingerprint, readPepper } from '../security/pepper.js';
 
 import { AuthRepository, type LoginOutcome, type LoginPurpose } from './auth.repository.js';
@@ -38,6 +39,7 @@ const ATTEMPT_RETENTION_MS = 24 * 60 * 60 * 1000;
 
 /** Ce que la limitation lit et écrit, et rien de plus. */
 export interface AttemptStore {
+  deleteAttemptsWithin(transaction: Transaction, subjectFingerprints: string[]): Promise<number>;
   countFailures(input: {
     emailFingerprint: string;
     ipFingerprint: string;
@@ -132,6 +134,23 @@ export class AttemptsService {
       purpose: input.purpose,
       outcome: input.outcome,
     });
+  }
+
+  /**
+   * Oublie les tentatives comptées sur ce compte et sur son adresse.
+   *
+   * Deux empreintes, parce que les motifs ne comptent pas le même sujet :
+   * l'adresse soumise pour la connexion et la réinitialisation, l'identifiant
+   * du compte pour le code et la réauthentification (ADR 0012).
+   */
+  async forgetWithin(
+    transaction: Transaction,
+    subject: { email: string; accountId: string },
+  ): Promise<number> {
+    return this.store.deleteAttemptsWithin(transaction, [
+      fingerprint(this.pepper, subject.email),
+      fingerprint(this.pepper, subject.accountId),
+    ]);
   }
 
   /**

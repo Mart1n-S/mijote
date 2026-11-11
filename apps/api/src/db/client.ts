@@ -11,6 +11,16 @@ import * as schema from './schema.js';
 export type Database = NodePgDatabase<typeof schema> & { $client: Pool };
 
 /**
+ * Une transaction ouverte, telle qu'elle traverse les frontières de modules.
+ *
+ * Elle est déduite de `Database` plutôt que recopiée : la suppression d'un
+ * compte est une seule transaction à laquelle quatre modules apportent leurs
+ * propres requêtes, et chacun doit pouvoir en recevoir une sans redéclarer son
+ * type (ADR 0017).
+ */
+export type Transaction = Parameters<Parameters<Database['transaction']>[0]>[0];
+
+/**
  * Ce qu'une sonde de santé demande à la base, et rien de plus.
  *
  * Cette forme réduite vit ici, à côté du client : c'est une vue de ce qu'il

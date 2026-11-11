@@ -7,7 +7,7 @@ import { AttemptsService } from '../auth/attempts.service.js';
 import { clearedCookies } from '../auth/auth.cookies.js';
 import { AuthService, type SecurityExport } from '../auth/auth.service.js';
 import type { Authenticated } from '../auth/session.service.js';
-import type { Database, Transaction } from '../db/client.js';
+import type { Transaction } from '../db/client.js';
 import { DATABASE } from '../db/database.module.js';
 import { ProblemException } from '../errors/problem.exception.js';
 import { HouseholdsService } from '../households/households.service.js';
@@ -74,6 +74,17 @@ export interface ConfirmationGateway {
   exportSecurity(accountId: string): Promise<SecurityExport>;
 }
 
+/**
+ * Ce que ce service demande à la base : ouvrir une transaction, et rien d'autre.
+ *
+ * La forme réduite plutôt que `Database` entier, comme `DatabaseProbe` pour la
+ * sonde de santé : elle dit exactement ce que ce module se permet, et elle rend
+ * le service montable sur un faux dans un test.
+ */
+export interface TransactionRunner {
+  transaction<Result>(run: (transaction: Transaction) => Promise<Result>): Promise<Result>;
+}
+
 /** Ce que ce service journalise, et rien de plus. */
 export interface PrivacyLog {
   setContext(context: string): void;
@@ -85,7 +96,7 @@ export class PrivacyService {
   constructor(
     @Inject(AccountsService) private readonly accounts: AccountGateway,
     @Inject(AttemptsService) private readonly attempts: AttemptsGateway,
-    @Inject(DATABASE) private readonly database: Database,
+    @Inject(DATABASE) private readonly database: TransactionRunner,
     @Inject(AuthService) private readonly security: ConfirmationGateway,
     @Inject(HouseholdsService) private readonly households: HouseholdGateway,
     @Inject(InvitationsService) private readonly invitations: InvitationGateway,

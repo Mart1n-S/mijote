@@ -18,6 +18,7 @@ describe('createRoutes', () => {
       'home',
       'onboarding',
       'household-profile',
+      'privacy',
       'login',
       'forgot-password',
       'reset-password',
@@ -49,7 +50,7 @@ describe('createRoutes', () => {
     expect(createRoutes(false).some((route) => route.name === 'design-system')).toBe(false);
   });
 
-  it("n'ouvre que la connexion, le mot de passe oublié et l'invitation", () => {
+  it("n'ouvre que la confidentialité, la connexion, le mot de passe oublié et l'invitation", () => {
     /*
       L'application est privée : une page sans `public` demande une session, et
       c'est la garde qui le fait respecter. Une page ouverte par mégarde se
@@ -58,14 +59,18 @@ describe('createRoutes', () => {
       Les trois autres ne peuvent pas être autrement. L'invitation est là où le
       compte se crée, donc il n'y a par définition pas encore de session, et son
       pouvoir vient du jeton du lien (ADR 0013). Les deux pages du mot de passe
+      Les autres ne peuvent pas être autrement. L'invitation est là où le compte
+      se crée, donc il n'y a par définition pas encore de session, et son
+      pouvoir vient du jeton du lien (ADR 0013). Les deux pages du mot de passe
       oublié sont faites pour quelqu'un qui ne peut justement pas se connecter
-      (ADR 0014).
+      (ADR 0014). Et la page de confidentialité doit se lire avant de créer un
+      compte (ADR 0017).
     */
     const open = createRoutes(true).flatMap((route) =>
       route.meta?.public === true ? [route.name] : [],
     );
 
-    expect(open).toEqual(['login', 'forgot-password', 'reset-password', 'invitation']);
+    expect(open).toEqual(['privacy', 'login', 'forgot-password', 'reset-password', 'invitation']);
   });
 
   it('place le mot de passe oublié sur des adresses françaises, hors navigation', () => {

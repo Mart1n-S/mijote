@@ -63,6 +63,23 @@ function stubResponses(responses: Response[]): void {
   vi.stubGlobal(
     'fetch',
     vi.fn((path: string, init?: RequestInit) => {
+      /*
+        La section « Mes données », montée sous le profil, demande au serveur si
+        la suppression lui est fermée. Cet appel est répondu ici et n'entre pas
+        dans la file : ce fichier mesure le profil, et cette section a le sien
+        (AccountDataSection.spec.ts). Sans cela, chaque test devrait placer une
+        réponse de plus, dans un ordre qui dépend de l'ordre des crochets de
+        montage de Vue.
+      */
+      if (path.endsWith('/account/deletion')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ blocked: false }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        );
+      }
+
       calls.push({ path, init });
 
       const next = queue.shift();

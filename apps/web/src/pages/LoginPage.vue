@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { loginSchema } from '@mijote/shared';
-import { nextTick, ref, useTemplateRef } from 'vue';
+import { computed, nextTick, ref, useTemplateRef } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 
 import { ApiError } from '../api/client';
@@ -9,7 +9,7 @@ import BaseButton from '../components/base/BaseButton.vue';
 import BaseCheckbox from '../components/base/BaseCheckbox.vue';
 import BaseField from '../components/base/BaseField.vue';
 import { logIn, submitTwoFactorCode } from '../session/session';
-import { NEXT_QUERY, safeNextPath } from '../session/session-guard';
+import { DELETED_QUERY, DELETED_VALUE, NEXT_QUERY, safeNextPath } from '../session/session-guard';
 
 const route = useRoute();
 const router = useRouter();
@@ -20,6 +20,16 @@ const router = useRouter();
   vit côté serveur et son cookie la porte (ADR 0012).
 */
 const step = ref<'password' | 'code'>('password');
+
+/*
+  Le compte vient-il d'être supprimé ? L'adresse le dit, et c'est voulu : un
+  état de module serait perdu au rechargement, et la suppression est justement
+  le moment où l'on peut vouloir vérifier que l'écran dit bien ce qu'il s'est
+  passé (ADR 0017).
+*/
+const deleted = computed(() => route.query[DELETED_QUERY] === DELETED_VALUE);
+
+const DELETED_NOTICE = 'Votre compte a été supprimé, avec son foyer et toutes ses données.';
 
 const email = ref('');
 const password = ref('');
@@ -149,6 +159,12 @@ async function submitCode(): Promise<void> {
 <template>
   <h1>Connexion</h1>
 
+  <!-- La suppression renvoie ici : le message est dans la page et non dans le
+       formulaire, parce qu'il ne parle pas de la connexion en cours. Il n'a pas
+       de région aria-live : il est déjà là au chargement, donc rien ne change,
+       et il se lit dans l'ordre du document. -->
+  <p v-if="deleted" class="login__deleted">{{ DELETED_NOTICE }}</p>
+
   <form v-if="step === 'password'" class="login" novalidate @submit.prevent="submit">
     <!-- L'erreur du formulaire vit dans le formulaire, et non dans la page :
          c'est de lui qu'elle parle, et le bandeau d'état du service a déjà sa
@@ -235,6 +251,12 @@ async function submitCode(): Promise<void> {
 </template>
 
 <style scoped>
+.login__deleted {
+  max-width: 24rem;
+  margin-top: var(--space-4);
+  color: var(--color-text-muted);
+}
+
 .login {
   display: flex;
   flex-direction: column;

@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue';
 
 import { ApiError } from '../api/client';
 import { fetchHouseholdProfile, updateHouseholdProfile } from '../api/household';
+import AccountDataSection from '../components/account/AccountDataSection.vue';
 import BaseAlert from '../components/base/BaseAlert.vue';
 import BaseButton from '../components/base/BaseButton.vue';
 import HouseholdFoodFields from '../components/household/HouseholdFoodFields.vue';
@@ -124,9 +125,22 @@ async function submit(): Promise<void> {
       Enregistrer
     </BaseButton>
   </form>
+
+  <!-- L'export et la suppression, sous le profil : c'est la page des données du
+       foyer, et l'export doit être proposé au-dessus du bouton de suppression
+       (ADR 0017). Hors du formulaire, qui enregistre le profil. -->
+  <AccountDataSection class="profile__data" />
 </template>
 
 <style scoped>
+.profile__data {
+  margin-top: var(--space-7);
+  padding-top: var(--space-5);
+  /* Un trait sépare les données du compte du formulaire du foyer : ce ne sont
+     pas les mêmes enjeux, et l'un ne s'enregistre pas avec l'autre. */
+  border-top: 1px solid var(--color-border);
+}
+
 .profile {
   display: flex;
   flex-direction: column;

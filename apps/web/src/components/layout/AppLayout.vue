@@ -134,6 +134,13 @@ const links = computed(() =>
 
     <footer class="layout__footer">
       <p>Lot 1 : socle. Aucune fonctionnalité métier.</p>
+
+      <!-- La confidentialité est ici et non dans la barre de navigation : elle
+           se lit une fois, et elle doit être atteignable sans session, donc
+           depuis un endroit qui existe aussi sans session (ADR 0017). -->
+      <p>
+        <RouterLink :to="{ name: 'privacy' }">Confidentialité</RouterLink>
+      </p>
     </footer>
   </div>
 </template>

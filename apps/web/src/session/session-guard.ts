@@ -23,6 +23,17 @@ import {
 export const LOGIN_ROUTE = 'login';
 export const NEXT_QUERY = 'suivant';
 
+/**
+ * Ce que l'adresse de la connexion dit quand un compte vient d'être supprimé.
+ *
+ * Un paramètre de requête, à côté du paramètre de retour : ce sont les deux
+ * seules choses que la page de connexion lit dans son adresse. Il survit à un
+ * rechargement, là où un état de module serait perdu, et il est en français
+ * comme toutes les adresses que l'utilisateur voit.
+ */
+export const DELETED_QUERY = 'compte';
+export const DELETED_VALUE = 'supprime';
+
 /** Le parcours de premier lancement, proposé tant qu'il reste à faire. */
 export const ONBOARDING_ROUTE = 'onboarding';
 

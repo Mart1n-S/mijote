@@ -218,6 +218,24 @@ export async function logOut(): Promise<void> {
   }
 }
 
+/**
+ * Oublie tout l'état local après la suppression du compte.
+ *
+ * Tout, c'est-à-dire la session **et l'état du premier lancement**, que
+ * `forget` emporte : la suppression ne recharge pas la page, donc un état de
+ * module qui survivrait ferait décider la garde, pour le compte suivant
+ * connecté dans le même onglet, avec la valeur du foyer qui vient d'être
+ * détruit. C'est le défaut que la story #14 a connu, et il se reproduirait à
+ * l'identique ici (ADR 0017).
+ *
+ * `loaded` reste vrai, comme après une déconnexion : on sait que personne n'est
+ * connecté, et il n'y a pas de session à aller redemander au serveur.
+ */
+export function forgetDeletedAccount(): void {
+  forget();
+  loaded = true;
+}
+
 /** Remet l'état à zéro. Réservé aux tests, qui partagent ce module. */
 export function resetSessionForTests(): void {
   forget();

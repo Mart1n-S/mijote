@@ -249,6 +249,14 @@ describe("l'export", () => {
     // Le nom vient de `Content-Disposition` et non d'un calcul du front : deux
     // endroits qui le calculent finiraient par ne plus dire la même chose.
     expect(saved.filename).toBe(EXPORT_FILENAME);
+
+    /*
+      Un `POST` bien qu'il ne fasse que lire : une méthode sûre passerait hors
+      des barrières CSRF, et une page tierce pourrait alors faire déposer ce
+      fichier chez la victime (ADR 0017). C'est le client HTTP qui pose le jeton
+      et le type de média, donc c'est la méthode qui se mesure ici.
+    */
+    expect(calls.find((call) => call.path.endsWith('/account/export'))?.init?.method).toBe('POST');
     // L'URL de l'objet est révoquée : elle retient le blob en mémoire, et ce
     // blob porte des données de santé.
     expect(saved.revoked).toBe(true);

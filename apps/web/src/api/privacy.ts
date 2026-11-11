@@ -39,9 +39,15 @@ export interface ExportedFile {
  * lien ferait afficher du JSON brut au moindre refus, là où le client rend les
  * phrases françaises du projet (ADR 0017). Le contenu n'est pas analysé ici,
  * il n'est pas destiné à l'écran.
+ *
+ * Un `POST` pour une lecture, parce qu'une méthode sûre passerait hors des
+ * barrières CSRF : sans cela, une page tierce pourrait faire déposer ce fichier
+ * dans le dossier de téléchargements de la victime. Le client écrit le jeton et
+ * le type de média pour toute méthode non sûre, donc il n'y a rien à faire de
+ * plus ici.
  */
 export async function fetchAccountExport(): Promise<ExportedFile> {
-  const response = await apiRequest('/account/export');
+  const response = await apiRequest('/account/export', { method: 'POST' });
 
   return {
     blob: await response.blob(),

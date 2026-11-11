@@ -244,9 +244,23 @@ async function createTenant(
   };
 }
 
+/**
+ * Demande l'export, comme le front le fait.
+ *
+ * Un `POST`, donc les trois barrières CSRF s'appliquent : type de média,
+ * origine et jeton. C'est le prix d'une route qui ne doit pas pouvoir être
+ * déclenchée par une page tierce (ADR 0017).
+ */
 async function exportOf(tenant: Tenant): Promise<Response> {
   return fetch(`${baseUrl}/account/export`, {
-    headers: { origin: baseUrl, cookie: tenant.cookie, 'x-forwarded-for': tenant.ip },
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      origin: baseUrl,
+      cookie: tenant.cookie,
+      [CSRF_HEADER]: tenant.csrf,
+      'x-forwarded-for': tenant.ip,
+    },
   });
 }
 
@@ -450,9 +464,50 @@ describe.skipIf(!reachable)("l'export et la suppression, contre une vraie base",
     });
 
     it('ne rend rien sans session', async () => {
-      const response = await fetch(`${baseUrl}/account/export`, { headers: { origin: baseUrl } });
+      const response = await fetch(`${baseUrl}/account/export`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', origin: baseUrl },
+      });
 
+      // La garde de session refuse avant celle du jeton : sans session, il n'y
+      // a de toute façon aucun secret CSRF à présenter.
       expect(response.status).toBe(401);
+    });
+
+    it('ne rend rien sans jeton CSRF, même avec une session valide', async () => {
+      /*
+        La raison d'être du `POST` : une page tierce ne peut ni lire le cookie
+        du jeton, ni écrire cet en-tête. Sans lui, la requête est refusée avant
+        d'atteindre le service, donc aucun fichier ne part (ADR 0010, ADR 0017).
+      */
+      const response = await fetch(`${baseUrl}/account/export`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          origin: baseUrl,
+          cookie: plain.cookie,
+          'x-forwarded-for': plain.ip,
+        },
+      });
+      const problem = problemDetailsSchema.parse(await response.json());
+
+      expect(response.status).toBe(403);
+      expect(problem.detail).toBe('Jeton de protection manquant ou invalide.');
+    });
+
+    it("ne rend rien à une origine qui n'est pas la nôtre", async () => {
+      const response = await fetch(`${baseUrl}/account/export`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          origin: 'https://ailleurs.example',
+          cookie: plain.cookie,
+          [CSRF_HEADER]: plain.csrf,
+          'x-forwarded-for': plain.ip,
+        },
+      });
+
+      expect(response.status).toBe(403);
     });
   });
 

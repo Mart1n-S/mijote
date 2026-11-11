@@ -91,7 +91,13 @@ La réponse de suppression porte les quatre cookies expirés, exactement comme l
 
 ### L'export : un fichier JSON, et ce qu'il ne contient pas
 
-`GET /account/export`, depuis une session, `Cache-Control: no-store` et `Content-Disposition: attachment`. Un seul fichier JSON, portant son numéro de format et sa date.
+`POST /account/export`, depuis une session, `Cache-Control: no-store` et `Content-Disposition: attachment`. Un seul fichier JSON, portant son numéro de format et sa date.
+
+**Un `POST` bien que la route ne fasse que lire**, et c'est la seule entorse à REST de cette décision. La raison est la protection CSRF : une méthode sûre passe hors des trois barrières (ADR 0010), parce qu'une lecture ne change rien et qu'aucun CORS n'autorise un autre site à lire la réponse. Ce raisonnement ne tient plus pour cette route-ci : son effet n'est pas dans la réponse, il est dans le **fichier déposé sur le disque**. Avec des cookies `SameSite=Lax`, une navigation de premier niveau depuis une page tierce suffit à faire partir la requête avec la session de la victime, et à écrire dans son dossier de téléchargements un fichier qui porte des données de santé. L'attaquant ne le lit pas, mais il n'a pas besoin de le lire pour avoir fait du dégât.
+
+Le `POST` remet donc la route derrière le type de média, l'origine et le jeton. Il ne coûte rien au front, qui passe déjà par le client HTTP et un blob, et qui pose le jeton pour toute méthode non sûre. Un test mesure qu'un export sans jeton est refusé en 403, un autre qu'une origine étrangère l'est aussi, et le test qui énumère les routes exemptées de CSRF affirme que celle-ci n'y est pas.
+
+Tranché par Martin le 11 novembre 2026, sur une remarque de la relecture de sécurité. C'est le même réflexe que l'ADR 0012 pour la désactivation du second facteur, pour une raison voisine.
 
 **Jamais envoyé par e-mail.** Un e-mail traverse des serveurs qui ne sont pas les nôtres et reste dans des boîtes que nous ne contrôlons pas, et ce fichier porte des données de santé.
 
@@ -145,7 +151,7 @@ La suppression de compte est l'une des « actions sensibles » du cahier des cha
 
 ## Conséquences
 
-- Un module de plus, `privacy/`, avec trois routes sous `/account`, qui répondent toutes `Cache-Control: no-store`. Il dépend des modules des comptes, des foyers, des invitations et de l'authentification ; rien ne dépend de lui.
+- Un module de plus, `privacy/`, avec trois routes sous `/account`, qui répondent toutes `Cache-Control: no-store`. Deux sont des `POST`, dont l'export, qui ne lit pourtant rien d'autre. Il dépend des modules des comptes, des foyers, des invitations et de l'authentification ; rien ne dépend de lui.
 - `AuthService` gagne trois méthodes publiques (`requirePassword`, `requireSecondFactor`, `exportSecurity`), dont deux enveloppent la réauthentification et la vérification de code déjà écrites et testées : rien n'est dupliqué, et la limitation reste à un seul endroit.
 - `db/client.ts` exporte le type d'une transaction, pour qu'elle traverse les frontières de modules sans que chacun redéclare le sien.
 - Deux écrans touchés et un nouveau : le profil gagne une section « Mes données », et `/confidentialite` arrive. Deux passages axe-core, dont un avec le dialogue ouvert.

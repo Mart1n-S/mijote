@@ -314,6 +314,17 @@ describe('les barrières du CSRF', () => {
     ]);
   });
 
+  it("n'exempte pas l'export des données du compte", () => {
+    /*
+      L'export est un `POST` alors qu'il ne fait que lire, et c'est tout
+      l'intérêt : une méthode sûre passerait hors des trois barrières, et une
+      page tierce pourrait faire déposer chez la victime un fichier qui porte
+      des données de santé. Il ne sert donc à rien de le mettre là, et son refus
+      sans jeton est mesuré dans privacy.integration.spec.ts (ADR 0017).
+    */
+    expect(CSRF_EXEMPT_ROUTES.some((route) => route.path === '/account/export')).toBe(false);
+  });
+
   it('garde les deux autres barrières sur la demande de réinitialisation', async () => {
     const forgot = (init: RequestInit): RequestInit => ({
       method: 'POST',

@@ -34,12 +34,22 @@ export class PrivacyController {
   /**
    * Tout ce que l'application sait de ce compte, en un fichier JSON.
    *
+   * **Un `POST` pour une lecture**, et c'est délibéré : une méthode sûre passe
+   * hors des trois barrières CSRF (ADR 0010). Une page tierce ne pourrait pas
+   * lire la réponse, faute de CORS, mais une navigation de premier niveau
+   * suffirait à faire partir la requête avec les cookies de la victime, et à
+   * déposer dans son dossier de téléchargements un fichier qui porte des
+   * données de santé. Le front passe déjà par le client HTTP et un blob, donc
+   * le `POST` ne lui coûte rien et remet la route derrière le type de média,
+   * l'origine et le jeton (ADR 0017).
+   *
    * `no-store`, parce que ce fichier porte le profil du foyer, donc des données
    * de santé : ni le disque du poste ni un intermédiaire n'ont à en garder une
    * copie. Et `attachment`, pour que le navigateur le propose en
    * téléchargement plutôt que de l'afficher.
    */
-  @Get('export')
+  @Post('export')
+  @HttpCode(HttpStatus.OK)
   async export(
     @Req() request: unknown,
     @Res({ passthrough: true }) response: CookieSink,

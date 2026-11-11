@@ -12,6 +12,30 @@ import { householdProfileSchema } from './household.js';
   pourquoi il porte son numéro (ADR 0017).
 */
 
+/**
+ * Le refus du dernier administrateur, écrit une seule fois.
+ *
+ * Partagé entre l'API et l'écran, et pas par souci de concision : l'écran
+ * désactive le bouton pour un administrateur seul et doit donner **la même
+ * phrase** que le serveur rendrait, faute de quoi les deux dériveraient. Le
+ * message nomme le seul chemin qui existe avant l'issue #48, aucun écran ne
+ * changeant le rôle d'un compte existant (ADR 0017).
+ */
+export const LAST_ADMIN_REFUSAL =
+  'Vous êtes le seul administrateur. Invitez un compte avec le rôle administrateur, puis réessayez.';
+
+/**
+ * Ce que l'écran demande avant de proposer la suppression.
+ *
+ * Une route à part qui ne rend qu'un booléen, comme l'état du premier
+ * lancement : savoir si le bouton doit être désactivé n'a pas à faire voyager
+ * autre chose (ADR 0015). Ce n'est pas ce qui protège le compte, le serveur
+ * refusant de son côté.
+ */
+export const accountDeletionStateSchema = z.object({ blocked: z.boolean() });
+
+export type AccountDeletionState = z.infer<typeof accountDeletionStateSchema>;
+
 /** La version du format exporté. Un changement de forme l'incrémente. */
 export const ACCOUNT_EXPORT_FORMAT = 1;
 

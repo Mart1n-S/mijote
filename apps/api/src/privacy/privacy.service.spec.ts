@@ -88,6 +88,12 @@ class MemoryAccounts implements AccountGateway {
     );
   }
 
+  countAdmins(): Promise<number> {
+    calls.push('compte des administrateurs');
+
+    return Promise.resolve(this.admins);
+  }
+
   lockAdminsWithin(): Promise<number> {
     calls.push('verrou');
 
@@ -250,6 +256,29 @@ describe("l'export", () => {
     expect(log.dump()).not.toContain(EMAIL);
     expect(log.dump()).not.toContain('milk');
     expect(log.dump()).not.toContain('Chez moi');
+  });
+});
+
+describe("l'état de la suppression", () => {
+  it("la ferme à l'administrateur qui est seul", async () => {
+    accounts.admins = 1;
+
+    expect(await service.deletionState(authenticatedAs('admin'))).toEqual({ blocked: true });
+  });
+
+  it("l'ouvre quand un second administrateur existe", async () => {
+    accounts.admins = 2;
+
+    expect(await service.deletionState(authenticatedAs('admin'))).toEqual({ blocked: false });
+  });
+
+  it('ne compte rien pour un compte ordinaire', async () => {
+    // Il ne peut pas être le dernier administrateur : la question ne se pose
+    // pas, et la base n'a pas à être interrogée pour l'apprendre.
+    accounts.admins = 1;
+
+    expect(await service.deletionState(authenticatedAs('user'))).toEqual({ blocked: false });
+    expect(calls).toEqual([]);
   });
 });
 

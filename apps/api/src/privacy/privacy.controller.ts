@@ -1,4 +1,9 @@
-import { deleteAccountSchema, type AccountExport, type DeleteAccountInput } from '@mijote/shared';
+import {
+  deleteAccountSchema,
+  type AccountDeletionState,
+  type AccountExport,
+  type DeleteAccountInput,
+} from '@mijote/shared';
 import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, Res } from '@nestjs/common';
 
 import { type CookieSink } from '../auth/auth.controller.js';
@@ -46,6 +51,17 @@ export class PrivacyController {
     );
 
     return this.privacy.export(requireAuthenticated(request));
+  }
+
+  /**
+   * La suppression est-elle fermée à ce compte ?
+   *
+   * Le pendant de `/household/onboarding` : une route qui ne rend qu'un
+   * booléen, pour que l'écran n'ait pas à deviner (ADR 0015).
+   */
+  @Get('deletion')
+  async deletionState(@Req() request: unknown): Promise<AccountDeletionState> {
+    return this.privacy.deletionState(requireAuthenticated(request));
   }
 
   /**

@@ -1,4 +1,10 @@
-import { ACCOUNT_EXPORT_FORMAT, type AccountExport, type HouseholdProfile } from '@mijote/shared';
+import {
+  ACCOUNT_EXPORT_FORMAT,
+  LAST_ADMIN_REFUSAL,
+  type AccountDeletionState,
+  type AccountExport,
+  type HouseholdProfile,
+} from '@mijote/shared';
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 
@@ -23,21 +29,12 @@ import { InvitationsService } from '../invitations/invitations.service.js';
   ne dépend de lui : il n'y a donc pas de cycle (ADR 0017).
 */
 
-/**
- * Le refus du dernier administrateur.
- *
- * Le message nomme le seul chemin qui existe avant l'issue #48 : aucun écran ne
- * change le rôle d'un compte existant, et c'est l'invitation qui porte le rôle
- * (ADR 0013, ADR 0017).
- */
-const LAST_ADMIN =
-  'Vous êtes le seul administrateur. Invitez un compte avec le rôle administrateur, puis réessayez.';
-
 /** Ce que l'export et la suppression lisent du compte. */
 export interface AccountGateway {
   detailsOf(
     accountId: string,
   ): Promise<{ id: string; email: string; role: 'user' | 'admin'; createdAt: Date } | undefined>;
+  countAdmins(): Promise<number>;
   lockAdminsWithin(transaction: Transaction): Promise<number>;
 }
 
@@ -154,6 +151,24 @@ export class PrivacyService {
   }
 
   /**
+   * La suppression est-elle fermée à ce compte ?
+   *
+   * Un booléen pour l'écran, qui désactive alors son bouton et donne la phrase
+   * partagée plutôt que de laisser quelqu'un remplir un dialogue pour se faire
+   * refuser au bout. Aucune journalisation : il n'y a ni écriture, ni donnée
+   * personnelle, et la ligne de requête suffit.
+   */
+  async deletionState(authenticated: Authenticated): Promise<AccountDeletionState> {
+    if (authenticated.account.role !== 'admin') {
+      // Un compte ordinaire n'est jamais le dernier administrateur : rien à
+      // compter.
+      return { blocked: false };
+    }
+
+    return { blocked: (await this.accounts.countAdmins()) <= 1 };
+  }
+
+  /**
    * Supprime le compte, son foyer et ses traces.
    *
    * Trois choses sont exigées avant d'arriver ici : le mot de passe, le code du
@@ -191,7 +206,7 @@ export class PrivacyService {
         simultanées ne peuvent pas laisser l'application sans administrateur.
       */
       if (account.role === 'admin' && (await this.accounts.lockAdminsWithin(transaction)) <= 1) {
-        throw new ProblemException(HttpStatus.CONFLICT, LAST_ADMIN);
+        throw new ProblemException(HttpStatus.CONFLICT, LAST_ADMIN_REFUSAL);
       }
 
       const invitations = await this.invitations.deleteForEmailWithin(transaction, details.email);

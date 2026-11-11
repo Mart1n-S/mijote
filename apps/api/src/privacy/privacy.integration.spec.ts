@@ -1,4 +1,5 @@
 import {
+  accountDeletionStateSchema,
   accountExportSchema,
   CSRF_COOKIE,
   CSRF_HEADER,
@@ -418,6 +419,22 @@ describe.skipIf(!reachable)("l'export et la suppression, contre une vraie base",
       const response = await fetch(`${baseUrl}/account/export`, { headers: { origin: baseUrl } });
 
       expect(response.status).toBe(401);
+    });
+  });
+
+  describe("l'état de la suppression", () => {
+    it("l'ouvre à un compte ordinaire, et la ferme à personne sans session", async () => {
+      const state = await fetch(`${baseUrl}/account/deletion`, {
+        headers: { origin: baseUrl, cookie: plain.cookie },
+      });
+
+      expect(accountDeletionStateSchema.parse(await state.json())).toEqual({ blocked: false });
+
+      const anonymous = await fetch(`${baseUrl}/account/deletion`, {
+        headers: { origin: baseUrl },
+      });
+
+      expect(anonymous.status).toBe(401);
     });
   });
 

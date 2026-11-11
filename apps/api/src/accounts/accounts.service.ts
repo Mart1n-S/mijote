@@ -52,6 +52,22 @@ export class AccountsService {
   }
 
   /**
+   * Combien de comptes portent le rôle administrateur.
+   *
+   * Sans verrou, à la différence de la version transactionnelle en dessous :
+   * cette lecture-ci ne décide de rien, elle ne sert qu'à désactiver un bouton.
+   * La décision, elle, se prend derrière le verrou (ADR 0017).
+   */
+  async countAdmins(): Promise<number> {
+    const rows = await this.database
+      .select({ id: account.id })
+      .from(account)
+      .where(eq(account.role, 'admin'));
+
+    return rows.length;
+  }
+
+  /**
    * Compte les administrateurs, et les verrouille le temps de la transaction.
    *
    * `for update` n'est pas une précaution de style : sans lui, deux derniers

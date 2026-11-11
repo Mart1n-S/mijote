@@ -82,7 +82,7 @@ const ADMIN_SECRET = createTotpSecret();
   code de secours, lui, est à usage unique par construction : c'est exactement
   ce qu'il faut pour confirmer plusieurs suppressions dans un même test.
 */
-const BACKUP_SECRETS = ['AAAABBBBCCCC', 'DDDDEEEEFFFF', 'GGGGHHHHJJJJ'];
+const BACKUP_SECRETS = ['AAAABBBBCCCC'];
 
 /**
  * Le code tel qu'on le recopie, pour un de ces secrets.
@@ -176,7 +176,11 @@ async function createTenant(
       activatedAt: new Date(),
     });
 
-    // Les codes de secours qui serviront aux confirmations, un par essai.
+    /*
+      Un seul code de secours, et non dix : chacun coûte un hachage Argon2id de
+      64 Mio dans un crochet déjà chargé (ADR 0011), et une seule confirmation
+      en a besoin ici.
+    */
     await database.insert(twoFactorBackupCode).values(
       await Promise.all(
         BACKUP_SECRETS.map(async (secret, index) => ({

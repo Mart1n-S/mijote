@@ -19,5 +19,27 @@ export default defineConfig({
     name: 'api',
     environment: 'node',
     include: ['src/**/*.spec.ts'],
+    /*
+      Quinze secondes par test, et non les cinq par défaut. La raison est
+      **Argon2id**, comme la borne de workers de la racine, mais le levier est
+      ici parce que le coût n'est pas partagé : seul ce paquet hache.
+
+      Les deux leviers servent ensemble, et la racine dit pourquoi elle borne.
+      Ce qui se mesure ici est l'autre moitié : quelques tests d'intégration
+      paient dix à quinze hachages, soit une seconde et demie à deux secondes de
+      processeur incompressible (ADR 0011), l'activation du second facteur
+      hachant à elle seule dix codes de secours (ADR 0012). Cinq secondes ne
+      laissent alors presque pas de marge, et la moindre contention les dépasse.
+
+      Mesure du 11 novembre 2026, sur 62 fichiers : à six workers et cinq
+      secondes, deux tests tombaient par dépassement sans rien de cassé ; à
+      quatre workers la suite passait mais montait de 63 a 90 secondes. Monter
+      le délai garde les six workers et la durée, et ne cache rien : un test
+      vraiment bloqué dépasse quinze secondes comme il dépassait cinq.
+
+      Le délai des crochets reste par defaut : les crochets de ces fichiers
+      tiennent, une fois leurs hachages inutiles retirés.
+    */
+    testTimeout: 15_000,
   },
 });
